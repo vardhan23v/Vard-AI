@@ -99,6 +99,114 @@
   color-scheme: dark;
 }
 
+/* Light mode overrides */
+.light {
+  --background: oklch(0.985 0.01 180);
+  --foreground: oklch(0.2 0.04 200);
+  --card: oklch(0.98 0.015 180);
+  --card-foreground: oklch(0.2 0.04 200);
+  --popover: oklch(0.98 0.015 180);
+  --popover-foreground: oklch(0.2 0.04 200);
+  --primary: oklch(0.62 0.15 175);
+  --primary-foreground: oklch(0.99 0.005 180);
+  --secondary: oklch(0.94 0.02 180);
+  --secondary-foreground: oklch(0.25 0.04 200);
+  --muted: oklch(0.94 0.02 180);
+  --muted-foreground: oklch(0.45 0.03 200);
+  --accent: oklch(0.7 0.13 165);
+  --accent-foreground: oklch(0.99 0.005 180);
+  --border: oklch(0.4 0.05 200 / 14%);
+  --input: oklch(0.94 0.02 180);
+  --ring: oklch(0.62 0.15 175);
+  --sidebar: oklch(0.97 0.015 180 / 80%);
+  --sidebar-foreground: oklch(0.2 0.04 200);
+  --sidebar-primary: oklch(0.62 0.15 175);
+  --sidebar-primary-foreground: oklch(0.99 0.005 180);
+  --sidebar-accent: oklch(0.94 0.02 180);
+  --sidebar-accent-foreground: oklch(0.2 0.04 200);
+  --sidebar-border: oklch(0.4 0.05 200 / 10%);
+  --sidebar-ring: oklch(0.62 0.15 175);
+  color-scheme: light;
+}
+.light body {
+  background-image:
+    radial-gradient(ellipse at 15% 5%, oklch(0.85 0.13 175 / 30%), transparent 55%),
+    radial-gradient(ellipse at 85% 95%, oklch(0.88 0.11 160 / 30%), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, oklch(0.95 0.03 200 / 60%), transparent 70%);
+}
+
+/* Accent presets — override primary/accent/ring for instant re-skin */
+[data-accent="mint"] {
+  --primary: oklch(0.82 0.17 175);
+  --accent: oklch(0.9 0.13 165);
+  --ring: oklch(0.82 0.17 175);
+  --sidebar-primary: oklch(0.82 0.17 175);
+  --sidebar-ring: oklch(0.82 0.17 175);
+}
+.light[data-accent="mint"] {
+  --primary: oklch(0.62 0.15 175);
+  --accent: oklch(0.7 0.13 165);
+  --ring: oklch(0.62 0.15 175);
+  --sidebar-primary: oklch(0.62 0.15 175);
+  --sidebar-ring: oklch(0.62 0.15 175);
+}
+[data-accent="violet"] {
+  --primary: oklch(0.7 0.22 295);
+  --accent: oklch(0.78 0.18 320);
+  --ring: oklch(0.7 0.22 295);
+  --sidebar-primary: oklch(0.7 0.22 295);
+  --sidebar-ring: oklch(0.7 0.22 295);
+}
+.light[data-accent="violet"] {
+  --primary: oklch(0.55 0.2 295);
+  --accent: oklch(0.65 0.18 320);
+  --ring: oklch(0.55 0.2 295);
+  --sidebar-primary: oklch(0.55 0.2 295);
+  --sidebar-ring: oklch(0.55 0.2 295);
+}
+[data-accent="coral"] {
+  --primary: oklch(0.75 0.2 25);
+  --accent: oklch(0.82 0.16 55);
+  --ring: oklch(0.75 0.2 25);
+  --sidebar-primary: oklch(0.75 0.2 25);
+  --sidebar-ring: oklch(0.75 0.2 25);
+}
+.light[data-accent="coral"] {
+  --primary: oklch(0.62 0.2 25);
+  --accent: oklch(0.72 0.16 55);
+  --ring: oklch(0.62 0.2 25);
+  --sidebar-primary: oklch(0.62 0.2 25);
+  --sidebar-ring: oklch(0.62 0.2 25);
+}
+[data-accent="cyan"] {
+  --primary: oklch(0.8 0.15 220);
+  --accent: oklch(0.85 0.12 240);
+  --ring: oklch(0.8 0.15 220);
+  --sidebar-primary: oklch(0.8 0.15 220);
+  --sidebar-ring: oklch(0.8 0.15 220);
+}
+.light[data-accent="cyan"] {
+  --primary: oklch(0.6 0.15 220);
+  --accent: oklch(0.68 0.12 240);
+  --ring: oklch(0.6 0.15 220);
+  --sidebar-primary: oklch(0.6 0.15 220);
+  --sidebar-ring: oklch(0.6 0.15 220);
+}
+[data-accent="amber"] {
+  --primary: oklch(0.82 0.16 80);
+  --accent: oklch(0.88 0.14 95);
+  --ring: oklch(0.82 0.16 80);
+  --sidebar-primary: oklch(0.82 0.16 80);
+  --sidebar-ring: oklch(0.82 0.16 80);
+}
+.light[data-accent="amber"] {
+  --primary: oklch(0.68 0.16 80);
+  --accent: oklch(0.75 0.14 95);
+  --ring: oklch(0.68 0.16 80);
+  --sidebar-primary: oklch(0.68 0.16 80);
+  --sidebar-ring: oklch(0.68 0.16 80);
+}
+
 @layer base {
   body {
     background-image:
@@ -111,9 +219,9 @@
 
 @utility orb-glow {
   box-shadow:
-    0 0 60px 10px oklch(0.82 0.17 175 / 45%),
-    0 0 160px 50px oklch(0.9 0.13 165 / 32%),
-    inset 0 0 60px oklch(0.95 0.1 170 / 38%);
+    0 0 60px 10px color-mix(in oklab, var(--primary) 45%, transparent),
+    0 0 160px 50px color-mix(in oklab, var(--accent) 32%, transparent),
+    inset 0 0 60px color-mix(in oklab, var(--primary) 38%, transparent);
 }
 
 @keyframes orb-pulse {
