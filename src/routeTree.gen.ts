@@ -15,6 +15,7 @@ import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AutomationsRouteImport } from './routes/automations'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardChatRouteImport } from './routes/dashboard.chat'
@@ -53,6 +54,11 @@ const LibraryRoute = LibraryRouteImport.update({
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -106,6 +112,7 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/automations': typeof AutomationsRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
@@ -123,6 +130,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/automations': typeof AutomationsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
@@ -140,6 +148,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/automations': typeof AutomationsRoute
   '/dashboard': typeof DashboardRouteWithChildren
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
@@ -159,6 +168,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/automations'
     | '/dashboard'
     | '/library'
     | '/login'
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/automations'
     | '/library'
     | '/login'
     | '/mcp'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/automations'
     | '/dashboard'
     | '/library'
     | '/login'
@@ -210,6 +222,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AutomationsRoute: typeof AutomationsRoute
   DashboardRoute: typeof DashboardRouteWithChildren
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
@@ -265,6 +278,13 @@ declare module '@tanstack/react-router' {
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -351,6 +371,7 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AutomationsRoute: AutomationsRoute,
   DashboardRoute: DashboardRouteWithChildren,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
