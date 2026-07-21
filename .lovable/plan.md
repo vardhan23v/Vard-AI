@@ -1,28 +1,27 @@
-# Connect this Lovable project to your "vard ai" GitHub repo
+# Connect this Lovable project to github.com/vardhan23v/Vard-AI
 
-Linking a Lovable project to GitHub is a UI-only action — it can't be done through code edits. So there's nothing to build in the codebase for this request. Follow these steps in the Lovable editor:
+Linking to GitHub is a UI-only action in Lovable — nothing to change in the codebase. What's possible depends on whether that repo already has code.
 
-## Steps
+## If Vard-AI is empty (or you're OK overwriting it)
 
-1. In the chat input (bottom left), open the **Plus (+) menu** → **GitHub** → **Connect project**.
-2. Authorize the **Lovable GitHub App** for the account that owns "vard ai" (if not already authorized).
-3. Select that GitHub account/organization.
-4. Click **Create Repository** — Lovable will create a new synced repo containing this project's code.
+Lovable can push this project's code into a **new** repo it creates. It cannot push into a pre-existing repo you made manually.
 
-Once connected, changes sync two-way automatically between Lovable and GitHub.
+1. In the chat input (bottom left) → **Plus (+)** → **GitHub** → **Connect project**
+2. Authorize the Lovable GitHub App for the **vardhan23v** account
+3. Click **Create Repository** — Lovable creates a fresh repo and syncs this project to it (two-way sync from then on)
 
-## Important limitation
+Note: this creates a *new* repo (e.g. `Vard-AI-1` or similar) rather than reusing your existing `Vard-AI`. Lovable doesn't attach to existing repos.
 
-Lovable does **not** support importing code from an existing GitHub repo into a Lovable project. Two situations:
+## If Vard-AI already has code you want brought INTO this Lovable project
 
-- **If "vard ai" is empty** → the steps above create it fresh and push this project's code.
-- **If "vard ai" already has code you want in Lovable** → you'll need to manually copy files into this project (paste code into the editor). The sync only flows this project → new repo, not the other way around for initial import.
+This is **not supported** by Lovable's GitHub integration — there's no "import repo" flow. Workarounds:
 
-## After connecting
+- **Manual copy**: open files from Vard-AI on GitHub and paste them into this project via the Code Editor (Code icon above preview). Only feasible for small projects.
+- **Start fresh here**: build the app in Lovable, then use the sync-to-new-repo flow above and manually merge/replace Vard-AI's contents on the GitHub side.
 
-- Only one GitHub account can be linked per Lovable account at a time.
-- To download the code later: GitHub → **Code → Download ZIP**, or use the Code Editor's **Download codebase** button (paid plans).
+## What I need from you to proceed further
 
-## If something goes wrong
-
-Tell me the exact error message (e.g. "repo already exists", "permission denied", "app not installed") and I can suggest the specific fix.
+Tell me which case applies:
+- "Vard-AI is empty, just sync" → follow steps above in the UI
+- "Vard-AI has code I want in Lovable" → share what's in it (or paste key files) and I'll help port it
+- You're hitting a specific error during connect → paste the error message
