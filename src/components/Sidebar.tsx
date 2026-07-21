@@ -9,6 +9,7 @@ import {
   Bot,
 } from "lucide-react";
 import type { ComponentType } from "react";
+import { ThemeSwitcher } from "./ThemeSwitcher";
 
 type NavItem = {
   to: string;
@@ -67,6 +68,7 @@ export function Sidebar() {
       </div>
 
       <div className="flex flex-col px-4 gap-2">
+        <ThemeSwitcher />
         {bottomNav.map((item) => {
           const Icon = item.icon;
           const active = isActive(item);
