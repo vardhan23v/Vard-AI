@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Loader2, Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -22,7 +22,6 @@ function isSameOriginPath(next: string): boolean {
 
 function LoginPage() {
   const { next } = Route.useSearch();
-  const navigate = useNavigate();
   const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -129,6 +128,7 @@ function LoginPage() {
               className="w-full rounded-lg bg-secondary border border-border px-3 py-2 text-sm outline-none focus:ring-1 focus:ring-primary"
             />
             {error && <p className="text-xs text-destructive">{error}</p>}
+            {info && <p className="text-xs text-muted-foreground">{info}</p>}
             <button
               type="submit"
               disabled={loading}
