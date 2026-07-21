@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mic, Newspaper, Home as HomeIcon, ShieldCheck, Sparkles } from "lucide-react";
+import { Mic, MicOff, Loader2, Newspaper, Home as HomeIcon, ShieldCheck, Sparkles } from "lucide-react";
 import { useCyclingState } from "@/components/JarvisOrb";
+import { useVoiceInput } from "@/lib/voice-input";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHome,
@@ -18,6 +19,7 @@ function DashboardHome() {
   const [state] = useCyclingState();
   const [input, setInput] = useState("");
   const navigate = useNavigate();
+  const voice = useVoiceInput((text) => setInput(text));
 
   const submit = (q: string) => {
     const text = q.trim();
@@ -93,7 +95,7 @@ function DashboardHome() {
             </div>
           </div>
 
-          {state === "listening" && (
+          {(state === "listening" || voice.status === "recording") && (
             <div className="absolute w-56 h-56 rounded-full border border-primary/40 animate-ring" />
           )}
         </button>
@@ -121,17 +123,45 @@ function DashboardHome() {
             value={input}
             onChange={(e) => setInput(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && submit(input)}
-            placeholder="Enter command…"
+            placeholder={
+              voice.status === "recording" ? "Listening…" :
+              voice.status === "transcribing" ? "Transcribing…" :
+              "Enter command or tap the mic…"
+            }
             className="relative w-full bg-white/[0.03] border border-border rounded-2xl py-4 pl-6 pr-14 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:bg-white/[0.05] transition-all backdrop-blur-md"
           />
           <button
-            onClick={() => submit(input)}
-            aria-label="Send"
-            className="absolute right-2 p-2.5 bg-primary rounded-xl text-primary-foreground hover:brightness-110 active:scale-95 transition-all shadow-[0_0_24px_-4px_var(--primary)]"
+            onClick={voice.toggle}
+            disabled={voice.status === "transcribing"}
+            aria-label={voice.status === "recording" ? "Stop recording" : "Start voice input"}
+            className={`absolute right-2 p-2.5 rounded-xl text-primary-foreground active:scale-95 transition-all shadow-[0_0_24px_-4px_var(--primary)] disabled:opacity-60 ${
+              voice.status === "recording"
+                ? "bg-destructive animate-pulse"
+                : "bg-primary hover:brightness-110"
+            }`}
           >
-            <Mic className="w-4 h-4" />
+            {voice.status === "transcribing" ? (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            ) : voice.status === "recording" ? (
+              <MicOff className="w-4 h-4" />
+            ) : (
+              <Mic className="w-4 h-4" />
+            )}
           </button>
         </div>
+        {voice.error && (
+          <p className="mt-2 text-xs text-destructive/90 text-center">{voice.error}</p>
+        )}
+        {input && voice.status !== "recording" && (
+          <div className="mt-3 flex justify-center">
+            <button
+              onClick={() => submit(input)}
+              className="px-4 py-1.5 rounded-full bg-primary/20 border border-primary/40 text-xs uppercase tracking-wider text-primary hover:bg-primary/30 transition-all"
+            >
+              Send to Vard →
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );
