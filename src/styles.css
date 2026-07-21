@@ -217,6 +217,62 @@
   }
 }
 
+/* Brand background styles — applied via [data-bg] on <html> */
+html[data-bg="solid"] body { background-image: none; }
+
+html[data-bg="aurora"] body {
+  background-image:
+    radial-gradient(ellipse at 20% 10%, color-mix(in oklab, var(--primary) 40%, transparent), transparent 55%),
+    radial-gradient(ellipse at 80% 90%, color-mix(in oklab, var(--accent) 40%, transparent), transparent 55%),
+    radial-gradient(ellipse at 50% 50%, color-mix(in oklab, var(--primary) 15%, transparent), transparent 70%);
+}
+
+html[data-bg="mesh"] body {
+  background-image:
+    radial-gradient(at 10% 20%, color-mix(in oklab, var(--primary) 35%, transparent) 0px, transparent 50%),
+    radial-gradient(at 90% 15%, color-mix(in oklab, var(--accent) 35%, transparent) 0px, transparent 50%),
+    radial-gradient(at 30% 90%, color-mix(in oklab, var(--primary) 30%, transparent) 0px, transparent 50%),
+    radial-gradient(at 85% 75%, color-mix(in oklab, var(--accent) 30%, transparent) 0px, transparent 50%);
+}
+
+html[data-bg="grid"] body {
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--primary) 12%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--primary) 12%, transparent) 1px, transparent 1px),
+    radial-gradient(ellipse at 50% 50%, color-mix(in oklab, var(--accent) 12%, transparent), transparent 70%);
+  background-size: 48px 48px, 48px 48px, 100% 100%;
+}
+
+/* Background preview swatches for BrandPanel */
+[data-bg-preview="nebula"] {
+  background-image:
+    radial-gradient(ellipse at 12% 8%, oklch(0.7 0.18 295 / 40%), transparent 55%),
+    radial-gradient(ellipse at 88% 92%, oklch(0.82 0.14 210 / 40%), transparent 55%);
+  background-color: oklch(0.12 0.02 275);
+}
+[data-bg-preview="aurora"] {
+  background-image:
+    radial-gradient(ellipse at 20% 10%, color-mix(in oklab, var(--primary) 55%, transparent), transparent 55%),
+    radial-gradient(ellipse at 80% 90%, color-mix(in oklab, var(--accent) 55%, transparent), transparent 55%);
+  background-color: oklch(0.12 0.02 275);
+}
+[data-bg-preview="mesh"] {
+  background-image:
+    radial-gradient(at 10% 20%, color-mix(in oklab, var(--primary) 55%, transparent) 0px, transparent 50%),
+    radial-gradient(at 90% 80%, color-mix(in oklab, var(--accent) 55%, transparent) 0px, transparent 50%);
+  background-color: oklch(0.12 0.02 275);
+}
+[data-bg-preview="grid"] {
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--primary) 35%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--primary) 35%, transparent) 1px, transparent 1px);
+  background-size: 12px 12px, 12px 12px;
+  background-color: oklch(0.12 0.02 275);
+}
+[data-bg-preview="solid"] {
+  background-color: var(--background);
+}
+
 @keyframes spin-slow { to { transform: rotate(360deg); } }
 @utility animate-spin-slow { animation: spin-slow 14s linear infinite; }
 
