@@ -85,7 +85,7 @@ function DashboardHome() {
                 className="absolute inset-0 opacity-90 animate-orb-pulse"
                 style={{
                   background:
-                    "radial-gradient(circle at 30% 30%, oklch(0.85 0.15 285 / 0.9), transparent 55%), radial-gradient(circle at 70% 75%, oklch(0.65 0.24 315 / 0.9), transparent 55%), radial-gradient(circle at 50% 50%, oklch(0.35 0.15 275 / 0.9), transparent 70%)",
+                    "radial-gradient(circle at 30% 30%, oklch(0.92 0.15 170 / 0.95), transparent 55%), radial-gradient(circle at 70% 75%, oklch(0.78 0.18 190 / 0.9), transparent 55%), radial-gradient(circle at 50% 50%, oklch(0.32 0.08 200 / 0.9), transparent 70%)",
                 }}
               />
               {/* glass reflection */}
