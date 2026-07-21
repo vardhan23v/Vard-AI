@@ -41,7 +41,7 @@ export function Sidebar() {
     <aside className="hidden sm:flex w-16 md:w-64 border-r border-border bg-sidebar flex-col justify-between py-6 shrink-0 z-20 transition-all">
       <div className="flex flex-col px-4">
         <Link to="/" className="flex items-center gap-3 px-2 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+          <div className="w-8 h-8 rounded-lg bg-foreground/10 flex items-center justify-center shrink-0 overflow-hidden">
             {logo ? (
               <img src={logo} alt={name} className="w-full h-full object-cover" />
             ) : (
@@ -61,8 +61,8 @@ export function Sidebar() {
                 to={item.to}
                 className={`flex items-center gap-3 px-2 py-2.5 rounded-lg transition-colors ${
                   active
-                    ? "bg-white/5 text-foreground"
-                    : "text-foreground/50 hover:bg-white/5 hover:text-foreground"
+                    ? "bg-foreground/10 text-foreground"
+                    : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                 }`}
               >
                 <Icon className="w-5 h-5 shrink-0" />
@@ -84,8 +84,8 @@ export function Sidebar() {
               to={item.to}
               className={`flex items-center gap-3 px-2 py-2.5 rounded-lg transition-colors ${
                 active
-                  ? "bg-white/5 text-foreground"
-                  : "text-foreground/50 hover:bg-white/5 hover:text-foreground"
+                  ? "bg-foreground/10 text-foreground"
+                  : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
               }`}
             >
               <Icon className="w-5 h-5 shrink-0" />
@@ -95,7 +95,7 @@ export function Sidebar() {
         })}
         <Link
           to="/login"
-          className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-foreground/50 hover:bg-white/5 hover:text-foreground transition-colors mt-4 border-t border-border pt-6"
+          className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors mt-4 border-t border-border pt-6"
         >
           <SquareUserRound className="w-5 h-5 shrink-0" />
           <span className="hidden md:block text-sm font-medium">Sign In</span>
