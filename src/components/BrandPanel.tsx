@@ -1,6 +1,7 @@
-import { useRef } from "react";
+import { useRef, useState } from "react";
 import { Upload, Trash2, RotateCcw, Paintbrush } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
+import { LogoCropper } from "./LogoCropper";
 
 const PRESET_COLORS = [
   "#818cf8", "#67e8f9", "#c4b5fd", "#f472b6",
@@ -10,12 +11,36 @@ const PRESET_COLORS = [
 export function BrandPanel() {
   const brand = useBrand();
   const fileRef = useRef<HTMLInputElement>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [pending, setPending] = useState<string | null>(null);
+
+  const ACCEPTED = ["image/png", "image/jpeg", "image/webp", "image/svg+xml", "image/gif"];
+  const MAX_BYTES = 2 * 1024 * 1024; // 2MB
 
   const onFile = (f: File | null) => {
+    setError(null);
     if (!f) return;
+    if (!ACCEPTED.includes(f.type)) {
+      setError("Unsupported format. Use PNG, JPG, WEBP, SVG, or GIF.");
+      return;
+    }
+    if (f.size > MAX_BYTES) {
+      setError("File too large. Max size is 2 MB.");
+      return;
+    }
     const reader = new FileReader();
-    reader.onload = () => brand.setLogo(String(reader.result));
+    reader.onload = () => {
+      const data = String(reader.result);
+      // SVGs can't be rasterized reliably in the cropper — save as-is.
+      if (f.type === "image/svg+xml") {
+        brand.setLogo(data);
+      } else {
+        setPending(data);
+      }
+    };
+    reader.onerror = () => setError("Couldn't read that file.");
     reader.readAsDataURL(f);
+    if (fileRef.current) fileRef.current.value = "";
   };
 
   return (
@@ -64,7 +89,7 @@ export function BrandPanel() {
             <input
               ref={fileRef}
               type="file"
-              accept="image/*"
+              accept="image/png,image/jpeg,image/webp,image/svg+xml,image/gif"
               className="hidden"
               onChange={(e) => onFile(e.target.files?.[0] ?? null)}
             />
@@ -84,6 +109,12 @@ export function BrandPanel() {
             )}
           </div>
         </div>
+        {error && (
+          <p className="text-xs text-destructive mt-1">{error}</p>
+        )}
+        <p className="text-xs text-muted-foreground">
+          PNG, JPG, WEBP, SVG, or GIF — up to 2 MB. Square images look best.
+        </p>
       </section>
 
       {/* Accent color */}
@@ -139,6 +170,17 @@ export function BrandPanel() {
         </div>
       </section>
     </div>
+    {pending && (
+      <LogoCropper
+        src={pending}
+        onCancel={() => setPending(null)}
+        onConfirm={(url) => {
+          brand.setLogo(url);
+          setPending(null);
+        }}
+      />
+    )}
+    </>
   );
 }
 
