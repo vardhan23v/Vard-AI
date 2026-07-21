@@ -63,41 +63,75 @@
 
 :root {
   --radius: 0.75rem;
-  /* Vard-AI dark theme (default) — Claude/Anthropic inspired */
-  --background: oklch(0.207 0.004 197.1);        /* #191a1a */
-  --foreground: oklch(0.937 0.002 106.4);        /* #e8e8e6 */
-  --card: oklch(0.239 0.004 197.1);              /* #202222 */
-  --card-foreground: oklch(0.937 0.002 106.4);
-  --popover: oklch(0.239 0.004 197.1);
-  --popover-foreground: oklch(0.937 0.002 106.4);
-  --primary: oklch(0.685 0.135 43.5);            /* #D97757 Claude accent */
-  --primary-foreground: oklch(1 0 0);
-  --secondary: oklch(0.271 0.004 197.1);         /* #2b2d2d */
-  --secondary-foreground: oklch(0.775 0.005 197.1); /* #b4b8b9 */
-  --muted: oklch(0.271 0.004 197.1);
-  --muted-foreground: oklch(0.633 0.007 197.1);  /* #878c8e */
-  --accent: oklch(0.685 0.135 43.5);
-  --accent-foreground: oklch(1 0 0);
+  /* Vard AI — Jarvis-style deep-space + cyan glow */
+  --background: oklch(0.13 0.03 240);
+  --foreground: oklch(0.96 0.01 220);
+  --card: oklch(0.18 0.035 240);
+  --card-foreground: oklch(0.96 0.01 220);
+  --popover: oklch(0.18 0.035 240);
+  --popover-foreground: oklch(0.96 0.01 220);
+  --primary: oklch(0.82 0.15 210);               /* cyan glow */
+  --primary-foreground: oklch(0.13 0.03 240);
+  --secondary: oklch(0.22 0.04 240);
+  --secondary-foreground: oklch(0.86 0.02 220);
+  --muted: oklch(0.22 0.04 240);
+  --muted-foreground: oklch(0.68 0.03 220);
+  --accent: oklch(0.82 0.15 210);
+  --accent-foreground: oklch(0.13 0.03 240);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.301 0.004 197.1);            /* #2e3030 */
-  --input: oklch(0.271 0.004 197.1);
-  --ring: oklch(0.685 0.135 43.5);
+  --border: oklch(0.3 0.04 235 / 60%);
+  --input: oklch(0.22 0.04 240);
+  --ring: oklch(0.82 0.15 210);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.207 0.004 197.1);
-  --sidebar-foreground: oklch(0.937 0.002 106.4);
-  --sidebar-primary: oklch(0.685 0.135 43.5);
-  --sidebar-primary-foreground: oklch(1 0 0);
-  --sidebar-accent: oklch(0.271 0.004 197.1);
-  --sidebar-accent-foreground: oklch(0.937 0.002 106.4);
-  --sidebar-border: oklch(0.271 0.004 197.1);
-  --sidebar-ring: oklch(0.685 0.135 43.5);
+  --sidebar: oklch(0.11 0.03 240);
+  --sidebar-foreground: oklch(0.96 0.01 220);
+  --sidebar-primary: oklch(0.82 0.15 210);
+  --sidebar-primary-foreground: oklch(0.13 0.03 240);
+  --sidebar-accent: oklch(0.22 0.04 240);
+  --sidebar-accent-foreground: oklch(0.96 0.01 220);
+  --sidebar-border: oklch(0.3 0.04 235 / 60%);
+  --sidebar-ring: oklch(0.82 0.15 210);
   color-scheme: dark;
 }
+
+@layer base {
+  body {
+    background-image:
+      radial-gradient(ellipse at 20% 10%, oklch(0.3 0.12 220 / 25%), transparent 55%),
+      radial-gradient(ellipse at 80% 90%, oklch(0.35 0.15 260 / 22%), transparent 55%);
+    background-attachment: fixed;
+  }
+}
+
+@utility orb-glow {
+  box-shadow:
+    0 0 60px 10px oklch(0.82 0.15 210 / 45%),
+    0 0 140px 40px oklch(0.65 0.18 240 / 30%),
+    inset 0 0 60px oklch(0.95 0.08 210 / 40%);
+}
+
+@keyframes orb-pulse {
+  0%, 100% { transform: scale(1); filter: hue-rotate(0deg); }
+  50% { transform: scale(1.06); filter: hue-rotate(15deg); }
+}
+@keyframes orb-spin { to { transform: rotate(360deg); } }
+@keyframes orb-spin-rev { to { transform: rotate(-360deg); } }
+@keyframes wave { 0%,100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+@keyframes ring-expand {
+  0% { transform: scale(0.6); opacity: 0.8; }
+  100% { transform: scale(2.2); opacity: 0; }
+}
+
+@utility animate-orb-pulse { animation: orb-pulse 4s ease-in-out infinite; }
+@utility animate-orb-spin { animation: orb-spin 18s linear infinite; }
+@utility animate-orb-spin-rev { animation: orb-spin-rev 24s linear infinite; }
+@utility animate-wave { animation: wave 1s ease-in-out infinite; }
+@utility animate-ring { animation: ring-expand 2.4s ease-out infinite; }
 
 .dark {
   --background: oklch(0.129 0.042 264.695);
