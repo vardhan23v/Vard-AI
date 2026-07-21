@@ -44,6 +44,7 @@ export function BrandPanel() {
   };
 
   return (
+    <>
     <div className="w-full max-w-2xl space-y-8">
       <header className="flex items-center justify-between">
         <div>
