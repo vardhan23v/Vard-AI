@@ -7,6 +7,14 @@ import {
   Settings,
   SquareUserRound,
   Bot,
+  Brain,
+  Zap,
+  Plug,
+  History,
+  BarChart3,
+  FileText,
+  Mic,
+  Command,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -24,6 +32,15 @@ const mainNav: NavItem[] = [
   { to: "/dashboard", label: "Workspace", icon: FolderClosed },
   { to: "/dashboard/agents", label: "Agents", icon: Bot },
   { to: "/library", label: "Library", icon: Library },
+  { to: "/memory", label: "Memory", icon: Brain },
+  { to: "/automations", label: "Automations", icon: Zap },
+  { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/personality", label: "Personality", icon: Sparkles },
+  { to: "/history", label: "History", icon: History },
+  { to: "/analytics", label: "Analytics", icon: BarChart3 },
+  { to: "/documents", label: "Documents", icon: FileText },
+  { to: "/voice", label: "Voice & Avatar", icon: Mic },
+  { to: "/shortcuts", label: "Shortcuts", icon: Command },
 ];
 
 const bottomNav: NavItem[] = [

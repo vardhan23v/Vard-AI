@@ -9,11 +9,20 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as VoiceRouteImport } from './routes/voice'
+import { Route as ShortcutsRouteImport } from './routes/shortcuts'
 import { Route as SettingsRouteImport } from './routes/settings'
+import { Route as PersonalityRouteImport } from './routes/personality'
+import { Route as MemoryRouteImport } from './routes/memory'
 import { Route as McpRouteImport } from './routes/mcp'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as LibraryRouteImport } from './routes/library'
+import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as HistoryRouteImport } from './routes/history'
+import { Route as DocumentsRouteImport } from './routes/documents'
 import { Route as DashboardRouteImport } from './routes/dashboard'
+import { Route as AutomationsRouteImport } from './routes/automations'
+import { Route as AnalyticsRouteImport } from './routes/analytics'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
 import { Route as DashboardChatRouteImport } from './routes/dashboard.chat'
@@ -24,9 +33,29 @@ import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]
 import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
 import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
 
+const VoiceRoute = VoiceRouteImport.update({
+  id: '/voice',
+  path: '/voice',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ShortcutsRoute = ShortcutsRouteImport.update({
+  id: '/shortcuts',
+  path: '/shortcuts',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const PersonalityRoute = PersonalityRouteImport.update({
+  id: '/personality',
+  path: '/personality',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MemoryRoute = MemoryRouteImport.update({
+  id: '/memory',
+  path: '/memory',
   getParentRoute: () => rootRouteImport,
 } as any)
 const McpRoute = McpRouteImport.update({
@@ -44,9 +73,34 @@ const LibraryRoute = LibraryRouteImport.update({
   path: '/library',
   getParentRoute: () => rootRouteImport,
 } as any)
+const IntegrationsRoute = IntegrationsRouteImport.update({
+  id: '/integrations',
+  path: '/integrations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HistoryRoute = HistoryRouteImport.update({
+  id: '/history',
+  path: '/history',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DocumentsRoute = DocumentsRouteImport.update({
+  id: '/documents',
+  path: '/documents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const DashboardRoute = DashboardRouteImport.update({
   id: '/dashboard',
   path: '/dashboard',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AutomationsRoute = AutomationsRouteImport.update({
+  id: '/automations',
+  path: '/automations',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AnalyticsRoute = AnalyticsRouteImport.update({
+  id: '/analytics',
+  path: '/analytics',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -100,11 +154,20 @@ const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
+  '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/memory': typeof MemoryRoute
+  '/personality': typeof PersonalityRoute
   '/settings': typeof SettingsRoute
+  '/shortcuts': typeof ShortcutsRoute
+  '/voice': typeof VoiceRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -116,10 +179,19 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
+  '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
+  '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/memory': typeof MemoryRoute
+  '/personality': typeof PersonalityRoute
   '/settings': typeof SettingsRoute
+  '/shortcuts': typeof ShortcutsRoute
+  '/voice': typeof VoiceRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -132,11 +204,20 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/analytics': typeof AnalyticsRoute
+  '/automations': typeof AutomationsRoute
   '/dashboard': typeof DashboardRouteWithChildren
+  '/documents': typeof DocumentsRoute
+  '/history': typeof HistoryRoute
+  '/integrations': typeof IntegrationsRoute
   '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
   '/mcp': typeof McpRoute
+  '/memory': typeof MemoryRoute
+  '/personality': typeof PersonalityRoute
   '/settings': typeof SettingsRoute
+  '/shortcuts': typeof ShortcutsRoute
+  '/voice': typeof VoiceRoute
   '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
   '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   '/api/transcribe': typeof ApiTranscribeRoute
@@ -150,11 +231,20 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/analytics'
+    | '/automations'
     | '/dashboard'
+    | '/documents'
+    | '/history'
+    | '/integrations'
     | '/library'
     | '/login'
     | '/mcp'
+    | '/memory'
+    | '/personality'
     | '/settings'
+    | '/shortcuts'
+    | '/voice'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/api/transcribe'
@@ -166,10 +256,19 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/analytics'
+    | '/automations'
+    | '/documents'
+    | '/history'
+    | '/integrations'
     | '/library'
     | '/login'
     | '/mcp'
+    | '/memory'
+    | '/personality'
     | '/settings'
+    | '/shortcuts'
+    | '/voice'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/api/transcribe'
@@ -181,11 +280,20 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/analytics'
+    | '/automations'
     | '/dashboard'
+    | '/documents'
+    | '/history'
+    | '/integrations'
     | '/library'
     | '/login'
     | '/mcp'
+    | '/memory'
+    | '/personality'
     | '/settings'
+    | '/shortcuts'
+    | '/voice'
     | '/.mcp/list-tools'
     | '/.well-known/oauth-protected-resource'
     | '/api/transcribe'
@@ -198,11 +306,20 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AnalyticsRoute: typeof AnalyticsRoute
+  AutomationsRoute: typeof AutomationsRoute
   DashboardRoute: typeof DashboardRouteWithChildren
+  DocumentsRoute: typeof DocumentsRoute
+  HistoryRoute: typeof HistoryRoute
+  IntegrationsRoute: typeof IntegrationsRoute
   LibraryRoute: typeof LibraryRoute
   LoginRoute: typeof LoginRoute
   McpRoute: typeof McpRoute
+  MemoryRoute: typeof MemoryRoute
+  PersonalityRoute: typeof PersonalityRoute
   SettingsRoute: typeof SettingsRoute
+  ShortcutsRoute: typeof ShortcutsRoute
+  VoiceRoute: typeof VoiceRoute
   Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
   Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
   ApiTranscribeRoute: typeof ApiTranscribeRoute
@@ -212,11 +329,39 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/voice': {
+      id: '/voice'
+      path: '/voice'
+      fullPath: '/voice'
+      preLoaderRoute: typeof VoiceRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/shortcuts': {
+      id: '/shortcuts'
+      path: '/shortcuts'
+      fullPath: '/shortcuts'
+      preLoaderRoute: typeof ShortcutsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
       fullPath: '/settings'
       preLoaderRoute: typeof SettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/personality': {
+      id: '/personality'
+      path: '/personality'
+      fullPath: '/personality'
+      preLoaderRoute: typeof PersonalityRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/memory': {
+      id: '/memory'
+      path: '/memory'
+      fullPath: '/memory'
+      preLoaderRoute: typeof MemoryRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/mcp': {
@@ -240,11 +385,46 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LibraryRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/integrations': {
+      id: '/integrations'
+      path: '/integrations'
+      fullPath: '/integrations'
+      preLoaderRoute: typeof IntegrationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/history': {
+      id: '/history'
+      path: '/history'
+      fullPath: '/history'
+      preLoaderRoute: typeof HistoryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/documents': {
+      id: '/documents'
+      path: '/documents'
+      fullPath: '/documents'
+      preLoaderRoute: typeof DocumentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/dashboard': {
       id: '/dashboard'
       path: '/dashboard'
       fullPath: '/dashboard'
       preLoaderRoute: typeof DashboardRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/automations': {
+      id: '/automations'
+      path: '/automations'
+      fullPath: '/automations'
+      preLoaderRoute: typeof AutomationsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/analytics': {
+      id: '/analytics'
+      path: '/analytics'
+      fullPath: '/analytics'
+      preLoaderRoute: typeof AnalyticsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -331,11 +511,20 @@ const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AnalyticsRoute: AnalyticsRoute,
+  AutomationsRoute: AutomationsRoute,
   DashboardRoute: DashboardRouteWithChildren,
+  DocumentsRoute: DocumentsRoute,
+  HistoryRoute: HistoryRoute,
+  IntegrationsRoute: IntegrationsRoute,
   LibraryRoute: LibraryRoute,
   LoginRoute: LoginRoute,
   McpRoute: McpRoute,
+  MemoryRoute: MemoryRoute,
+  PersonalityRoute: PersonalityRoute,
   SettingsRoute: SettingsRoute,
+  ShortcutsRoute: ShortcutsRoute,
+  VoiceRoute: VoiceRoute,
   Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
   Char91DotwellKnownChar93OauthProtectedResourceRoute:
     Char91DotwellKnownChar93OauthProtectedResourceRoute,
