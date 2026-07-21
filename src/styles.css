@@ -63,56 +63,57 @@
 
 :root {
   --radius: 0.75rem;
-  /* Vard AI — Jarvis-style deep-space + cyan glow */
-  --background: oklch(0.13 0.03 240);
-  --foreground: oklch(0.96 0.01 220);
-  --card: oklch(0.18 0.035 240);
-  --card-foreground: oklch(0.96 0.01 220);
-  --popover: oklch(0.18 0.035 240);
-  --popover-foreground: oklch(0.96 0.01 220);
-  --primary: oklch(0.82 0.15 210);               /* cyan glow */
-  --primary-foreground: oklch(0.13 0.03 240);
-  --secondary: oklch(0.22 0.04 240);
-  --secondary-foreground: oklch(0.86 0.02 220);
-  --muted: oklch(0.22 0.04 240);
-  --muted-foreground: oklch(0.68 0.03 220);
-  --accent: oklch(0.82 0.15 210);
-  --accent-foreground: oklch(0.13 0.03 240);
+  /* Vard AI — Nebula Interface: deep slate + indigo/purple glow */
+  --background: oklch(0.13 0.035 275);
+  --foreground: oklch(0.97 0.005 260);
+  --card: oklch(0.17 0.04 275);
+  --card-foreground: oklch(0.97 0.005 260);
+  --popover: oklch(0.17 0.04 275);
+  --popover-foreground: oklch(0.97 0.005 260);
+  --primary: oklch(0.62 0.22 285);                /* indigo */
+  --primary-foreground: oklch(0.98 0.005 260);
+  --secondary: oklch(0.22 0.05 280);
+  --secondary-foreground: oklch(0.9 0.015 260);
+  --muted: oklch(0.22 0.05 280);
+  --muted-foreground: oklch(0.68 0.03 265);
+  --accent: oklch(0.65 0.24 305);                 /* purple */
+  --accent-foreground: oklch(0.98 0.005 260);
   --destructive: oklch(0.577 0.245 27.325);
   --destructive-foreground: oklch(0.984 0.003 247.858);
-  --border: oklch(0.3 0.04 235 / 60%);
-  --input: oklch(0.22 0.04 240);
-  --ring: oklch(0.82 0.15 210);
+  --border: oklch(1 0 0 / 10%);
+  --input: oklch(0.22 0.05 280);
+  --ring: oklch(0.62 0.22 285);
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
   --chart-4: oklch(0.828 0.189 84.429);
   --chart-5: oklch(0.769 0.188 70.08);
-  --sidebar: oklch(0.11 0.03 240);
-  --sidebar-foreground: oklch(0.96 0.01 220);
-  --sidebar-primary: oklch(0.82 0.15 210);
-  --sidebar-primary-foreground: oklch(0.13 0.03 240);
-  --sidebar-accent: oklch(0.22 0.04 240);
-  --sidebar-accent-foreground: oklch(0.96 0.01 220);
-  --sidebar-border: oklch(0.3 0.04 235 / 60%);
-  --sidebar-ring: oklch(0.82 0.15 210);
+  --sidebar: oklch(0.1 0.03 275 / 60%);
+  --sidebar-foreground: oklch(0.97 0.005 260);
+  --sidebar-primary: oklch(0.62 0.22 285);
+  --sidebar-primary-foreground: oklch(0.98 0.005 260);
+  --sidebar-accent: oklch(0.22 0.05 280);
+  --sidebar-accent-foreground: oklch(0.97 0.005 260);
+  --sidebar-border: oklch(1 0 0 / 8%);
+  --sidebar-ring: oklch(0.62 0.22 285);
   color-scheme: dark;
 }
 
 @layer base {
   body {
     background-image:
-      radial-gradient(ellipse at 20% 10%, oklch(0.3 0.12 220 / 25%), transparent 55%),
-      radial-gradient(ellipse at 80% 90%, oklch(0.35 0.15 260 / 22%), transparent 55%);
+      radial-gradient(ellipse at 15% 5%, oklch(0.4 0.2 285 / 22%), transparent 55%),
+      radial-gradient(ellipse at 85% 95%, oklch(0.4 0.2 310 / 20%), transparent 55%),
+      radial-gradient(ellipse at 50% 50%, oklch(0.2 0.06 275 / 40%), transparent 70%);
     background-attachment: fixed;
   }
 }
 
 @utility orb-glow {
   box-shadow:
-    0 0 60px 10px oklch(0.82 0.15 210 / 45%),
-    0 0 140px 40px oklch(0.65 0.18 240 / 30%),
-    inset 0 0 60px oklch(0.95 0.08 210 / 40%);
+    0 0 60px 10px oklch(0.62 0.22 285 / 45%),
+    0 0 160px 50px oklch(0.65 0.24 305 / 32%),
+    inset 0 0 60px oklch(0.85 0.15 290 / 35%);
 }
 
 @keyframes orb-pulse {

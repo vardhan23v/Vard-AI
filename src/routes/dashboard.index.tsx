@@ -1,17 +1,17 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Mic, Send, Cloud, Calendar, Music, Zap } from "lucide-react";
-import { JarvisOrb, useCyclingState } from "@/components/JarvisOrb";
+import { Mic, Newspaper, Home as HomeIcon, ShieldCheck, Sparkles } from "lucide-react";
+import { useCyclingState } from "@/components/JarvisOrb";
 
 export const Route = createFileRoute("/dashboard/")({
   component: DashboardHome,
 });
 
 const QUICK = [
-  { icon: Cloud, label: "What's the weather?" },
-  { icon: Calendar, label: "Today's schedule" },
-  { icon: Music, label: "Play focus music" },
-  { icon: Zap, label: "Summarize my day" },
+  { icon: Newspaper, label: "Briefing" },
+  { icon: ShieldCheck, label: "Security" },
+  { icon: HomeIcon, label: "Smart Home" },
+  { icon: Sparkles, label: "Ideas" },
 ];
 
 function DashboardHome() {
@@ -25,66 +25,112 @@ function DashboardHome() {
     navigate({ to: "/dashboard/chat", search: { q: text } as never });
   };
 
-  const status =
-    state === "listening" ? "Listening…" :
-    state === "thinking" ? "Thinking…" :
-    state === "speaking" ? "Responding…" :
-    "Tap the core, or ask anything.";
-
   return (
-    <div className="relative flex flex-col items-center justify-center min-h-screen w-full px-4 py-10 overflow-hidden">
-      {/* HUD corners */}
-      <div className="pointer-events-none absolute inset-6 border border-primary/15 rounded-3xl" />
-      <div className="pointer-events-none absolute top-8 left-8 text-[10px] tracking-[0.3em] uppercase text-primary/70">
-        V.A.R.D · online
+    <div
+      className="relative flex flex-col items-center justify-between min-h-screen w-full px-6 py-8 overflow-hidden"
+      style={{ fontFamily: "'Inter', ui-sans-serif, system-ui, sans-serif" }}
+    >
+      {/* Ambient nebula gradients */}
+      <div className="pointer-events-none absolute -top-32 -left-24 w-[420px] h-[420px] rounded-full bg-primary/20 blur-[110px]" />
+      <div className="pointer-events-none absolute -bottom-32 -right-24 w-[420px] h-[420px] rounded-full bg-accent/20 blur-[120px]" />
+
+      {/* HUD corner labels (mono) */}
+      <div
+        className="absolute top-6 left-6 text-[9px] tracking-[0.3em] text-primary/70"
+        style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+      >
+        OS_VER: 2.4.0
       </div>
-      <div className="pointer-events-none absolute top-8 right-8 text-[10px] tracking-[0.3em] uppercase text-primary/70">
-        core temp · nominal
+      <div
+        className="absolute top-6 right-6 text-[9px] tracking-[0.3em] text-primary/70 text-right"
+        style={{ fontFamily: "'JetBrains Mono', ui-monospace, monospace" }}
+      >
+        VAR_A7_CORE
       </div>
 
-      <div className="flex flex-col items-center gap-6 mb-10">
-        <JarvisOrb state={state} size={280} onClick={() => submit("Hello Vard")} />
-        <div className="text-center">
-          <h1 className="text-2xl md:text-3xl font-light tracking-widest text-foreground">
-            GOOD EVENING
-          </h1>
-          <p className="mt-2 text-sm uppercase tracking-[0.35em] text-primary/80">
-            {status}
+      {/* Center content */}
+      <div className="flex-1 flex flex-col items-center justify-center gap-10 w-full z-10">
+        <div className="text-center space-y-1">
+          <p className="text-muted-foreground text-xs font-medium uppercase tracking-[0.35em]">
+            Systems Ready
           </p>
-        </div>
-      </div>
-
-      {/* command bar */}
-      <div className="w-full max-w-xl">
-        <div className="flex items-center gap-2 bg-card/70 backdrop-blur border border-primary/30 rounded-full px-4 py-2 shadow-[0_0_30px_-10px_var(--primary)]">
-          <Mic className="w-4 h-4 text-primary" />
-          <input
-            value={input}
-            onChange={(e) => setInput(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && submit(input)}
-            placeholder="Ask Vard anything…"
-            className="flex-1 bg-transparent outline-none text-sm text-foreground placeholder:text-muted-foreground py-2"
-          />
-          <button
-            onClick={() => submit(input)}
-            aria-label="Send"
-            className="w-8 h-8 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-110"
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          <h1 className="text-3xl md:text-4xl font-light text-foreground tracking-tight">
+            Hello, Vard.
+          </h1>
         </div>
 
-        <div className="grid grid-cols-2 md:grid-cols-4 gap-2 mt-6">
+        {/* Nebula Orb */}
+        <button
+          type="button"
+          onClick={() => submit("Hello Vard")}
+          aria-label="Activate Vard"
+          className="relative w-64 h-64 md:w-72 md:h-72 flex items-center justify-center group"
+        >
+          {/* soft cinematic backdrops */}
+          <div className="absolute inset-0 rounded-full bg-primary/10 blur-[80px] animate-pulse" />
+          <div className="absolute w-44 h-44 rounded-full bg-accent/20 blur-[60px]" />
+
+          {/* outer decorative rings */}
+          <div className="absolute w-56 h-56 rounded-full border border-primary/15" />
+          <div className="absolute w-64 h-64 rounded-full border-t-2 border-primary/30 rotate-45 animate-orb-spin" />
+          <div className="absolute w-48 h-48 rounded-full border border-dashed border-accent/20 animate-orb-spin-rev" />
+
+          {/* orb gradient border */}
+          <div className="relative w-40 h-40 rounded-full p-[1px] bg-gradient-to-tr from-primary/60 via-white/25 to-accent/60 orb-glow transition-transform duration-500 group-hover:scale-105">
+            <div className="w-full h-full rounded-full bg-background flex items-center justify-center overflow-hidden relative">
+              {/* fluid gradient interior */}
+              <div
+                className="absolute inset-0 opacity-90 animate-orb-pulse"
+                style={{
+                  background:
+                    "radial-gradient(circle at 30% 30%, oklch(0.85 0.15 285 / 0.9), transparent 55%), radial-gradient(circle at 70% 75%, oklch(0.65 0.24 315 / 0.9), transparent 55%), radial-gradient(circle at 50% 50%, oklch(0.35 0.15 275 / 0.9), transparent 70%)",
+                }}
+              />
+              {/* glass reflection */}
+              <div className="absolute -top-3 -left-3 w-20 h-20 bg-white/25 blur-lg rounded-full" />
+              {/* subtle inner core */}
+              <div className="w-16 h-16 rounded-full bg-white/10 blur-md" />
+            </div>
+          </div>
+
+          {state === "listening" && (
+            <div className="absolute w-56 h-56 rounded-full border border-primary/40 animate-ring" />
+          )}
+        </button>
+
+        {/* quick action chips */}
+        <div className="flex flex-wrap justify-center gap-2 max-w-md">
           {QUICK.map(({ icon: Icon, label }) => (
             <button
               key={label}
               onClick={() => submit(label)}
-              className="flex items-center gap-2 px-3 py-2.5 rounded-xl bg-card/60 border border-border hover:border-primary/60 hover:bg-card text-xs text-muted-foreground hover:text-foreground transition-all"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-white/[0.03] border border-border hover:border-primary/50 hover:bg-white/[0.06] text-[11px] uppercase tracking-wider text-muted-foreground hover:text-foreground transition-all backdrop-blur-sm"
             >
-              <Icon className="w-3.5 h-3.5 text-primary" />
-              <span className="truncate">{label}</span>
+              <Icon className="w-3 h-3 text-primary" />
+              {label}
             </button>
           ))}
+        </div>
+      </div>
+
+      {/* Command bar */}
+      <div className="w-full max-w-xl z-10">
+        <div className="relative flex items-center">
+          <div className="pointer-events-none absolute inset-0 rounded-2xl bg-primary/10 blur-2xl" />
+          <input
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && submit(input)}
+            placeholder="Enter command…"
+            className="relative w-full bg-white/[0.03] border border-border rounded-2xl py-4 pl-6 pr-14 text-sm text-foreground placeholder:text-muted-foreground/70 focus:outline-none focus:border-primary/50 focus:bg-white/[0.05] transition-all backdrop-blur-md"
+          />
+          <button
+            onClick={() => submit(input)}
+            aria-label="Send"
+            className="absolute right-2 p-2.5 bg-primary rounded-xl text-primary-foreground hover:brightness-110 active:scale-95 transition-all shadow-[0_0_24px_-4px_var(--primary)]"
+          >
+            <Mic className="w-4 h-4" />
+          </button>
         </div>
       </div>
     </div>
