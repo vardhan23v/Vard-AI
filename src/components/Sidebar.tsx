@@ -10,6 +10,7 @@ import {
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
+import { useBrand } from "@/lib/brand";
 
 type NavItem = {
   to: string;
@@ -31,6 +32,7 @@ const bottomNav: NavItem[] = [
 
 export function Sidebar() {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const { name, logo } = useBrand();
 
   const isActive = (item: NavItem) =>
     item.exact ? pathname === item.to : pathname === item.to || pathname.startsWith(item.to + "/");
@@ -39,10 +41,14 @@ export function Sidebar() {
     <aside className="hidden sm:flex w-16 md:w-64 border-r border-border bg-sidebar flex-col justify-between py-6 shrink-0 z-20 transition-all">
       <div className="flex flex-col px-4">
         <Link to="/" className="flex items-center gap-3 px-2 mb-8">
-          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0">
-            <Sparkles className="w-4 h-4 text-foreground" />
+          <div className="w-8 h-8 rounded-lg bg-white/10 flex items-center justify-center shrink-0 overflow-hidden">
+            {logo ? (
+              <img src={logo} alt={name} className="w-full h-full object-cover" />
+            ) : (
+              <Sparkles className="w-4 h-4 text-foreground" />
+            )}
           </div>
-          <span className="font-bold text-lg hidden md:block text-foreground">VardAI</span>
+          <span className="font-bold text-lg hidden md:block text-foreground truncate">{name}</span>
         </Link>
 
         <nav className="flex flex-col gap-1">
