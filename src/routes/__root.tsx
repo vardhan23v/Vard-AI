@@ -166,6 +166,7 @@ function RootComponent() {
             </details>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--accent));color:hsl(var(--accent-foreground));font-weight:600;cursor:pointer;">Try again now</button>
+              <button id="vard-reload-copy" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Copy details</button>
               <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
               <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Stay on page</button>
             </div>
