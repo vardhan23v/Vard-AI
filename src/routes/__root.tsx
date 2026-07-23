@@ -244,6 +244,24 @@ function RootComponent() {
           retryBtn.textContent = originalLabel ?? "Try again now";
         }
       });
+      copyBtn?.addEventListener("click", async () => {
+        const details = [
+          `Failed chunk: ${chunkName}`,
+          failedUrl ? `URL: ${failedUrl}` : "URL: (unavailable)",
+          `Error: ${errorMessage}`,
+          `Time: ${new Date().toISOString()}`,
+        ].join("\n");
+        try {
+          await navigator.clipboard.writeText(details);
+          const originalLabel = copyBtn.textContent;
+          copyBtn.textContent = "Copied!";
+          window.setTimeout(() => {
+            copyBtn.textContent = originalLabel ?? "Copy details";
+          }, 2000);
+        } catch {
+          toast.error("Could not copy", { description: "Clipboard access was blocked." });
+        }
+      });
     };
     const onError = (e: ErrorEvent) => {
       if (e?.message && isChunkError(e.message)) maybeReload(extractChunkUrl(e.message), e.message);
