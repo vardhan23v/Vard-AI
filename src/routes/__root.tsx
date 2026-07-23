@@ -127,6 +127,39 @@ function RootShell({ children }: { children: ReactNode }) {
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
 
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const RELOAD_KEY = "__vard_chunk_reload_at";
+    const isChunkError = (msg: string) =>
+      /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|error loading dynamically imported module/i.test(
+        msg,
+      );
+    const maybeReload = () => {
+      try {
+        const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? "0");
+        if (Date.now() - last < 10_000) return; // avoid reload loops
+        sessionStorage.setItem(RELOAD_KEY, String(Date.now()));
+      } catch {
+        // ignore storage errors
+      }
+      window.location.reload();
+    };
+    const onError = (e: ErrorEvent) => {
+      if (e?.message && isChunkError(e.message)) maybeReload();
+    };
+    const onRejection = (e: PromiseRejectionEvent) => {
+      const reason = e?.reason;
+      const msg = reason instanceof Error ? reason.message : String(reason ?? "");
+      if (isChunkError(msg)) maybeReload();
+    };
+    window.addEventListener("error", onError);
+    window.addEventListener("unhandledrejection", onRejection);
+    return () => {
+      window.removeEventListener("error", onError);
+      window.removeEventListener("unhandledrejection", onRejection);
+    };
+  }, []);
+
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
