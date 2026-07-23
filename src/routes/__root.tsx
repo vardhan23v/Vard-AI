@@ -166,6 +166,7 @@ function RootComponent() {
             </details>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--accent));color:hsl(var(--accent-foreground));font-weight:600;cursor:pointer;">Try again now</button>
+              <button id="vard-reload-copy" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Copy details</button>
               <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
               <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Stay on page</button>
             </div>
@@ -195,10 +196,11 @@ function RootComponent() {
       const countEl = document.getElementById("vard-reload-count");
       const msgEl = document.getElementById("vard-reload-msg");
       const nowBtn = document.getElementById("vard-reload-now");
-      const cancelBtn = document.getElementById("vard-reload-cancel");
-      const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
-      const banner = document.getElementById("vard-reload-banner");
-      const interval = window.setInterval(() => {
+        const cancelBtn = document.getElementById("vard-reload-cancel");
+        const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
+        const copyBtn = document.getElementById("vard-reload-copy") as HTMLButtonElement | null;
+        const banner = document.getElementById("vard-reload-banner");
+        const interval = window.setInterval(() => {
         remaining -= 1;
         if (countEl) countEl.textContent = String(remaining);
         if (remaining <= 0) {
@@ -240,6 +242,25 @@ function RootComponent() {
             msgEl.textContent = "Still failing. A full reload is needed to get the latest build.";
           retryBtn.disabled = false;
           retryBtn.textContent = originalLabel ?? "Try again now";
+        }
+      });
+      copyBtn?.addEventListener("click", async () => {
+        const chunkName = failedUrl ? failedUrl.split("/").pop()!.split("?")[0] : "unknown chunk";
+        const details = [
+          `Failed chunk: ${chunkName}`,
+          failedUrl ? `URL: ${failedUrl}` : "URL: (unavailable)",
+          `Error: ${errorMessage}`,
+          `Time: ${new Date().toISOString()}`,
+        ].join("\n");
+        try {
+          await navigator.clipboard.writeText(details);
+          const originalLabel = copyBtn.textContent;
+          copyBtn.textContent = "Copied!";
+          window.setTimeout(() => {
+            copyBtn.textContent = originalLabel ?? "Copy details";
+          }, 2000);
+        } catch {
+          toast.error("Could not copy", { description: "Clipboard access was blocked." });
         }
       });
     };
