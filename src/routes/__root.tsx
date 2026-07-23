@@ -139,7 +139,7 @@ function RootComponent() {
       const m = msg.match(/https?:\/\/[^\s'")]+\.m?js(?:\?[^\s'")]*)?/i);
       return m ? m[0] : null;
     };
-    const showReloadBanner = (failedUrl: string | null) => {
+    const showReloadBanner = (failedUrl: string | null, errorMessage: string) => {
       try {
         const banner = document.createElement("div");
         banner.id = "vard-reload-banner";
@@ -147,11 +147,23 @@ function RootComponent() {
           "style",
           "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;",
         );
+        const esc = (s: string) =>
+          s.replace(/[&<>"']/g, (c) =>
+            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+          );
+        const chunkName = failedUrl ? failedUrl.split("/").pop()!.split("?")[0] : "unknown chunk";
         banner.innerHTML = `
           <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 24px 60px rgba(0,0,0,0.4);text-align:center;color:hsl(var(--foreground));" role="alert" aria-live="polite">
             <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(hsl(var(--primary)) 0deg, hsl(var(--accent)) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
             <h2 style="margin:0 0 8px;font-size:1.125rem;font-weight:600;">Updating VARD…</h2>
             <p id="vard-reload-msg" style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:hsl(var(--foreground));">5</span>s.</p>
+            <details style="margin:0 0 16px;text-align:left;font-size:0.8125rem;color:hsl(var(--muted-foreground));background:hsl(var(--muted)/0.4);border:1px solid hsl(var(--border));border-radius:10px;padding:10px 12px;">
+              <summary style="cursor:pointer;font-weight:600;color:hsl(var(--foreground));list-style:none;">Failed chunk: <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.75rem;">${esc(chunkName)}</code></summary>
+              <div style="margin-top:8px;word-break:break-all;">
+                ${failedUrl ? `<div style="margin-bottom:6px;"><span style="opacity:0.7;">URL:</span> <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;">${esc(failedUrl)}</code></div>` : ""}
+                <div><span style="opacity:0.7;">Error:</span> <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;">${esc(errorMessage)}</code></div>
+              </div>
+            </details>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
               <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--accent));color:hsl(var(--accent-foreground));font-weight:600;cursor:pointer;">Try again now</button>
               <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
@@ -165,7 +177,7 @@ function RootComponent() {
         // DOM injection failed; fall back to toast only
       }
     };
-    const maybeReload = (failedUrl: string | null) => {
+    const maybeReload = (failedUrl: string | null, errorMessage: string) => {
       try {
         const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? "0");
         if (Date.now() - last < 10_000) return; // avoid reload loops
@@ -174,9 +186,11 @@ function RootComponent() {
         // ignore storage errors
       }
       toast("Updating VARD…", {
-        description: "A new version is ready. Reloading to get the latest build.",
+        description: failedUrl
+          ? `Failed chunk: ${failedUrl.split("/").pop()!.split("?")[0]}`
+          : errorMessage,
       });
-      showReloadBanner(failedUrl);
+      showReloadBanner(failedUrl, errorMessage);
       let remaining = 5;
       const countEl = document.getElementById("vard-reload-count");
       const msgEl = document.getElementById("vard-reload-msg");
@@ -230,12 +244,12 @@ function RootComponent() {
       });
     };
     const onError = (e: ErrorEvent) => {
-      if (e?.message && isChunkError(e.message)) maybeReload(extractChunkUrl(e.message));
+      if (e?.message && isChunkError(e.message)) maybeReload(extractChunkUrl(e.message), e.message);
     };
     const onRejection = (e: PromiseRejectionEvent) => {
       const reason = e?.reason;
       const msg = reason instanceof Error ? reason.message : String(reason ?? "");
-      if (isChunkError(msg)) maybeReload(extractChunkUrl(msg));
+      if (isChunkError(msg)) maybeReload(extractChunkUrl(msg), msg);
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
