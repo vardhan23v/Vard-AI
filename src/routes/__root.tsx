@@ -135,7 +135,11 @@ function RootComponent() {
       /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|error loading dynamically imported module/i.test(
         msg,
       );
-    const showReloadBanner = () => {
+    const extractChunkUrl = (msg: string): string | null => {
+      const m = msg.match(/https?:\/\/[^\s'")]+\.m?js(?:\?[^\s'")]*)?/i);
+      return m ? m[0] : null;
+    };
+    const showReloadBanner = (failedUrl: string | null) => {
       try {
         const banner = document.createElement("div");
         banner.id = "vard-reload-banner";
@@ -147,8 +151,9 @@ function RootComponent() {
           <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 24px 60px rgba(0,0,0,0.4);text-align:center;color:hsl(var(--foreground));" role="alert" aria-live="polite">
             <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(hsl(var(--primary)) 0deg, hsl(var(--accent)) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
             <h2 style="margin:0 0 8px;font-size:1.125rem;font-weight:600;">Updating VARD…</h2>
-            <p style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:hsl(var(--foreground));">5</span>s.</p>
-            <div style="display:flex;gap:8px;justify-content:center;">
+            <p id="vard-reload-msg" style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:hsl(var(--foreground));">5</span>s.</p>
+            <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
+              <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--accent));color:hsl(var(--accent-foreground));font-weight:600;cursor:pointer;">Try again now</button>
               <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
               <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Stay on page</button>
             </div>
@@ -160,7 +165,7 @@ function RootComponent() {
         // DOM injection failed; fall back to toast only
       }
     };
-    const maybeReload = () => {
+    const maybeReload = (failedUrl: string | null) => {
       try {
         const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? "0");
         if (Date.now() - last < 10_000) return; // avoid reload loops
@@ -171,11 +176,13 @@ function RootComponent() {
       toast("Updating VARD…", {
         description: "A new version is ready. Reloading to get the latest build.",
       });
-      showReloadBanner();
+      showReloadBanner(failedUrl);
       let remaining = 5;
       const countEl = document.getElementById("vard-reload-count");
+      const msgEl = document.getElementById("vard-reload-msg");
       const nowBtn = document.getElementById("vard-reload-now");
       const cancelBtn = document.getElementById("vard-reload-cancel");
+      const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
       const banner = document.getElementById("vard-reload-banner");
       const interval = window.setInterval(() => {
         remaining -= 1;
@@ -193,14 +200,42 @@ function RootComponent() {
         window.clearInterval(interval);
         banner?.remove();
       });
+      retryBtn?.addEventListener("click", async () => {
+        if (!failedUrl) {
+          window.clearInterval(interval);
+          window.location.reload();
+          return;
+        }
+        window.clearInterval(interval);
+        const originalLabel = retryBtn.textContent;
+        retryBtn.disabled = true;
+        retryBtn.textContent = "Retrying…";
+        if (msgEl) msgEl.textContent = "Re-fetching the latest module…";
+        try {
+          const bust = `${failedUrl}${failedUrl.includes("?") ? "&" : "?"}retry=${Date.now()}`;
+          await import(/* @vite-ignore */ bust);
+          toast.success("Recovered", { description: "Module loaded successfully." });
+          banner?.remove();
+          try {
+            sessionStorage.removeItem(RELOAD_KEY);
+          } catch {
+            // ignore
+          }
+        } catch {
+          if (msgEl)
+            msgEl.textContent = "Still failing. A full reload is needed to get the latest build.";
+          retryBtn.disabled = false;
+          retryBtn.textContent = originalLabel ?? "Try again now";
+        }
+      });
     };
     const onError = (e: ErrorEvent) => {
-      if (e?.message && isChunkError(e.message)) maybeReload();
+      if (e?.message && isChunkError(e.message)) maybeReload(extractChunkUrl(e.message));
     };
     const onRejection = (e: PromiseRejectionEvent) => {
       const reason = e?.reason;
       const msg = reason instanceof Error ? reason.message : String(reason ?? "");
-      if (isChunkError(msg)) maybeReload();
+      if (isChunkError(msg)) maybeReload(extractChunkUrl(msg));
     };
     window.addEventListener("error", onError);
     window.addEventListener("unhandledrejection", onRejection);
