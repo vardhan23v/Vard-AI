@@ -196,10 +196,11 @@ function RootComponent() {
       const countEl = document.getElementById("vard-reload-count");
       const msgEl = document.getElementById("vard-reload-msg");
       const nowBtn = document.getElementById("vard-reload-now");
-      const cancelBtn = document.getElementById("vard-reload-cancel");
-      const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
-      const banner = document.getElementById("vard-reload-banner");
-      const interval = window.setInterval(() => {
+        const cancelBtn = document.getElementById("vard-reload-cancel");
+        const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
+        const copyBtn = document.getElementById("vard-reload-copy") as HTMLButtonElement | null;
+        const banner = document.getElementById("vard-reload-banner");
+        const interval = window.setInterval(() => {
         remaining -= 1;
         if (countEl) countEl.textContent = String(remaining);
         if (remaining <= 0) {
