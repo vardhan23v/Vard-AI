@@ -147,8 +147,11 @@ function RootComponent() {
           <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 24px 60px rgba(0,0,0,0.4);text-align:center;color:hsl(var(--foreground));" role="alert" aria-live="polite">
             <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(hsl(var(--primary)) 0deg, hsl(var(--accent)) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
             <h2 style="margin:0 0 8px;font-size:1.125rem;font-weight:600;">Updating VARD…</h2>
-            <p style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. We're refreshing the page so you get the latest build.</p>
-            <button style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;" onclick="window.location.reload()">Reload now</button>
+            <p style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:hsl(var(--foreground));">5</span>s.</p>
+            <div style="display:flex;gap:8px;justify-content:center;">
+              <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
+              <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Stay on page</button>
+            </div>
           </div>
           <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
         `;
@@ -169,7 +172,27 @@ function RootComponent() {
         description: "A new version is ready. Reloading to get the latest build.",
       });
       showReloadBanner();
-      setTimeout(() => window.location.reload(), 1400);
+      let remaining = 5;
+      const countEl = document.getElementById("vard-reload-count");
+      const nowBtn = document.getElementById("vard-reload-now");
+      const cancelBtn = document.getElementById("vard-reload-cancel");
+      const banner = document.getElementById("vard-reload-banner");
+      const interval = window.setInterval(() => {
+        remaining -= 1;
+        if (countEl) countEl.textContent = String(remaining);
+        if (remaining <= 0) {
+          window.clearInterval(interval);
+          window.location.reload();
+        }
+      }, 1000);
+      nowBtn?.addEventListener("click", () => {
+        window.clearInterval(interval);
+        window.location.reload();
+      });
+      cancelBtn?.addEventListener("click", () => {
+        window.clearInterval(interval);
+        banner?.remove();
+      });
     };
     const onError = (e: ErrorEvent) => {
       if (e?.message && isChunkError(e.message)) maybeReload();
