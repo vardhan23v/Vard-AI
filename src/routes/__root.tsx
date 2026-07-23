@@ -245,6 +245,7 @@ function RootComponent() {
         }
       });
       copyBtn?.addEventListener("click", async () => {
+        const chunkName = failedUrl ? failedUrl.split("/").pop()!.split("?")[0] : "unknown chunk";
         const details = [
           `Failed chunk: ${chunkName}`,
           failedUrl ? `URL: ${failedUrl}` : "URL: (unavailable)",
