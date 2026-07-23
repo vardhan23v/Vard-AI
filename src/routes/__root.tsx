@@ -8,6 +8,7 @@ import {
   Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { toast } from "sonner";
 
 import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
@@ -134,6 +135,28 @@ function RootComponent() {
       /Failed to fetch dynamically imported module|Importing a module script failed|ChunkLoadError|error loading dynamically imported module/i.test(
         msg,
       );
+    const showReloadBanner = () => {
+      try {
+        const banner = document.createElement("div");
+        banner.id = "vard-reload-banner";
+        banner.setAttribute(
+          "style",
+          "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;",
+        );
+        banner.innerHTML = `
+          <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 24px 60px rgba(0,0,0,0.4);text-align:center;color:hsl(var(--foreground));" role="alert" aria-live="polite">
+            <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(hsl(var(--primary)) 0deg, hsl(var(--accent)) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
+            <h2 style="margin:0 0 8px;font-size:1.125rem;font-weight:600;">Updating VARD…</h2>
+            <p style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. We're refreshing the page so you get the latest build.</p>
+            <button style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;" onclick="window.location.reload()">Reload now</button>
+          </div>
+          <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+        `;
+        document.body.appendChild(banner);
+      } catch {
+        // DOM injection failed; fall back to toast only
+      }
+    };
     const maybeReload = () => {
       try {
         const last = Number(sessionStorage.getItem(RELOAD_KEY) ?? "0");
@@ -142,7 +165,11 @@ function RootComponent() {
       } catch {
         // ignore storage errors
       }
-      window.location.reload();
+      toast("Updating VARD…", {
+        description: "A new version is ready. Reloading to get the latest build.",
+      });
+      showReloadBanner();
+      setTimeout(() => window.location.reload(), 1400);
     };
     const onError = (e: ErrorEvent) => {
       if (e?.message && isChunkError(e.message)) maybeReload();
