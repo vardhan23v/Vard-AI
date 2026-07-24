@@ -74,7 +74,13 @@ test.describe("reduced-motion preview", () => {
     expect(routeMs, "route transition animation should be neutralized").toBeLessThan(5);
 
     // Dropdown: opens into a portal; content matches [data-state=open][role=menu].
-    await clickButton(page, "Open menu");
+    // Radix DropdownMenu opens on pointerdown; use keyboard for a robust open.
+    const menuTrigger = page.locator("button", { hasText: "Open menu" }).first();
+    await expect(menuTrigger).toBeVisible();
+    await menuTrigger.scrollIntoViewIfNeeded();
+    await page.waitForTimeout(300);
+    await menuTrigger.focus();
+    await page.keyboard.press("Enter");
     const menu = page.locator('[role="menu"][data-state="open"]').first();
     await expect(menu).toBeVisible();
     const menuMs = await animMs(page, '[role="menu"][data-state="open"]');
