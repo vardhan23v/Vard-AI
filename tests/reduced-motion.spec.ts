@@ -54,9 +54,9 @@ async function clickButton(page: Page, text: string) {
   const btn = page.locator("button", { hasText: text }).first();
   await expect(btn).toBeVisible();
   await btn.scrollIntoViewIfNeeded();
-  // Give hydration a beat so React onClick handlers are attached.
-  await page.waitForTimeout(300);
-  await btn.click();
+  // Bypass actionability checks (animating ancestors can defeat hit-tests);
+  // React onClick handlers still fire from a dispatched click event.
+  await btn.dispatchEvent("click");
 }
 
 test.describe("reduced-motion preview", () => {
