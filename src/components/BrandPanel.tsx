@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2 } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
+import { useMotion, EASINGS, type EasingId } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
 
 const PRESET_COLORS = [
@@ -170,6 +171,8 @@ export function BrandPanel() {
           ))}
         </div>
       </section>
+
+      <MotionSection />
     </div>
     {pending && (
       <LogoCropper
@@ -198,5 +201,104 @@ function BackgroundPreview({
       <div className="aspect-video w-full" data-bg-preview={id} />
       <div className="text-xs py-1.5 bg-black/40 text-foreground">{label}</div>
     </button>
+  );
+}
+
+function MotionSection() {
+  const motion = useMotion();
+  return (
+    <section className="space-y-4 pt-4 border-t border-border">
+      <div className="flex items-center justify-between">
+        <div>
+          <h2 className="text-sm font-semibold flex items-center gap-2">
+            <Wand2 className="w-4 h-4 text-primary" />
+            Route transitions
+          </h2>
+          <p className="text-xs text-muted-foreground mt-1">
+            Fine-tune the animation used when navigating between pages.
+          </p>
+        </div>
+        <button
+          onClick={motion.reset}
+          className="flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+        >
+          <RotateCcw className="w-3.5 h-3.5" /> Reset
+        </button>
+      </div>
+
+      <div className="flex items-center justify-between rounded-lg border border-border bg-white/[0.03] px-3 py-2">
+        <span className="text-sm">Enable transitions</span>
+        <button
+          role="switch"
+          aria-checked={motion.enabled}
+          onClick={() => motion.setEnabled(!motion.enabled)}
+          className={`relative h-6 w-11 rounded-full transition-colors ${
+            motion.enabled ? "bg-primary" : "bg-muted"
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 h-5 w-5 rounded-full bg-white transition-transform ${
+              motion.enabled ? "translate-x-[22px]" : "translate-x-0.5"
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className="space-y-2">
+        <div className="flex items-center justify-between">
+          <label className="text-xs uppercase tracking-wider text-muted-foreground">Duration</label>
+          <span className="text-xs tabular-nums text-foreground">{motion.duration} ms</span>
+        </div>
+        <input
+          type="range"
+          min={0}
+          max={1500}
+          step={25}
+          value={motion.duration}
+          onChange={(e) => motion.setDuration(Number(e.target.value))}
+          disabled={!motion.enabled}
+          className="w-full accent-primary disabled:opacity-40"
+        />
+        <div className="flex justify-between text-[10px] text-muted-foreground">
+          <span>Instant</span>
+          <span>Cinematic</span>
+        </div>
+      </div>
+
+      <div className="space-y-2">
+        <label className="text-xs uppercase tracking-wider text-muted-foreground">Easing curve</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {EASINGS.map((e) => (
+            <button
+              key={e.id}
+              onClick={() => motion.setEasing(e.id as EasingId)}
+              disabled={!motion.enabled}
+              className={`px-3 py-2 rounded-md text-xs border transition-all disabled:opacity-40 ${
+                motion.easing === e.id
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              {e.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      <div className="rounded-lg border border-border bg-white/[0.03] p-4">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Preview</div>
+        <div
+          key={`${motion.duration}-${motion.easing}-${motion.enabled}`}
+          className="h-14 rounded-md bg-gradient-to-r from-primary/40 to-accent/40 border border-border"
+          style={{
+            animation: motion.enabled
+              ? `route-enter ${motion.duration}ms ${
+                  EASINGS.find((x) => x.id === motion.easing)?.value ?? ""
+                } both`
+              : "none",
+          }}
+        />
+      </div>
+    </section>
   );
 }

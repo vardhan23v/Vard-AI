@@ -15,6 +15,7 @@ import appCss from "../styles.css?url";
 import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "../lib/theme";
 import { BrandProvider, BRAND_INIT_SCRIPT } from "../lib/brand";
+import { MotionProvider, MOTION_INIT_SCRIPT } from "../lib/motion";
 
 function NotFoundComponent() {
   return (
@@ -116,6 +117,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <head>
         <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
         <script dangerouslySetInnerHTML={{ __html: BRAND_INIT_SCRIPT }} />
+        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
         <HeadContent />
       </head>
       <body style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}>
@@ -285,10 +287,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <BrandProvider>
-          <RouteTransition>
+          <MotionProvider>
+            <RouteTransition>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
-          </RouteTransition>
+            </RouteTransition>
+          </MotionProvider>
         </BrandProvider>
       </ThemeProvider>
     </QueryClientProvider>

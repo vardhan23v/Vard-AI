@@ -352,7 +352,7 @@ html[data-bg="grid"] body {
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
 .route-transition {
-  animation: route-enter 0.45s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  animation: route-enter var(--route-duration, 0.45s) var(--route-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
   will-change: opacity, transform, filter;
 }
 @media (prefers-reduced-motion: reduce) {
