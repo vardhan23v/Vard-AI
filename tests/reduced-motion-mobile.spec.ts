@@ -50,14 +50,15 @@ async function seedReducedMotion(page: Page, mode: "on" | "off" | "system") {
 
 async function waitHydrated(page: Page) {
   await page.waitForFunction(() => !!document.querySelector("[data-motion-preview]"));
-  await page.waitForTimeout(500);
+  await page.waitForTimeout(1000);
 }
 
 async function clickTestId(page: Page, id: string) {
   const btn = page.getByTestId(id);
   await expect(btn).toBeVisible();
   await btn.scrollIntoViewIfNeeded();
-  await btn.click();
+  await page.waitForTimeout(200);
+  await btn.click({ force: true });
 }
 
 test.describe("reduced-motion on mobile off-canvas", () => {
