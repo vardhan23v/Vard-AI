@@ -46,12 +46,12 @@ function DashboardHome() {
       <main className="relative z-10 flex flex-col min-h-screen p-6 lg:p-10 pb-40">
         <div className="w-full max-w-6xl mx-auto flex flex-col gap-6">
           {/* Top bento row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[440px]">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 lg:h-[440px] animate-pop-in">
             {/* Hero orb tile */}
             <button
               type="button"
               onClick={() => submit("Hello Vard")}
-              className="lg:col-span-8 relative overflow-hidden rounded-[2rem] border border-border bg-card/40 backdrop-blur-md shadow-2xl flex items-center justify-center group min-h-[360px] text-left"
+              className="lg:col-span-8 tile-hover relative overflow-hidden rounded-[2rem] border border-border bg-card/40 backdrop-blur-md shadow-2xl flex items-center justify-center group min-h-[360px] text-left"
               aria-label="Activate Vard"
             >
               <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-transparent to-accent/10" />
@@ -89,7 +89,7 @@ function DashboardHome() {
 
             {/* Greeting + Stats column */}
             <div className="lg:col-span-4 flex flex-col gap-6">
-              <div className="flex-1 rounded-[2rem] border border-border bg-card/40 backdrop-blur-md p-8">
+              <div className="flex-1 tile-hover rounded-[2rem] border border-border bg-card/40 backdrop-blur-md p-8">
                 <p className="text-accent font-medium mb-2">Good day, Vard.</p>
                 <h1
                   className="text-2xl font-bold leading-tight text-foreground"
@@ -105,7 +105,7 @@ function DashboardHome() {
                 </div>
               </div>
 
-              <div className="h-40 rounded-[2rem] border border-border bg-gradient-to-br from-primary/25 to-accent/10 backdrop-blur-md p-6 flex flex-col justify-between">
+              <div className="h-40 tile-hover rounded-[2rem] border border-border bg-gradient-to-br from-primary/25 to-accent/10 backdrop-blur-md p-6 flex flex-col justify-between">
                 <div className="flex justify-between items-start">
                   <span className="text-sm text-foreground/80">Pending Actions</span>
                   <Zap className="w-5 h-5 text-accent" />
@@ -121,16 +121,16 @@ function DashboardHome() {
           </div>
 
           {/* Lower bento row */}
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 animate-pop-in" style={{ animationDelay: "120ms" }}>
             {/* Agenda */}
-            <div className="lg:col-span-4 rounded-[2rem] border border-border bg-card/40 backdrop-blur-md p-6">
+            <div className="lg:col-span-4 tile-hover rounded-[2rem] border border-border bg-card/40 backdrop-blur-md p-6">
               <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-widest mb-5">
                 Today's Agenda
               </h3>
               <div className="space-y-4">
-                {AGENDA.map((a) => (
-                  <div key={a.title} className="flex items-center gap-4">
-                    <div className={`w-1 h-9 rounded-full ${a.color}`} />
+                {AGENDA.map((a, i) => (
+                  <div key={a.title} className="flex items-center gap-4 animate-slide-in-left" style={{ animationDelay: `${200 + i * 90}ms` }}>
+                    <div className={`w-1 h-9 rounded-full ${a.color} animate-glow-pulse`} />
                     <div>
                       <p className="text-sm font-medium text-foreground">{a.title}</p>
                       <p className="text-xs text-muted-foreground">{a.time}</p>
@@ -142,7 +142,7 @@ function DashboardHome() {
 
             {/* Quick actions */}
             <div className="lg:col-span-8 grid grid-cols-3 gap-4">
-              {ACTIONS.map(({ icon: Icon, label, tone }) => {
+              {ACTIONS.map(({ icon: Icon, label, tone }, i) => {
                 const tint =
                   tone === "indigo"
                     ? "bg-primary/15 text-primary group-hover:bg-primary/25"
@@ -153,14 +153,15 @@ function DashboardHome() {
                   <button
                     key={label}
                     onClick={() => submit(label)}
-                    className="group rounded-2xl border border-border bg-card/30 p-5 flex flex-col items-start gap-3 hover:bg-card/60 transition-all"
+                    style={{ animationDelay: `${200 + i * 90}ms` }}
+                    className="group tile-hover animate-pop-in rounded-2xl border border-border bg-card/30 p-5 flex flex-col items-start gap-3 hover:bg-card/60"
                   >
-                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-colors ${tint}`}>
+                    <div className={`w-10 h-10 rounded-full flex items-center justify-center transition-all duration-500 group-hover:rotate-6 group-hover:scale-110 ${tint}`}>
                       <Icon className="w-5 h-5" />
                     </div>
                     <div className="flex items-center justify-between w-full">
                       <span className="text-sm font-medium text-foreground">{label}</span>
-                      <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
+                      <ArrowUpRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground group-hover:translate-x-0.5 group-hover:-translate-y-0.5 transition-all" />
                     </div>
                   </button>
                 );
