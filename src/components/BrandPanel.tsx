@@ -476,10 +476,10 @@ function MotionShowcase() {
         setDropdownOpen(true);
         setSheetOpen(true);
         setPopoverOpen(true);
-        toast(
-          mode === "full" ? "Full motion toast" : "Reduced motion toast",
-          { description: "Preview of the current motion mode.", duration: 3200 }
-        );
+        const d = mode === "full" ? 3200 : 2000;
+        toast.success("Saved", { description: "Changes synced.", duration: d });
+        toast.error("Failed", { description: "Retry in a moment.", duration: d });
+        toast.loading("Working…", { description: "Uploading file.", duration: d });
       });
     });
   };
