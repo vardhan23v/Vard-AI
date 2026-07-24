@@ -52,7 +52,9 @@ async function seedMotion(page: Page, mode: "on" | "off") {
 async function switchPreview(page: Page, mode: "reduced" | "full") {
   const btn = page.getByTestId(`preview-mode-${mode}`);
   await btn.scrollIntoViewIfNeeded();
-  await btn.click({ force: true });
+  // Wait for hydration so onClick is wired.
+  await page.waitForTimeout(300);
+  await btn.click();
   // The tile is inside the MotionShowcase wrapper; assert on its
   // enclosing scope (not the fixed side-by-side comparison tiles above).
   await expect(
