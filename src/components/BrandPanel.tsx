@@ -524,6 +524,7 @@ function MotionShowcase() {
 
       <div
         data-motion-preview={mode}
+        data-testid="motion-showcase-grid"
         className="relative rounded-md border border-border bg-background/40 p-3"
       >
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
