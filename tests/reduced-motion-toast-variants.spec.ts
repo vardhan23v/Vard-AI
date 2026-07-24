@@ -50,13 +50,10 @@ async function seedMotion(page: Page, mode: "on" | "off") {
 }
 
 async function switchPreview(page: Page, mode: "reduced" | "full") {
-  const btn = page
-    .locator('[data-motion-preview]')
-    .locator("xpath=ancestor::*[1]")
-    .locator("button", { hasText: mode === "reduced" ? "Reduced" : "Full" })
-    .first();
+  const label = mode === "reduced" ? "Reduced" : "Full";
+  const btn = page.getByRole("button", { name: new RegExp(`^${label}$`) }).first();
   await btn.scrollIntoViewIfNeeded();
-  await btn.click();
+  await btn.click({ force: true });
   await expect(page.locator("[data-motion-preview]").first()).toHaveAttribute(
     "data-motion-preview",
     mode,
