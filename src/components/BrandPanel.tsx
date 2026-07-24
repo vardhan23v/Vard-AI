@@ -1,5 +1,5 @@
-import { useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush, Wand2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
 import { useMotion, EASINGS, type EasingId } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
@@ -206,6 +206,19 @@ function BackgroundPreview({
 
 function MotionSection() {
   const motion = useMotion();
+  const [replayKey, setReplayKey] = useState(0);
+  const [systemReduced, setSystemReduced] = useState(false);
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const mq = window.matchMedia("(prefers-reduced-motion: reduce)");
+    const update = () => setSystemReduced(mq.matches);
+    update();
+    mq.addEventListener("change", update);
+    return () => mq.removeEventListener("change", update);
+  }, []);
+  const effectiveReduced =
+    motion.reducedMotion === "on" ||
+    (motion.reducedMotion === "system" && systemReduced);
   return (
     <section className="space-y-4 pt-4 border-t border-border">
       <div className="flex items-center justify-between">
@@ -299,6 +312,107 @@ function MotionSection() {
           }}
         />
       </div>
+
+      {/* Reduced motion */}
+      <div className="space-y-3 pt-4 border-t border-border">
+        <div className="flex items-center justify-between">
+          <div>
+            <h3 className="text-sm font-semibold flex items-center gap-2">
+              <Accessibility className="w-4 h-4 text-primary" />
+              Reduced motion
+            </h3>
+            <p className="text-xs text-muted-foreground mt-1">
+              Force the app into a low-motion mode, or defer to your OS setting.
+              System is currently{" "}
+              <span className="text-foreground font-medium">
+                {systemReduced ? "requesting reduced motion" : "not requesting reduced motion"}
+              </span>
+              .
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          {(["system", "on", "off"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => motion.setReducedMotion(v)}
+              className={`px-3 py-2 rounded-md text-xs border transition-all ${
+                motion.reducedMotion === v
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              {v === "system" ? "Match system" : v === "on" ? "Always on" : "Always off"}
+            </button>
+          ))}
+        </div>
+
+        <div className="flex items-center justify-between rounded-md bg-white/[0.03] border border-border px-3 py-2 text-xs">
+          <span className="text-muted-foreground">Effective state</span>
+          <span
+            className={`px-2 py-0.5 rounded-full font-medium ${
+              effectiveReduced
+                ? "bg-primary/20 text-foreground"
+                : "bg-muted text-muted-foreground"
+            }`}
+          >
+            {effectiveReduced ? "Reduced motion ON" : "Full motion"}
+          </span>
+        </div>
+
+        <div className="rounded-lg border border-border bg-white/[0.03] p-4 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground">
+              Live comparison
+            </div>
+            <button
+              onClick={() => setReplayKey((k) => k + 1)}
+              className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+            >
+              <Play className="w-3 h-3" /> Replay
+            </button>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <PreviewTile label="Full motion" mode="full" replayKey={replayKey} />
+            <PreviewTile label="Reduced" mode="reduced" replayKey={replayKey} />
+          </div>
+          <p className="text-[11px] text-muted-foreground">
+            The <span className="text-foreground">Reduced</span> tile always demos
+            low-motion behavior. When your setting is active, the rest of the app
+            behaves like the reduced tile — try navigating between pages to verify.
+          </p>
+        </div>
+      </div>
     </section>
+  );
+}
+
+function PreviewTile({
+  label,
+  mode,
+  replayKey,
+}: {
+  label: string;
+  mode: "full" | "reduced";
+  replayKey: number;
+}) {
+  return (
+    <div
+      data-motion-preview={mode}
+      className="relative overflow-hidden rounded-md border border-border bg-background/40 p-3 h-28"
+    >
+      <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+        {label}
+      </div>
+      <div
+        key={replayKey}
+        className="h-8 rounded-md bg-gradient-to-r from-primary/50 to-accent/50 animate-fade-up"
+      />
+      <div
+        key={`orb-${replayKey}`}
+        className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-primary/60 animate-orb-pulse"
+      />
+    </div>
   );
 }
