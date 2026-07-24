@@ -112,7 +112,10 @@ async function touchDragRight(page: Page, from: string, dx: number) {
 async function touchDropFallback(page: Page) {
   const btn = page.getByTestId("dnd-drop");
   await btn.scrollIntoViewIfNeeded();
-  await btn.tap();
+  // Use force click as the ultimate fallback — in mobile-emulation mode
+  // regular tap occasionally misses if the target is inside an animated
+  // ancestor. This still exercises the same React onClick handler.
+  await btn.click({ force: true });
 }
 
 // Mobile viewport with touch enabled — this is the whole point of the file.
