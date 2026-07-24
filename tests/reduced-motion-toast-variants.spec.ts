@@ -51,7 +51,13 @@ async function seedMotion(page: Page, mode: "on" | "off") {
 
 async function switchPreview(page: Page, mode: "reduced" | "full") {
   const label = mode === "reduced" ? "Reduced" : "Full";
-  const btn = page.getByRole("button", { name: new RegExp(`^${label}$`) }).first();
+  // The MotionShowcase toggle buttons are siblings of the "Replay" button.
+  // Scope to that container to avoid other buttons in the panel.
+  const container = page
+    .getByRole("button", { name: /^Replay$/ })
+    .first()
+    .locator("xpath=parent::*");
+  const btn = container.getByRole("button", { name: new RegExp(`^${label}$`) });
   await btn.scrollIntoViewIfNeeded();
   await btn.click({ force: true });
   // The tile is inside the MotionShowcase wrapper; assert on its
