@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play, Eye } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
 import { useMotion, EASINGS, TRANSITION_PRESETS, type EasingId, type TransitionPreset } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 const PRESET_COLORS = [
   "#818cf8", "#67e8f9", "#c4b5fd", "#f472b6",
@@ -405,6 +408,8 @@ function MotionSection() {
             behaves like the reduced tile — try navigating between pages to verify.
           </p>
         </div>
+
+        <MotionShowcase />
       </div>
     </section>
   );
