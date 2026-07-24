@@ -351,10 +351,30 @@ html[data-bg="grid"] body {
   0% { opacity: 0; transform: translateY(8px) scale(0.995); filter: blur(6px); }
   100% { opacity: 1; transform: translateY(0) scale(1); filter: blur(0); }
 }
+@keyframes route-fade {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+@keyframes route-slide {
+  0% { opacity: 0; transform: translateX(24px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
+@keyframes route-zoom {
+  0% { opacity: 0; transform: scale(0.94); }
+  100% { opacity: 1; transform: scale(1); }
+}
+@keyframes route-blur {
+  0% { opacity: 0; filter: blur(14px); }
+  100% { opacity: 1; filter: blur(0); }
+}
 .route-transition {
   animation: route-enter var(--route-duration, 0.45s) var(--route-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
   will-change: opacity, transform, filter;
 }
+html[data-transition="fade"] .route-transition { animation-name: route-fade; }
+html[data-transition="slide"] .route-transition { animation-name: route-slide; }
+html[data-transition="zoom"] .route-transition { animation-name: route-zoom; }
+html[data-transition="blur"] .route-transition { animation-name: route-blur; }
 @media (prefers-reduced-motion: reduce) {
   .route-transition { animation: none; }
 }
