@@ -74,6 +74,8 @@ test.describe("reduced-motion preview", () => {
     // Route transition: navigate and inspect the wrapper.
     await page.goto("/");
     await page.goto("/settings");
+    await page.waitForFunction(() => !!document.querySelector('[data-motion-preview]'));
+    await page.waitForTimeout(600);
     const routeMs = await animMs(page, ".route-transition");
     expect(routeMs, "route transition animation should be neutralized").toBeLessThan(5);
 
