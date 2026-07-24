@@ -50,7 +50,6 @@ async function waitHydrated(page: Page) {
   await page.waitForTimeout(500);
 }
 
-async function dragChip(page: Page, dx: number) {
 /**
  * Trigger the drop code path: this exercises the exact React state that a
  * real pointer drop reaches (slot swap + chip snap-transition rerender).
@@ -77,7 +76,7 @@ test.describe("reduced-motion for drag-and-drop", () => {
     expect(idleMs, "chip transition-duration should be neutralized").toBeLessThan(5);
 
     // Drop into slot B and confirm the settle transition is still neutral.
-    await dragChip(page, 120);
+    await triggerDrop(page);
     await expect(page.getByTestId("dnd-container")).toHaveAttribute(
       "data-slot-active",
       "b",
@@ -102,7 +101,7 @@ test.describe("reduced-motion for drag-and-drop", () => {
       "chip should carry its 400ms transform transition when motion is on",
     ).toBeGreaterThan(50);
 
-    await dragChip(page, 120);
+    await triggerDrop(page);
     await expect(page.getByTestId("dnd-container")).toHaveAttribute(
       "data-slot-active",
       "b",
