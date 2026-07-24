@@ -5,6 +5,9 @@ import { useMotion, EASINGS, TRANSITION_PRESETS, type EasingId, type TransitionP
 import { LogoCropper } from "./LogoCropper";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription, SheetTrigger } from "@/components/ui/sheet";
+import { Popover, PopoverTrigger, PopoverContent } from "@/components/ui/popover";
+import { Accordion, AccordionItem, AccordionTrigger, AccordionContent } from "@/components/ui/accordion";
 import { toast } from "sonner";
 
 const PRESET_COLORS = [
@@ -450,6 +453,8 @@ function MotionShowcase() {
   const [replayKey, setReplayKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const easingVal =
     EASINGS.find((e) => e.id === motion.easing)?.value ?? "cubic-bezier(0.2,0.8,0.2,1)";
@@ -462,11 +467,15 @@ function MotionShowcase() {
     // Reset everything, then reopen in the next frame so animations re-run.
     setDialogOpen(false);
     setDropdownOpen(false);
+    setSheetOpen(false);
+    setPopoverOpen(false);
     setReplayKey((k) => k + 1);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setDialogOpen(true);
         setDropdownOpen(true);
+        setSheetOpen(true);
+        setPopoverOpen(true);
         toast(
           mode === "full" ? "Full motion toast" : "Reduced motion toast",
           { description: "Preview of the current motion mode.", duration: 3200 }
@@ -594,6 +603,71 @@ function MotionShowcase() {
                 </div>
               </DialogContent>
             </Dialog>
+          </div>
+
+          {/* Off-canvas sheet (mobile-style nav drawer) */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Off-canvas menu
+            </div>
+            <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
+              <SheetTrigger asChild>
+                <button
+                  data-testid="open-sheet"
+                  className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-white/5 transition-colors"
+                >
+                  Open menu drawer
+                </button>
+              </SheetTrigger>
+              <SheetContent side="left" data-testid="sheet-content">
+                <SheetHeader>
+                  <SheetTitle>Navigation</SheetTitle>
+                  <SheetDescription>
+                    Slide-in drawer used on mobile viewports.
+                  </SheetDescription>
+                </SheetHeader>
+                <nav className="mt-4 flex flex-col gap-1 text-sm">
+                  <a className="px-2 py-1.5 rounded hover:bg-white/5">Home</a>
+                  <a className="px-2 py-1.5 rounded hover:bg-white/5">Library</a>
+                  <a className="px-2 py-1.5 rounded hover:bg-white/5">Settings</a>
+                </nav>
+              </SheetContent>
+            </Sheet>
+          </div>
+
+          {/* Nested UI: popover containing an accordion */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28 relative">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Nested popover + accordion
+            </div>
+            <Popover open={popoverOpen} onOpenChange={setPopoverOpen}>
+              <PopoverTrigger asChild>
+                <button
+                  data-testid="open-popover"
+                  className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-white/5 transition-colors"
+                >
+                  Open popover
+                </button>
+              </PopoverTrigger>
+              <PopoverContent align="start" sideOffset={6} data-testid="popover-content">
+                <Accordion type="single" collapsible defaultValue="a">
+                  <AccordionItem value="a">
+                    <AccordionTrigger>Section A</AccordionTrigger>
+                    <AccordionContent>
+                      Nested collapsible inside a portaled popover.
+                    </AccordionContent>
+                  </AccordionItem>
+                  <AccordionItem value="b">
+                    <AccordionTrigger data-testid="accordion-b-trigger">
+                      Section B
+                    </AccordionTrigger>
+                    <AccordionContent data-testid="accordion-b-content">
+                      Expands and collapses with height animation.
+                    </AccordionContent>
+                  </AccordionItem>
+                </Accordion>
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
