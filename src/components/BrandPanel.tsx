@@ -1,8 +1,11 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play, Eye } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
 import { useMotion, EASINGS, TRANSITION_PRESETS, type EasingId, type TransitionPreset } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator } from "@/components/ui/dropdown-menu";
+import { toast } from "sonner";
 
 const PRESET_COLORS = [
   "#818cf8", "#67e8f9", "#c4b5fd", "#f472b6",
@@ -405,6 +408,8 @@ function MotionSection() {
             behaves like the reduced tile — try navigating between pages to verify.
           </p>
         </div>
+
+        <MotionShowcase />
       </div>
     </section>
   );
@@ -435,6 +440,169 @@ function PreviewTile({
         key={`orb-${replayKey}`}
         className="absolute bottom-2 right-2 w-6 h-6 rounded-full bg-primary/60 animate-orb-pulse"
       />
+    </div>
+  );
+}
+
+function MotionShowcase() {
+  const motion = useMotion();
+  const [mode, setMode] = useState<"full" | "reduced">("reduced");
+  const [replayKey, setReplayKey] = useState(0);
+  const [dialogOpen, setDialogOpen] = useState(false);
+  const [dropdownOpen, setDropdownOpen] = useState(false);
+
+  const easingVal =
+    EASINGS.find((e) => e.id === motion.easing)?.value ?? "cubic-bezier(0.2,0.8,0.2,1)";
+  const routeAnim =
+    motion.enabled && mode === "full"
+      ? `route-${motion.preset === "lift" ? "enter" : motion.preset} ${motion.duration}ms ${easingVal} both`
+      : "none";
+
+  const replay = () => {
+    // Reset everything, then reopen in the next frame so animations re-run.
+    setDialogOpen(false);
+    setDropdownOpen(false);
+    setReplayKey((k) => k + 1);
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => {
+        setDialogOpen(true);
+        setDropdownOpen(true);
+        toast(
+          mode === "full" ? "Full motion toast" : "Reduced motion toast",
+          { description: "Preview of the current motion mode.", duration: 3200 }
+        );
+      });
+    });
+  };
+
+  return (
+    <div className="rounded-lg border border-border bg-white/[0.03] p-4 space-y-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <div className="text-sm font-semibold flex items-center gap-2">
+            <Eye className="w-4 h-4 text-primary" />
+            Preview reduced motion
+          </div>
+          <p className="text-[11px] text-muted-foreground mt-0.5">
+            One screen showing modals, toasts, dropdowns, and route transitions.
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <div className="flex rounded-md border border-border overflow-hidden text-[11px]">
+            {(["reduced", "full"] as const).map((m) => (
+              <button
+                key={m}
+                onClick={() => setMode(m)}
+                className={`px-2.5 py-1 transition-colors ${
+                  mode === m
+                    ? "bg-primary/20 text-foreground"
+                    : "text-muted-foreground hover:text-foreground hover:bg-white/5"
+                }`}
+              >
+                {m === "reduced" ? "Reduced" : "Full"}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={replay}
+            className="flex items-center gap-1.5 text-xs px-2.5 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+          >
+            <Play className="w-3 h-3" /> Replay
+          </button>
+        </div>
+      </div>
+
+      <div
+        data-motion-preview={mode}
+        className="relative rounded-md border border-border bg-background/40 p-3"
+      >
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {/* Route transition demo */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Route transition
+            </div>
+            <div
+              key={`route-${replayKey}-${mode}`}
+              className="h-10 rounded-md bg-gradient-to-r from-primary/50 to-accent/50 border border-border"
+              style={{ animation: routeAnim }}
+            />
+            <div className="text-[10px] text-muted-foreground mt-2">
+              {motion.preset} · {motion.duration}ms · {motion.easing}
+            </div>
+          </div>
+
+          {/* Toast demo (rendered inline; a live sonner toast is also fired) */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Toast
+            </div>
+            <div
+              key={`toast-${replayKey}-${mode}`}
+              className="rounded-md border border-border bg-background/80 px-3 py-2 text-xs animate-in fade-in slide-in-from-bottom-2"
+            >
+              <div className="font-medium">Notification</div>
+              <div className="text-muted-foreground">Slides up with fade.</div>
+            </div>
+            <div className="text-[10px] text-muted-foreground mt-2">
+              Live sonner toast also fires on Replay.
+            </div>
+          </div>
+
+          {/* Dropdown demo */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28 relative">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Dropdown
+            </div>
+            <DropdownMenu open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <DropdownMenuTrigger asChild>
+                <button className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-white/5 transition-colors">
+                  Open menu
+                </button>
+              </DropdownMenuTrigger>
+              <DropdownMenuContent align="start" sideOffset={6}>
+                <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Rename</DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Duplicate</DropdownMenuItem>
+                <DropdownMenuItem onSelect={(e) => e.preventDefault()}>Archive</DropdownMenuItem>
+              </DropdownMenuContent>
+            </DropdownMenu>
+          </div>
+
+          {/* Modal demo */}
+          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28">
+            <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+              Modal
+            </div>
+            <button
+              onClick={() => setDialogOpen(true)}
+              className="px-3 py-1.5 text-xs rounded-md border border-border hover:bg-white/5 transition-colors"
+            >
+              Open dialog
+            </button>
+            <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+              <DialogContent className="sm:max-w-sm">
+                <DialogHeader>
+                  <DialogTitle>Preview dialog</DialogTitle>
+                  <DialogDescription>
+                    Shown so you can compare open/close animations in this mode.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="text-xs text-muted-foreground">
+                  Close and press <span className="text-foreground">Replay</span> to see it again.
+                </div>
+              </DialogContent>
+            </Dialog>
+          </div>
+        </div>
+      </div>
+
+      <p className="text-[11px] text-muted-foreground">
+        The <span className="text-foreground">Reduced</span> mode shows how the app
+        will behave with reduced motion enabled. Switch to{" "}
+        <span className="text-foreground">Full</span> to compare.
+      </p>
     </div>
   );
 }
