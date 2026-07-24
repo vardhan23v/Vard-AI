@@ -1,14 +1,14 @@
 import { test } from "@playwright/test";
-test("dbg", async ({ page }) => {
+test("dbg-seeded", async ({ page }) => {
+  await page.addInitScript(({ key, value }) => {
+    try { localStorage.setItem(key, value); } catch {}
+  }, { key: "vard-motion", value: JSON.stringify({ duration: 450, easing: "smooth", enabled: true, reducedMotion: "off", preset: "lift" }) });
   await page.goto("/settings");
   await page.waitForTimeout(1500);
-  const count = await page.getByTestId("dnd-drop").count();
-  const containers = await page.getByTestId("dnd-container").count();
-  console.log("drop btns:", count, "containers:", containers);
-  if (count > 0) {
-    await page.getByTestId("dnd-drop").first().click();
-    await page.waitForTimeout(300);
-    const slot = await page.getByTestId("dnd-container").first().getAttribute("data-slot-active");
-    console.log("slot after click:", slot);
-  }
+  const btn = page.getByTestId("dnd-drop");
+  console.log("visible:", await btn.isVisible().catch(() => "err"));
+  await btn.click({ trial: true }).then(() => console.log("trial ok")).catch(e => console.log("trial fail:", e.message.split("\n")[0]));
+  await btn.click({ force: true });
+  await page.waitForTimeout(400);
+  console.log("slot:", await page.getByTestId("dnd-container").getAttribute("data-slot-active"));
 });
