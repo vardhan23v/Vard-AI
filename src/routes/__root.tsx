@@ -16,6 +16,7 @@ import { reportLovableError } from "../lib/lovable-error-reporting";
 import { ThemeProvider, THEME_INIT_SCRIPT } from "../lib/theme";
 import { BrandProvider, BRAND_INIT_SCRIPT } from "../lib/brand";
 import { MotionProvider, MOTION_INIT_SCRIPT } from "../lib/motion";
+import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
   return (
@@ -292,6 +293,7 @@ function RootComponent() {
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
             </RouteTransition>
+            <Toaster />
           </MotionProvider>
         </BrandProvider>
       </ThemeProvider>
