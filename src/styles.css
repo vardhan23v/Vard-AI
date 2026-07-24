@@ -379,6 +379,29 @@ html[data-transition="blur"] .route-transition { animation-name: route-blur; }
   .route-transition { animation: none; }
 }
 
+/* Shared selector list for modal/overlay/toast animations that must respect
+ * the reduced-motion preference. Covers Radix (data-state open/closed on
+ * dialog, sheet, drawer, popover, alert-dialog, tooltip, hover-card, dropdown,
+ * context/menubar, select, accordion, collapsible, tabs, etc.), tw-animate-css
+ * utilities (animate-in / animate-out), and sonner toasts. */
+@media (prefers-reduced-motion: reduce) {
+  [data-state="open"],
+  [data-state="closed"],
+  [data-state="visible"],
+  [data-state="hidden"],
+  .animate-in,
+  .animate-out,
+  [data-sonner-toaster] *,
+  [data-sonner-toast],
+  [data-sonner-toast] * {
+    animation-duration: 0.001ms !important;
+    animation-delay: 0ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.001ms !important;
+    transition-delay: 0ms !important;
+  }
+}
+
 /* Reduced-motion overrides driven by user preference in Settings.
  * "on" = force reduced motion for the whole app (overrides OS).
  * "off" = keep animations even if the OS requests reduced motion.
@@ -392,6 +415,25 @@ html[data-reduced-motion="on"] *::after {
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
   scroll-behavior: auto !important;
+}
+/* Extra-specific overrides for modal/overlay/toast primitives so tw-animate-css
+ * enter/exit keyframes and sonner's inline transitions are neutralized even
+ * when their own selectors are more specific than the global `*` rule. */
+html[data-reduced-motion="on"] [data-state="open"],
+html[data-reduced-motion="on"] [data-state="closed"],
+html[data-reduced-motion="on"] [data-state="visible"],
+html[data-reduced-motion="on"] [data-state="hidden"],
+html[data-reduced-motion="on"] .animate-in,
+html[data-reduced-motion="on"] .animate-out,
+html[data-reduced-motion="on"] [data-sonner-toaster],
+html[data-reduced-motion="on"] [data-sonner-toaster] *,
+html[data-reduced-motion="on"] [data-sonner-toast],
+html[data-reduced-motion="on"] [data-sonner-toast] * {
+  animation-duration: 0.001ms !important;
+  animation-delay: 0ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  transition-delay: 0ms !important;
 }
 /* Scoped opt-out for the live preview so users can see the "full motion" side
  * even while reduced motion is globally forced on. */
