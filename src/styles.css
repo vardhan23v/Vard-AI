@@ -400,6 +400,29 @@ html[data-transition="blur"] .route-transition { animation-name: route-blur; }
     transition-duration: 0.001ms !important;
     transition-delay: 0ms !important;
   }
+  /* Loading indicators: stop spinners, pulses, shimmer, and custom ambient
+   * loops so the UI stays completely still. */
+  .animate-spin,
+  .animate-spin-slow,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping,
+  .animate-shimmer,
+  .animate-orb-pulse,
+  .animate-orb-spin,
+  .animate-orb-spin-rev,
+  .animate-wave,
+  .animate-ring,
+  .animate-float,
+  .animate-drift,
+  .animate-twinkle,
+  .animate-glow-pulse,
+  [data-slot="skeleton"],
+  [role="progressbar"] *,
+  [role="status"] * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Reduced-motion overrides driven by user preference in Settings.
