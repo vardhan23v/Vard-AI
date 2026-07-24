@@ -54,10 +54,13 @@ async function switchPreview(page: Page, mode: "reduced" | "full") {
   const btn = page.getByRole("button", { name: new RegExp(`^${label}$`) }).first();
   await btn.scrollIntoViewIfNeeded();
   await btn.click({ force: true });
-  await expect(page.locator("[data-motion-preview]").first()).toHaveAttribute(
-    "data-motion-preview",
-    mode,
-  );
+  // The tile is inside the MotionShowcase wrapper; assert on its
+  // enclosing scope (not the fixed side-by-side comparison tiles above).
+  await expect(
+    page
+      .getByTestId("toast-variants-tile")
+      .locator("xpath=ancestor::*[@data-motion-preview][1]"),
+  ).toHaveAttribute("data-motion-preview", mode);
 }
 
 test.describe("reduced-motion — toast variant tiles", () => {
