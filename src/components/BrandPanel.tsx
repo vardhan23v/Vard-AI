@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from "react";
 import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
-import { useMotion, EASINGS, type EasingId } from "@/lib/motion";
+import { useMotion, EASINGS, TRANSITION_PRESETS, type EasingId, type TransitionPreset } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
 
 const PRESET_COLORS = [
@@ -298,14 +298,36 @@ function MotionSection() {
         </div>
       </div>
 
+      <div className="space-y-2">
+        <label className="text-xs uppercase tracking-wider text-muted-foreground">Transition preset</label>
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+          {TRANSITION_PRESETS.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => motion.setPreset(p.id as TransitionPreset)}
+              disabled={!motion.enabled}
+              title={p.description}
+              className={`px-3 py-2 rounded-md text-xs border text-left transition-all disabled:opacity-40 ${
+                motion.preset === p.id
+                  ? "border-primary bg-primary/10 text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground hover:bg-white/5"
+              }`}
+            >
+              <div className="font-medium">{p.label}</div>
+              <div className="text-[10px] opacity-70 mt-0.5">{p.description}</div>
+            </button>
+          ))}
+        </div>
+      </div>
+
       <div className="rounded-lg border border-border bg-white/[0.03] p-4">
         <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">Preview</div>
         <div
-          key={`${motion.duration}-${motion.easing}-${motion.enabled}`}
+          key={`${motion.duration}-${motion.easing}-${motion.enabled}-${motion.preset}`}
           className="h-14 rounded-md bg-gradient-to-r from-primary/40 to-accent/40 border border-border"
           style={{
             animation: motion.enabled
-              ? `route-enter ${motion.duration}ms ${
+              ? `route-${motion.preset === "lift" ? "enter" : motion.preset} ${motion.duration}ms ${
                   EASINGS.find((x) => x.id === motion.easing)?.value ?? ""
                 } both`
               : "none",
