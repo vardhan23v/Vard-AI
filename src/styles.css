@@ -359,6 +359,46 @@ html[data-bg="grid"] body {
   .route-transition { animation: none; }
 }
 
+/* Reduced-motion overrides driven by user preference in Settings.
+ * "on" = force reduced motion for the whole app (overrides OS).
+ * "off" = keep animations even if the OS requests reduced motion.
+ * "system" = defer to the OS media query (handled above).
+ */
+html[data-reduced-motion="on"] .route-transition { animation: none !important; }
+html[data-reduced-motion="on"] *,
+html[data-reduced-motion="on"] *::before,
+html[data-reduced-motion="on"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+  scroll-behavior: auto !important;
+}
+/* Scoped opt-out for the live preview so users can see the "full motion" side
+ * even while reduced motion is globally forced on. */
+html[data-reduced-motion="on"] [data-motion-preview="full"],
+html[data-reduced-motion="on"] [data-motion-preview="full"] *,
+html[data-reduced-motion="on"] [data-motion-preview="full"] *::before,
+html[data-reduced-motion="on"] [data-motion-preview="full"] *::after {
+  animation-duration: revert !important;
+  animation-iteration-count: revert !important;
+  transition-duration: revert !important;
+}
+/* Off = respect OS "reduce" only when explicitly system; when off, ignore OS. */
+@media (prefers-reduced-motion: reduce) {
+  html[data-reduced-motion="off"] .route-transition {
+    animation: route-enter var(--route-duration, 0.45s) var(--route-ease, cubic-bezier(0.2, 0.8, 0.2, 1)) both;
+  }
+}
+/* Reduced side of the preview always demonstrates reduced-motion behavior. */
+[data-motion-preview="reduced"],
+[data-motion-preview="reduced"] *,
+[data-motion-preview="reduced"] *::before,
+[data-motion-preview="reduced"] *::after {
+  animation-duration: 0.001ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.001ms !important;
+}
+
 @utility tile-hover {
   transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
   &:hover {
