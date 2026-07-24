@@ -79,6 +79,11 @@ async function touchDragRight(page: Page, from: string, dx: number) {
     type: "touchStart",
     touchPoints: [{ x: start.x, y: start.y, id: 1 }],
   });
+  // Give React time to commit setDragging(true) + attach the window
+  // pointermove/up listeners inside the effect. Without this pause the
+  // subsequent touchMoves race the listener registration and the drop
+  // handler never runs.
+  await page.waitForTimeout(80);
   // Several intermediate move steps to look like a real finger drag.
   const steps = 8;
   for (let i = 1; i <= steps; i++) {
@@ -88,12 +93,26 @@ async function touchDragRight(page: Page, from: string, dx: number) {
         { x: start.x + (dx * i) / steps, y: start.y, id: 1 },
       ],
     });
-    await page.waitForTimeout(15);
+    await page.waitForTimeout(20);
   }
   await cdp.send("Input.dispatchTouchEvent", {
     type: "touchEnd",
     touchPoints: [],
   });
+  // Allow pointerup + React state flush (slot swap) to settle.
+  await page.waitForTimeout(80);
+}
+
+/**
+ * Deterministic touch drop: taps the dnd-drop button (real touch input
+ * via mobile viewport + hasTouch), which is the same React state path a
+ * finger drop crosses. Used as the primary swap trigger because raw
+ * touch drag through CDP is unreliable in headless mode.
+ */
+async function touchDropFallback(page: Page) {
+  const btn = page.getByTestId("dnd-drop");
+  await btn.scrollIntoViewIfNeeded();
+  await btn.tap();
 }
 
 // Mobile viewport with touch enabled — this is the whole point of the file.
@@ -127,17 +146,15 @@ test.describe("reduced-motion for drag-and-drop (touch)", () => {
     );
 
     // Real touch drag past the 40px threshold that triggers a slot swap.
+    // Best-effort in headless mode; the deterministic swap comes from the
+    // touch-tap fallback below.
     await touchDragRight(page, '[data-testid="dnd-chip"]', 120);
 
-    // The chip may or may not swap slots depending on CDP touch reliability
-    // in headless mode; if the drag didn't cross the threshold we fall back
-    // to the drop button (which is the same code path a screen-reader user
-    // hits). Either way the settle transition MUST be neutralized.
     const slot = await page
       .getByTestId("dnd-container")
       .getAttribute("data-slot-active");
     if (slot !== "b") {
-      await page.tap('[data-testid="dnd-drop"]');
+      await touchDropFallback(page);
     }
     await expect(page.getByTestId("dnd-container")).toHaveAttribute(
       "data-slot-active",
@@ -175,7 +192,7 @@ test.describe("reduced-motion for drag-and-drop (touch)", () => {
       .getByTestId("dnd-container")
       .getAttribute("data-slot-active");
     if (slot !== "b") {
-      await page.tap('[data-testid="dnd-drop"]');
+      await touchDropFallback(page);
     }
     await expect(page.getByTestId("dnd-container")).toHaveAttribute(
       "data-slot-active",
