@@ -38,7 +38,7 @@ async function seedMotion(page: Page, mode: "on" | "off") {
 async function switchPreview(page: Page, mode: "reduced" | "full") {
   const btn = page.getByTestId(`preview-mode-${mode}`);
   await btn.scrollIntoViewIfNeeded();
-  await page.waitForTimeout(200);
+  await page.waitForTimeout(400);
   await btn.click();
   await expect(page.getByTestId("motion-showcase-grid")).toHaveAttribute(
     "data-motion-preview",
