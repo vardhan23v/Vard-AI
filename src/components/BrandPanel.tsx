@@ -672,11 +672,111 @@ function MotionShowcase() {
         </div>
       </div>
 
+      {/* Drag & drop demo — snap-back transform transition on drop.
+          Rendered OUTSIDE the [data-motion-preview] wrapper so it reflects the
+          global reduced-motion setting (this is what real DnD in the app does). */}
+      <div className="rounded-md border border-border bg-white/[0.02] p-3">
+        <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
+          Drag &amp; drop
+        </div>
+        <DragDropDemo />
+      </div>
+
       <p className="text-[11px] text-muted-foreground">
         The <span className="text-foreground">Reduced</span> mode shows how the app
         will behave with reduced motion enabled. Switch to{" "}
         <span className="text-foreground">Full</span> to compare.
       </p>
+    </div>
+  );
+}
+
+function DragDropDemo() {
+  const [slot, setSlot] = useState<"a" | "b">("a");
+  const [dragging, setDragging] = useState(false);
+  const [offset, setOffset] = useState({ x: 0, y: 0 });
+  const startRef = useRef<{ x: number; y: number } | null>(null);
+  const offsetRef = useRef({ x: 0, y: 0 });
+
+  useEffect(() => {
+    if (!dragging) return;
+    const onMove = (e: PointerEvent) => {
+      if (!startRef.current) return;
+      const next = {
+        x: e.clientX - startRef.current.x,
+        y: e.clientY - startRef.current.y,
+      };
+      offsetRef.current = next;
+      setOffset(next);
+    };
+    const onUp = () => {
+      if (!startRef.current) return;
+      const dx = offsetRef.current.x;
+      startRef.current = null;
+      setDragging(false);
+      if (Math.abs(dx) > 40) setSlot((s) => (s === "a" ? "b" : "a"));
+      offsetRef.current = { x: 0, y: 0 };
+      setOffset({ x: 0, y: 0 });
+    };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+    window.addEventListener("pointercancel", onUp);
+    return () => {
+      window.removeEventListener("pointermove", onMove);
+      window.removeEventListener("pointerup", onUp);
+      window.removeEventListener("pointercancel", onUp);
+    };
+  }, [dragging]);
+
+  const onPointerDown = (e: React.PointerEvent<HTMLDivElement>) => {
+    startRef.current = { x: e.clientX, y: e.clientY };
+    offsetRef.current = { x: 0, y: 0 };
+    setDragging(true);
+  };
+
+  const chip = (
+    <div
+      data-testid="dnd-chip"
+      data-dragging={dragging ? "true" : "false"}
+      onPointerDown={onPointerDown}
+      style={{
+        transform: `translate(${offset.x}px, ${offset.y}px)`,
+        transition: dragging
+          ? "none"
+          : "transform 400ms cubic-bezier(0.2,0.8,0.2,1)",
+      }}
+      className="w-16 h-10 rounded-md bg-primary/60 border border-border cursor-grab active:cursor-grabbing touch-none select-none"
+    />
+  );
+
+  return (
+    <div className="space-y-2">
+      <div
+        className="flex items-stretch gap-3"
+        data-testid="dnd-container"
+        data-slot-active={slot}
+      >
+        <div
+          data-testid="dnd-slot-a"
+          className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+        >
+          {slot === "a" && chip}
+        </div>
+        <div
+          data-testid="dnd-slot-b"
+          className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+        >
+          {slot === "b" && chip}
+        </div>
+      </div>
+      <button
+        type="button"
+        data-testid="dnd-drop"
+        onClick={() => setSlot((s) => (s === "a" ? "b" : "a"))}
+        className="text-[11px] px-2 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
+      >
+        Drop into other slot
+      </button>
     </div>
   );
 }
