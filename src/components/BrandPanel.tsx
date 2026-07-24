@@ -453,6 +453,8 @@ function MotionShowcase() {
   const [replayKey, setReplayKey] = useState(0);
   const [dialogOpen, setDialogOpen] = useState(false);
   const [dropdownOpen, setDropdownOpen] = useState(false);
+  const [sheetOpen, setSheetOpen] = useState(false);
+  const [popoverOpen, setPopoverOpen] = useState(false);
 
   const easingVal =
     EASINGS.find((e) => e.id === motion.easing)?.value ?? "cubic-bezier(0.2,0.8,0.2,1)";
@@ -465,11 +467,15 @@ function MotionShowcase() {
     // Reset everything, then reopen in the next frame so animations re-run.
     setDialogOpen(false);
     setDropdownOpen(false);
+    setSheetOpen(false);
+    setPopoverOpen(false);
     setReplayKey((k) => k + 1);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => {
         setDialogOpen(true);
         setDropdownOpen(true);
+        setSheetOpen(true);
+        setPopoverOpen(true);
         toast(
           mode === "full" ? "Full motion toast" : "Reduced motion toast",
           { description: "Preview of the current motion mode.", duration: 3200 }
