@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play, Eye } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2, Accessibility, Play, Eye, CheckCircle2, XCircle, Loader2 } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
 import { useMotion, EASINGS, TRANSITION_PRESETS, type EasingId, type TransitionPreset } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
@@ -476,10 +476,10 @@ function MotionShowcase() {
         setDropdownOpen(true);
         setSheetOpen(true);
         setPopoverOpen(true);
-        toast(
-          mode === "full" ? "Full motion toast" : "Reduced motion toast",
-          { description: "Preview of the current motion mode.", duration: 3200 }
-        );
+        const d = mode === "full" ? 3200 : 2000;
+        toast.success("Saved", { description: "Changes synced.", duration: d });
+        toast.error("Failed", { description: "Retry in a moment.", duration: d });
+        toast.loading("Working…", { description: "Uploading file.", duration: d });
       });
     });
   };
@@ -501,6 +501,7 @@ function MotionShowcase() {
             {(["reduced", "full"] as const).map((m) => (
               <button
                 key={m}
+                data-testid={`preview-mode-${m}`}
                 onClick={() => setMode(m)}
                 className={`px-2.5 py-1 transition-colors ${
                   mode === m
@@ -541,20 +542,52 @@ function MotionShowcase() {
             </div>
           </div>
 
-          {/* Toast demo (rendered inline; a live sonner toast is also fired) */}
-          <div className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28">
+          {/* Toast variants demo — success / error / loading. Each inline card
+              replays entry animations; live sonner toasts also fire on Replay. */}
+          <div
+            className="rounded-md border border-border bg-white/[0.02] p-3 min-h-28"
+            data-testid="toast-variants-tile"
+          >
             <div className="text-[10px] uppercase tracking-wider text-muted-foreground mb-2">
-              Toast
+              Toast variants
             </div>
-            <div
-              key={`toast-${replayKey}-${mode}`}
-              className="rounded-md border border-border bg-background/80 px-3 py-2 text-xs animate-in fade-in slide-in-from-bottom-2"
-            >
-              <div className="font-medium">Notification</div>
-              <div className="text-muted-foreground">Slides up with fade.</div>
-            </div>
-            <div className="text-[10px] text-muted-foreground mt-2">
-              Live sonner toast also fires on Replay.
+            <div className="space-y-1.5">
+              <div
+                key={`toast-success-${replayKey}-${mode}`}
+                data-testid="toast-variant-success"
+                className="flex items-start gap-2 rounded-md border border-emerald-500/30 bg-emerald-500/10 px-2.5 py-1.5 text-xs animate-in fade-in slide-in-from-bottom-2"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Saved</div>
+                  <div className="text-muted-foreground">Changes synced.</div>
+                </div>
+              </div>
+              <div
+                key={`toast-error-${replayKey}-${mode}`}
+                data-testid="toast-variant-error"
+                className="flex items-start gap-2 rounded-md border border-red-500/30 bg-red-500/10 px-2.5 py-1.5 text-xs animate-in fade-in slide-in-from-bottom-2"
+              >
+                <XCircle className="w-3.5 h-3.5 text-red-400 mt-0.5 shrink-0" />
+                <div>
+                  <div className="font-medium">Failed</div>
+                  <div className="text-muted-foreground">Retry in a moment.</div>
+                </div>
+              </div>
+              <div
+                key={`toast-loading-${replayKey}-${mode}`}
+                data-testid="toast-variant-loading"
+                className="flex items-start gap-2 rounded-md border border-border bg-background/80 px-2.5 py-1.5 text-xs animate-in fade-in slide-in-from-bottom-2"
+              >
+                <Loader2
+                  data-testid="toast-variant-loading-spinner"
+                  className="w-3.5 h-3.5 text-primary mt-0.5 shrink-0 animate-spin"
+                />
+                <div>
+                  <div className="font-medium">Working…</div>
+                  <div className="text-muted-foreground">Uploading file.</div>
+                </div>
+              </div>
             </div>
           </div>
 
