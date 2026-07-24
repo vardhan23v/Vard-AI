@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
-import { Upload, Trash2, RotateCcw, Paintbrush } from "lucide-react";
+import { Upload, Trash2, RotateCcw, Paintbrush, Wand2 } from "lucide-react";
 import { useBrand, BACKGROUND_STYLES, type BackgroundStyle } from "@/lib/brand";
+import { useMotion, EASINGS, type EasingId } from "@/lib/motion";
 import { LogoCropper } from "./LogoCropper";
 
 const PRESET_COLORS = [
@@ -170,6 +171,8 @@ export function BrandPanel() {
           ))}
         </div>
       </section>
+
+      <MotionSection />
     </div>
     {pending && (
       <LogoCropper
