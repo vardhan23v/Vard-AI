@@ -750,23 +750,33 @@ function DragDropDemo() {
   );
 
   return (
-    <div
-      className="flex items-stretch gap-3"
-      data-testid="dnd-container"
-      data-slot-active={slot}
-    >
+    <div className="space-y-2">
       <div
-        data-testid="dnd-slot-a"
-        className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+        className="flex items-stretch gap-3"
+        data-testid="dnd-container"
+        data-slot-active={slot}
       >
-        {slot === "a" && chip}
+        <div
+          data-testid="dnd-slot-a"
+          className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+        >
+          {slot === "a" && chip}
+        </div>
+        <div
+          data-testid="dnd-slot-b"
+          className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+        >
+          {slot === "b" && chip}
+        </div>
       </div>
-      <div
-        data-testid="dnd-slot-b"
-        className="flex-1 h-20 rounded-md border border-dashed border-border flex items-center justify-center"
+      <button
+        type="button"
+        data-testid="dnd-drop"
+        onClick={() => setSlot((s) => (s === "a" ? "b" : "a"))}
+        className="text-[11px] px-2 py-1 rounded-md border border-border text-muted-foreground hover:text-foreground hover:bg-white/5 transition-colors"
       >
-        {slot === "b" && chip}
-      </div>
+        Drop into other slot
+      </button>
     </div>
   );
 }
