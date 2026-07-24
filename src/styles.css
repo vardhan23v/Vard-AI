@@ -400,6 +400,29 @@ html[data-transition="blur"] .route-transition { animation-name: route-blur; }
     transition-duration: 0.001ms !important;
     transition-delay: 0ms !important;
   }
+  /* Loading indicators: stop spinners, pulses, shimmer, and custom ambient
+   * loops so the UI stays completely still. */
+  .animate-spin,
+  .animate-spin-slow,
+  .animate-pulse,
+  .animate-bounce,
+  .animate-ping,
+  .animate-shimmer,
+  .animate-orb-pulse,
+  .animate-orb-spin,
+  .animate-orb-spin-rev,
+  .animate-wave,
+  .animate-ring,
+  .animate-float,
+  .animate-drift,
+  .animate-twinkle,
+  .animate-glow-pulse,
+  [data-slot="skeleton"],
+  [role="progressbar"] *,
+  [role="status"] * {
+    animation: none !important;
+    transition: none !important;
+  }
 }
 
 /* Reduced-motion overrides driven by user preference in Settings.
@@ -435,6 +458,28 @@ html[data-reduced-motion="on"] [data-sonner-toast] * {
   transition-duration: 0.001ms !important;
   transition-delay: 0ms !important;
 }
+/* Force-stop loading animations when reduced motion is set to "on". */
+html[data-reduced-motion="on"] .animate-spin,
+html[data-reduced-motion="on"] .animate-spin-slow,
+html[data-reduced-motion="on"] .animate-pulse,
+html[data-reduced-motion="on"] .animate-bounce,
+html[data-reduced-motion="on"] .animate-ping,
+html[data-reduced-motion="on"] .animate-shimmer,
+html[data-reduced-motion="on"] .animate-orb-pulse,
+html[data-reduced-motion="on"] .animate-orb-spin,
+html[data-reduced-motion="on"] .animate-orb-spin-rev,
+html[data-reduced-motion="on"] .animate-wave,
+html[data-reduced-motion="on"] .animate-ring,
+html[data-reduced-motion="on"] .animate-float,
+html[data-reduced-motion="on"] .animate-drift,
+html[data-reduced-motion="on"] .animate-twinkle,
+html[data-reduced-motion="on"] .animate-glow-pulse,
+html[data-reduced-motion="on"] [data-slot="skeleton"],
+html[data-reduced-motion="on"] [role="progressbar"] *,
+html[data-reduced-motion="on"] [role="status"] * {
+  animation: none !important;
+  transition: none !important;
+}
 /* Scoped opt-out for the live preview so users can see the "full motion" side
  * even while reduced motion is globally forced on. */
 html[data-reduced-motion="on"] [data-motion-preview="full"],
@@ -444,6 +489,28 @@ html[data-reduced-motion="on"] [data-motion-preview="full"] *::after {
   animation-duration: revert !important;
   animation-iteration-count: revert !important;
   transition-duration: revert !important;
+}
+/* Preview opt-out for loading indicators, so the "Full motion" preview keeps
+ * spinners/skeletons alive even under forced reduced motion. */
+html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-spin,
+html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-spin-slow,
+html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-pulse,
+html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-shimmer,
+html[data-reduced-motion="on"] [data-motion-preview="full"] [data-slot="skeleton"] {
+  animation: revert !important;
+}
+/* Reduced preview: neutralize loading animations regardless of global setting. */
+[data-motion-preview="reduced"] .animate-spin,
+[data-motion-preview="reduced"] .animate-spin-slow,
+[data-motion-preview="reduced"] .animate-pulse,
+[data-motion-preview="reduced"] .animate-bounce,
+[data-motion-preview="reduced"] .animate-ping,
+[data-motion-preview="reduced"] .animate-shimmer,
+[data-motion-preview="reduced"] [data-slot="skeleton"],
+[data-motion-preview="reduced"] [role="progressbar"] *,
+[data-motion-preview="reduced"] [role="status"] * {
+  animation: none !important;
+  transition: none !important;
 }
 /* Off = respect OS "reduce" only when explicitly system; when off, ignore OS. */
 @media (prefers-reduced-motion: reduce) {
