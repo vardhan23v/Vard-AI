@@ -501,6 +501,7 @@ function MotionShowcase() {
             {(["reduced", "full"] as const).map((m) => (
               <button
                 key={m}
+                data-testid={`preview-mode-${m}`}
                 onClick={() => setMode(m)}
                 className={`px-2.5 py-1 transition-colors ${
                   mode === m
