@@ -69,20 +69,22 @@ export function Sidebar() {
         </Link>
 
         <nav className="flex flex-col gap-1">
-          {mainNav.map((item) => {
+          {mainNav.map((item, i) => {
             const Icon = item.icon;
             const active = isActive(item);
             return (
               <Link
                 key={item.to}
                 to={item.to}
-                className={`flex items-center gap-3 px-2 py-2.5 rounded-lg transition-colors ${
+                data-active={active}
+                style={{ animationDelay: `${i * 40}ms` }}
+                className={`nav-item animate-slide-in-left flex items-center gap-3 px-2 py-2.5 rounded-lg ${
                   active
                     ? "bg-foreground/10 text-foreground"
                     : "text-muted-foreground hover:bg-foreground/5 hover:text-foreground"
                 }`}
               >
-                <Icon className="w-5 h-5 shrink-0" />
+                <Icon className={`w-5 h-5 shrink-0 transition-transform duration-300 ${active ? "text-primary" : "group-hover:scale-110"}`} />
                 <span className="hidden md:block text-sm font-medium">{item.label}</span>
               </Link>
             );
