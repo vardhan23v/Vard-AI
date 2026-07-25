@@ -6,22 +6,36 @@ type Msg = { role: "user" | "assistant"; content: string };
 export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
+  const [progress, setProgress] = useState<number | null>(null);
   const seededRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
 
   const send = (text: string) => {
     const t = text.trim();
     if (!t) return;
-    setMessages((m) => [
-      ...m,
-      { role: "user", content: t },
-      {
-        role: "assistant",
-        content:
-          "This is a placeholder response. Enable Lovable Cloud + Lovable AI to power real generation.",
-      },
-    ]);
+    setMessages((m) => [...m, { role: "user", content: t }]);
     setInput("");
+    setProgress(0);
+    const start = Date.now();
+    const duration = 2400;
+    const tick = () => {
+      const pct = Math.min(100, Math.round(((Date.now() - start) / duration) * 100));
+      setProgress(pct);
+      if (pct < 100) {
+        requestAnimationFrame(tick);
+      } else {
+        setMessages((m) => [
+          ...m,
+          {
+            role: "assistant",
+            content:
+              "This is a placeholder response. Enable Lovable Cloud + Lovable AI to power real generation.",
+          },
+        ]);
+        setTimeout(() => setProgress(null), 400);
+      }
+    };
+    requestAnimationFrame(tick);
   };
 
   useEffect(() => {
@@ -34,7 +48,7 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
 
   useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messages]);
+  }, [messages, progress]);
 
   return (
     <div className="flex flex-col h-screen max-w-3xl w-full mx-auto">
@@ -57,6 +71,22 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
             </div>
           </div>
         ))}
+        {progress !== null && (
+          <div className="flex justify-start" aria-live="polite">
+            <div className="max-w-[85%] w-72 rounded-2xl px-4 py-3 bg-card border border-border">
+              <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
+                <span>Generating…</span>
+                <span className="tabular-nums font-medium text-foreground">{progress}%</span>
+              </div>
+              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+                <div
+                  className="h-full bg-primary transition-[width] duration-100 ease-linear"
+                  style={{ width: `${progress}%` }}
+                />
+              </div>
+            </div>
+          </div>
+        )}
         <div ref={endRef} />
       </div>
       <div className="border-t border-border p-4">
