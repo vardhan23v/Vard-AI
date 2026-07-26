@@ -102,9 +102,20 @@ export function ChatWindow({
   return (
     <div className="flex flex-col h-screen max-w-3xl w-full mx-auto">
       <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6">
-        {messages.length === 0 && (
-          <div className="text-center text-muted-foreground text-sm mt-16">
-            Start the conversation.
+        {messages.length === 0 && progress === null && (
+          <div className="text-center text-muted-foreground text-sm mt-16 space-y-3">
+            <p>Start the conversation.</p>
+            {lastPrompt && (
+              <button
+                onClick={() => send(lastPrompt)}
+                type="button"
+                aria-label="Regenerate last prompt"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium px-3 py-1.5 transition-colors"
+              >
+                <RefreshCw className="w-3 h-3" />
+                Regenerate last prompt
+              </button>
+            )}
           </div>
         )}
         {messages.map((m, i) => (
