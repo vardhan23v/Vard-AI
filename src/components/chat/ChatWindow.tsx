@@ -118,9 +118,25 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
                   style={{ width: `${progress}%` }}
                 />
               </div>
+              <button
+                onClick={stopGeneration}
+                type="button"
+                aria-label="Stop response generation"
+                className="mt-3 w-full flex items-center justify-center gap-2 rounded-lg bg-muted hover:bg-muted/80 text-muted-foreground text-xs font-medium py-1.5 transition-colors"
+              >
+                <Square className="w-3 h-3 fill-current" />
+                Stop generating
+              </button>
               <span className="sr-only">
                 Response generation is {progress}% complete.
               </span>
+            </div>
+          </div>
+        )}
+        {wasCancelled && progress === null && (
+          <div className="flex justify-start" role="status" aria-live="polite">
+            <div className="max-w-[85%] rounded-2xl px-4 py-2 text-xs text-muted-foreground bg-muted/50 border border-border">
+              Generation stopped.
             </div>
           </div>
         )}
@@ -134,20 +150,36 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.shiftKey) {
                 e.preventDefault();
-                send(input);
+                if (progress !== null) {
+                  stopGeneration();
+                } else {
+                  send(input);
+                }
               }
             }}
             rows={1}
-            className="flex-1 bg-transparent text-foreground placeholder-muted-foreground resize-none outline-none py-2 text-sm"
-            placeholder="Reply..."
+            disabled={progress !== null}
+            className="flex-1 bg-transparent text-foreground placeholder-muted-foreground resize-none outline-none py-2 text-sm disabled:opacity-60"
+            placeholder={progress !== null ? "Generating response…" : "Reply..."}
           />
-          <button
-            onClick={() => send(input)}
-            aria-label="Send"
-            className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-110 transition-all shrink-0"
-          >
-            <Send className="w-4 h-4" />
-          </button>
+          {progress !== null ? (
+            <button
+              onClick={stopGeneration}
+              type="button"
+              aria-label="Stop response generation"
+              className="w-9 h-9 rounded-full bg-destructive text-destructive-foreground flex items-center justify-center hover:brightness-110 transition-all shrink-0"
+            >
+              <Square className="w-4 h-4 fill-current" />
+            </button>
+          ) : (
+            <button
+              onClick={() => send(input)}
+              aria-label="Send"
+              className="w-9 h-9 rounded-full bg-primary text-primary-foreground flex items-center justify-center hover:brightness-110 transition-all shrink-0"
+            >
+              <Send className="w-4 h-4" />
+            </button>
+          )}
         </div>
       </div>
     </div>
