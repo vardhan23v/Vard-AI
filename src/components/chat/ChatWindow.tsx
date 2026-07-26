@@ -3,7 +3,15 @@ import { Send, Square, RefreshCw } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
-export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
+const LP_PREFIX = "vard-ai:lastPrompt:";
+
+export function ChatWindow({
+  initialPrompt,
+  threadId = "default",
+}: {
+  initialPrompt?: string;
+  threadId?: string;
+}) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
@@ -13,6 +21,16 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
   const endRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
   const startRef = useRef<number>(0);
+
+  const storageKey = `${LP_PREFIX}${threadId}`;
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    try {
+      const saved = window.localStorage.getItem(storageKey);
+      if (saved) setLastPrompt(saved);
+    } catch {}
+  }, [storageKey]);
 
   const stopGeneration = () => {
     if (rafRef.current !== null) {
@@ -28,6 +46,9 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
     if (!t) return;
     setMessages((m) => [...m, { role: "user", content: t }]);
     setLastPrompt(t);
+    try {
+      window.localStorage.setItem(storageKey, t);
+    } catch {}
     setInput("");
     setWasCancelled(false);
     setProgress(0);
