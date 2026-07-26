@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send } from "lucide-react";
+import { Send, Square } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
@@ -7,23 +7,38 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
   const [messages, setMessages] = useState<Msg[]>([]);
   const [input, setInput] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
+  const [wasCancelled, setWasCancelled] = useState(false);
   const seededRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
+  const rafRef = useRef<number | null>(null);
+  const startRef = useRef<number>(0);
+
+  const stopGeneration = () => {
+    if (rafRef.current !== null) {
+      cancelAnimationFrame(rafRef.current);
+      rafRef.current = null;
+    }
+    setProgress(null);
+    setWasCancelled(true);
+  };
 
   const send = (text: string) => {
     const t = text.trim();
     if (!t) return;
     setMessages((m) => [...m, { role: "user", content: t }]);
     setInput("");
+    setWasCancelled(false);
     setProgress(0);
     const start = Date.now();
+    startRef.current = start;
     const duration = 2400;
     const tick = () => {
-      const pct = Math.min(100, Math.round(((Date.now() - start) / duration) * 100));
+      const pct = Math.min(100, Math.round(((Date.now() - startRef.current) / duration) * 100));
       setProgress(pct);
       if (pct < 100) {
-        requestAnimationFrame(tick);
+        rafRef.current = requestAnimationFrame(tick);
       } else {
+        rafRef.current = null;
         setMessages((m) => [
           ...m,
           {
@@ -35,7 +50,7 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
         setTimeout(() => setProgress(null), 400);
       }
     };
-    requestAnimationFrame(tick);
+    rafRef.current = requestAnimationFrame(tick);
   };
 
   useEffect(() => {
