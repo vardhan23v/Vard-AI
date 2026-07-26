@@ -27,6 +27,7 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
     const t = text.trim();
     if (!t) return;
     setMessages((m) => [...m, { role: "user", content: t }]);
+    setLastPrompt(t);
     setInput("");
     setWasCancelled(false);
     setProgress(0);
