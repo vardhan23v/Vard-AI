@@ -148,8 +148,19 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
         )}
         {wasCancelled && progress === null && (
           <div className="flex justify-start" role="status" aria-live="polite">
-            <div className="max-w-[85%] rounded-2xl px-4 py-2 text-xs text-muted-foreground bg-muted/50 border border-border">
-              Generation stopped.
+            <div className="max-w-[85%] rounded-2xl px-4 py-3 bg-muted/50 border border-border">
+              <p className="text-xs text-muted-foreground mb-2">Generation stopped.</p>
+              {lastPrompt && (
+                <button
+                  onClick={() => send(lastPrompt)}
+                  type="button"
+                  aria-label="Regenerate response for last prompt"
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-primary/10 hover:bg-primary/20 text-primary text-xs font-medium px-3 py-1.5 transition-colors"
+                >
+                  <RefreshCw className="w-3 h-3" />
+                  Regenerate
+                </button>
+              )}
             </div>
           </div>
         )}
