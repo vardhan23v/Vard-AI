@@ -17,5 +17,6 @@ export const Route = createFileRoute("/dashboard/chat")({
 
 function ChatPage() {
   const { q } = Route.useSearch();
-  return <ChatWindow initialPrompt={q} />;
+  const threadId = q ? `q:${q}` : "default";
+  return <ChatWindow initialPrompt={q} threadId={threadId} />;
 }
