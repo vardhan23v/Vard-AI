@@ -72,18 +72,40 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
           </div>
         ))}
         {progress !== null && (
-          <div className="flex justify-start" aria-live="polite">
+          <div
+            className="flex justify-start"
+            role="status"
+            aria-live="polite"
+            aria-atomic="true"
+            aria-busy="true"
+            aria-label="Assistant is generating a response"
+          >
             <div className="max-w-[85%] w-72 rounded-2xl px-4 py-3 bg-card border border-border">
               <div className="flex items-center justify-between text-xs text-muted-foreground mb-2">
-                <span>Generating…</span>
-                <span className="tabular-nums font-medium text-foreground">{progress}%</span>
+                <span id="generation-label">Generating…</span>
+                <span
+                  className="tabular-nums font-medium text-foreground"
+                  aria-describedby="generation-label"
+                >
+                  {progress}%
+                </span>
               </div>
-              <div className="h-1.5 w-full rounded-full bg-muted overflow-hidden">
+              <div
+                className="h-1.5 w-full rounded-full bg-muted overflow-hidden"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={progress}
+                aria-label="Response generation progress"
+              >
                 <div
                   className="h-full bg-primary transition-[width] duration-100 ease-linear"
                   style={{ width: `${progress}%` }}
                 />
               </div>
+              <span className="sr-only">
+                Response generation is {progress}% complete.
+              </span>
             </div>
           </div>
         )}
