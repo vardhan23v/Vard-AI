@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from "react";
-import { Send, Square } from "lucide-react";
+import { Send, Square, RefreshCw } from "lucide-react";
 
 type Msg = { role: "user" | "assistant"; content: string };
 
