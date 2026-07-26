@@ -62,6 +62,17 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
   }, [initialPrompt]);
 
   useEffect(() => {
+    const onKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && progress !== null) {
+        e.preventDefault();
+        stopGeneration();
+      }
+    };
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [progress]);
+
+  useEffect(() => {
     endRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, progress]);
 
