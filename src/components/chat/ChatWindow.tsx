@@ -8,6 +8,7 @@ export function ChatWindow({ initialPrompt }: { initialPrompt?: string }) {
   const [input, setInput] = useState("");
   const [progress, setProgress] = useState<number | null>(null);
   const [wasCancelled, setWasCancelled] = useState(false);
+  const [lastPrompt, setLastPrompt] = useState("");
   const seededRef = useRef(false);
   const endRef = useRef<HTMLDivElement>(null);
   const rafRef = useRef<number | null>(null);
