@@ -161,6 +161,7 @@ function Home() {
             </Link>
             <Link
               to="/login"
+              search={{ next: "" }}
               className="group flex items-center gap-2 px-6 py-3 rounded-full border border-primary/40 text-foreground hover:bg-card hover:scale-105 transition-all"
             >
               <Sparkles className="w-4 h-4 text-primary group-hover:rotate-12 transition-transform" />

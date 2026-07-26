@@ -114,6 +114,7 @@ export function Sidebar() {
         })}
         <Link
           to="/login"
+          search={{ next: "" }}
           className="flex items-center gap-3 px-2 py-2.5 rounded-lg text-muted-foreground hover:bg-foreground/5 hover:text-foreground transition-colors mt-4 border-t border-border pt-6"
         >
           <SquareUserRound className="w-5 h-5 shrink-0" />
