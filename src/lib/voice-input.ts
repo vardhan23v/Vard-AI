@@ -91,7 +91,19 @@ export function useVoiceInput(onTranscript: (text: string) => void) {
     try {
       const fd = new FormData();
       fd.append("file", blob, "recording.wav");
-      const res = await fetch("/api/transcribe", { method: "POST", body: fd });
+      const { supabase } = await import("@/integrations/supabase/client");
+      const { data: sess } = await supabase.auth.getSession();
+      const token = sess.session?.access_token;
+      if (!token) {
+        setStatus("idle");
+        setError("Please sign in to use voice input.");
+        return;
+      }
+      const res = await fetch("/api/transcribe", {
+        method: "POST",
+        body: fd,
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!res.ok || !res.body) {
         throw new Error((await res.text().catch(() => "")) || `HTTP ${res.status}`);
       }
