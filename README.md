@@ -192,15 +192,38 @@ Key test files:
 
 ## Deployment
 
-This project is developed in [Lovable](https://lovable.dev). To sync to GitHub:
+### Sync from Lovable to GitHub
+
+This project is developed in [Lovable](https://lovable.dev). To push it to your GitHub repo (`https://github.com/vardhan23v/Vard-AI.git`):
 
 1. Open the Lovable editor.
-2. Click the **+ (Plus)** menu in the chat input.
+2. Click the **+ (Plus)** menu in the chat input (bottom left).
 3. Select **GitHub → Connect project**.
-4. Authorize the Lovable GitHub App and choose your account/organization.
-5. Click **Create Repository** to push the current project code.
+4. Authorize the Lovable GitHub App.
+5. Choose your GitHub account/organization.
+6. Click **Create Repository** — Lovable will create a new repo and push the current project code.
 
-For self-hosting, the TanStack Start output can be deployed to any platform that supports Vite 7 + edge/serverless runtimes.
+> **Note:** Lovable always creates a **new** repository. It cannot overwrite or merge directly into the existing `Vard-AI` Turbo monorepo. After the new repo is created, you can either keep it separate or merge it into the existing monorepo manually.
+
+### Merge into the existing `Vard-AI` monorepo
+
+If you want this Lovable project inside your existing Turbo repo:
+
+1. Clone the new repo Lovable created.
+2. Copy its contents into a new folder inside `Vard-AI`, e.g. `apps/vard-ai-lovable`.
+3. Add the new folder to your root `pnpm-workspace.yaml`:
+   ```yaml
+   packages:
+     - 'apps/*'
+     - 'packages/*'
+   ```
+4. Run `pnpm install` from the monorepo root.
+5. Commit and push to `Vard-AI`.
+
+### Self-hosting
+
+The TanStack Start output can be deployed to any platform that supports Vite 7 + edge/serverless runtimes. Environment variables for backend secrets must be configured in the hosting environment.
+
 
 ---
 
