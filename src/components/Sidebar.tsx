@@ -15,6 +15,7 @@ import {
   FileText,
   Mic,
   Command,
+  Info,
 } from "lucide-react";
 import type { ComponentType } from "react";
 import { ThemeSwitcher } from "./ThemeSwitcher";
@@ -45,6 +46,7 @@ const mainNav: NavItem[] = [
 
 const bottomNav: NavItem[] = [
   { to: "/settings", label: "Settings", icon: Settings },
+  { to: "/about", label: "About", icon: Info },
 ];
 
 export function Sidebar() {
