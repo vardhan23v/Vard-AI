@@ -3,7 +3,9 @@
 Vard AI is a personal, voice-first AI assistant inspired by the cinematic feel of Jarvis and the everyday utility of Siri. Built with **TanStack Start**, **React 19**, **TypeScript**, and **Tailwind CSS v4**, it delivers a fast, immersive chat experience with persistent memory, custom branding, and a modular tool system.
 
 > **Live preview:** [https://id-preview--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app](https://id-preview--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app)  
-> **Published site:** [https://vard-ai.lovable.app](https://vard-ai.lovable.app)
+> **Published site:** [https://vard-ai.lovable.app](https://vard-ai.lovable.app)  
+> **GitHub repo:** [https://github.com/vardhan23v/Vard-AI.git](https://github.com/vardhan23v/Vard-AI.git)
+
 
 ---
 
