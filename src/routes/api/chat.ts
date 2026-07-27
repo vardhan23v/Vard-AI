@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { requireAuthedRequest } from "@/lib/require-auth.server";
 
 type ChatMessage = { role: "user" | "assistant" | "system"; content: string };
 
@@ -6,6 +7,8 @@ export const Route = createFileRoute("/api/chat")({
   server: {
     handlers: {
       POST: async ({ request }) => {
+        const unauth = await requireAuthedRequest(request);
+        if (unauth) return unauth;
         const key = process.env.GROQ_API_KEY;
         if (!key) return new Response("Missing GROQ_API_KEY", { status: 500 });
 
