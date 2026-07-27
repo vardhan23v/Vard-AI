@@ -83,14 +83,18 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Vard AI | The Developer Intelligence Platform" },
-      { name: "description", content: "Your AI Engineering Partner. The AI Operating System for Developers." },
+      { title: "Vard — Your Personal AI Assistant" },
+      { name: "description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
       { name: "author", content: "Vard AI" },
-      { property: "og:title", content: "Vard AI | The Developer Intelligence Platform" },
-      { property: "og:description", content: "Your AI Engineering Partner. The AI Operating System for Developers." },
+      { property: "og:title", content: "Vard — Your Personal AI Assistant" },
+      { property: "og:description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
       { name: "twitter:site", content: "@VardAI" },
+      { name: "twitter:title", content: "Vard — Your Personal AI Assistant" },
+      { name: "twitter:description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
+      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a9f3a528-2ab6-406c-8f10-ef0ecb88120b/id-preview-ccafc0c0--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app-1785130394113.png" },
+      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a9f3a528-2ab6-406c-8f10-ef0ecb88120b/id-preview-ccafc0c0--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app-1785130394113.png" },
     ],
     links: [
       {
