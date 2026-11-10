@@ -1,21 +1,18 @@
 # Routes
 
-TanStack Start uses **file-based routing**. Every `.tsx` file in this directory
-defines a route. Do **not** create `src/pages/`, `src/routes/_app/index.tsx`, or
-`app/layout.tsx` — those are Next.js / Remix conventions. The only root layout
-is `src/routes/__root.tsx`.
+File-based routes for [TanStack Router](https://tanstack.com/router) (SPA). The Vite plugin generates `src/routeTree.gen.ts`; don't edit it by hand.
 
-## Conventions
+| File | URL | Notes |
+|---|---|---|
+| `__root.tsx` | — | Providers, error and 404 pages; keep `<Outlet />` |
+| `index.tsx` | `/` | Redirects to `/chat` |
+| `login.tsx` | `/login` | Google and email sign-in |
+| `chat.tsx` | `/chat/*` | App shell with the chat list (signed in only) |
+| `chat.index.tsx` | `/chat` | New chat |
+| `chat.$conversationId.tsx` | `/chat/:id` | A conversation |
+| `projects.tsx` | `/projects/*` | App shell with the project list (signed in only) |
+| `projects.index.tsx` | `/projects` | Add a project |
+| `projects.$projectId.tsx` | `/projects/:id?task=…` | Tasks and the task view |
+| `settings.tsx`, `settings.index.tsx` | `/settings` | Keys, appearance, agent status |
 
-| File | URL |
-| --- | --- |
-| `index.tsx` | `/` |
-| `about.tsx` | `/about` |
-| `users/index.tsx` | `/users` |
-| `users/$id.tsx` | `/users/:id` (dynamic — bare `$`, no curly braces) |
-| `posts/{-$category}.tsx` | `/posts/:category?` (optional segment) |
-| `files/$.tsx` | `/files/*` (splat — read via `_splat` param, never `*`) |
-| `_layout.tsx` | layout route (renders children via `<Outlet />`) |
-| `__root.tsx` | app shell — wraps every page; preserve `<Outlet />` |
-
-`routeTree.gen.ts` is auto-generated. Don't edit it by hand.
+Signed-in sections use the `requireAuth` guard from `src/lib/guard.ts` in `beforeLoad`.
