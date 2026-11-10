@@ -9,60 +9,25 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as VoiceRouteImport } from './routes/voice'
-import { Route as ShortcutsRouteImport } from './routes/shortcuts'
 import { Route as SettingsRouteImport } from './routes/settings'
-import { Route as PersonalityRouteImport } from './routes/personality'
-import { Route as MemoryRouteImport } from './routes/memory'
-import { Route as McpRouteImport } from './routes/mcp'
+import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
-import { Route as LibraryRouteImport } from './routes/library'
-import { Route as IntegrationsRouteImport } from './routes/integrations'
-import { Route as HistoryRouteImport } from './routes/history'
-import { Route as DocumentsRouteImport } from './routes/documents'
-import { Route as DashboardRouteImport } from './routes/dashboard'
-import { Route as AutomationsRouteImport } from './routes/automations'
-import { Route as AnalyticsRouteImport } from './routes/analytics'
-import { Route as AboutRouteImport } from './routes/about'
+import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DashboardIndexRouteImport } from './routes/dashboard.index'
-import { Route as DashboardChatRouteImport } from './routes/dashboard.chat'
-import { Route as DashboardAgentsRouteImport } from './routes/dashboard.agents'
-import { Route as ApiTranscribeRouteImport } from './routes/api/transcribe'
-import { Route as ApiChatRouteImport } from './routes/api/chat'
-import { Route as Char91DotwellKnownChar93OauthProtectedResourceRouteImport } from './routes/[.well-known]/oauth-protected-resource'
-import { Route as Char91DotmcpChar93ListToolsRouteImport } from './routes/[.mcp]/list-tools'
-import { Route as Char91DotmcpChar93InvokeToolToolRouteImport } from './routes/[.mcp]/invoke-tool/$tool'
-import { Route as DotlovableOauthConsentRouteImport } from './routes/[.]lovable.oauth.consent'
+import { Route as SettingsIndexRouteImport } from './routes/settings.index'
+import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
+import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
+import { Route as ChatConversationIdRouteImport } from './routes/chat.$conversationId'
 
-const VoiceRoute = VoiceRouteImport.update({
-  id: '/voice',
-  path: '/voice',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const ShortcutsRoute = ShortcutsRouteImport.update({
-  id: '/shortcuts',
-  path: '/shortcuts',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
-const PersonalityRoute = PersonalityRouteImport.update({
-  id: '/personality',
-  path: '/personality',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const MemoryRoute = MemoryRouteImport.update({
-  id: '/memory',
-  path: '/memory',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const McpRoute = McpRouteImport.update({
-  id: '/mcp',
-  path: '/mcp',
+const ProjectsRoute = ProjectsRouteImport.update({
+  id: '/projects',
+  path: '/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LoginRoute = LoginRouteImport.update({
@@ -70,44 +35,9 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
-const LibraryRoute = LibraryRouteImport.update({
-  id: '/library',
-  path: '/library',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const IntegrationsRoute = IntegrationsRouteImport.update({
-  id: '/integrations',
-  path: '/integrations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const HistoryRoute = HistoryRouteImport.update({
-  id: '/history',
-  path: '/history',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DocumentsRoute = DocumentsRouteImport.update({
-  id: '/documents',
-  path: '/documents',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DashboardRoute = DashboardRouteImport.update({
-  id: '/dashboard',
-  path: '/dashboard',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AutomationsRoute = AutomationsRouteImport.update({
-  id: '/automations',
-  path: '/automations',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AnalyticsRoute = AnalyticsRouteImport.update({
-  id: '/analytics',
-  path: '/analytics',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AboutRoute = AboutRouteImport.update({
-  id: '/about',
-  path: '/about',
+const ChatRoute = ChatRouteImport.update({
+  id: '/chat',
+  path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
 const IndexRoute = IndexRouteImport.update({
@@ -115,260 +45,112 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
-const DashboardIndexRoute = DashboardIndexRouteImport.update({
+const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => DashboardRoute,
+  getParentRoute: () => SettingsRoute,
 } as any)
-const DashboardChatRoute = DashboardChatRouteImport.update({
-  id: '/chat',
-  path: '/chat',
-  getParentRoute: () => DashboardRoute,
+const ProjectsIndexRoute = ProjectsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectsRoute,
 } as any)
-const DashboardAgentsRoute = DashboardAgentsRouteImport.update({
-  id: '/agents',
-  path: '/agents',
-  getParentRoute: () => DashboardRoute,
+const ChatIndexRoute = ChatIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ChatRoute,
 } as any)
-const ApiTranscribeRoute = ApiTranscribeRouteImport.update({
-  id: '/api/transcribe',
-  path: '/api/transcribe',
-  getParentRoute: () => rootRouteImport,
+const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
+  id: '/$projectId',
+  path: '/$projectId',
+  getParentRoute: () => ProjectsRoute,
 } as any)
-const ApiChatRoute = ApiChatRouteImport.update({
-  id: '/api/chat',
-  path: '/api/chat',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const Char91DotwellKnownChar93OauthProtectedResourceRoute =
-  Char91DotwellKnownChar93OauthProtectedResourceRouteImport.update({
-    id: '/.well-known/oauth-protected-resource',
-    path: '/.well-known/oauth-protected-resource',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotmcpChar93ListToolsRoute =
-  Char91DotmcpChar93ListToolsRouteImport.update({
-    id: '/.mcp/list-tools',
-    path: '/.mcp/list-tools',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const Char91DotmcpChar93InvokeToolToolRoute =
-  Char91DotmcpChar93InvokeToolToolRouteImport.update({
-    id: '/.mcp/invoke-tool/$tool',
-    path: '/.mcp/invoke-tool/$tool',
-    getParentRoute: () => rootRouteImport,
-  } as any)
-const DotlovableOauthConsentRoute = DotlovableOauthConsentRouteImport.update({
-  id: '/.lovable/oauth/consent',
-  path: '/.lovable/oauth/consent',
-  getParentRoute: () => rootRouteImport,
+const ChatConversationIdRoute = ChatConversationIdRouteImport.update({
+  id: '/$conversationId',
+  path: '/$conversationId',
+  getParentRoute: () => ChatRoute,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/analytics': typeof AnalyticsRoute
-  '/automations': typeof AutomationsRoute
-  '/dashboard': typeof DashboardRouteWithChildren
-  '/documents': typeof DocumentsRoute
-  '/history': typeof HistoryRoute
-  '/integrations': typeof IntegrationsRoute
-  '/library': typeof LibraryRoute
+  '/chat': typeof ChatRouteWithChildren
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
-  '/memory': typeof MemoryRoute
-  '/personality': typeof PersonalityRoute
-  '/settings': typeof SettingsRoute
-  '/shortcuts': typeof ShortcutsRoute
-  '/voice': typeof VoiceRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/dashboard/agents': typeof DashboardAgentsRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard/': typeof DashboardIndexRoute
-  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/projects': typeof ProjectsRouteWithChildren
+  '/settings': typeof SettingsRouteWithChildren
+  '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/chat/': typeof ChatIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/analytics': typeof AnalyticsRoute
-  '/automations': typeof AutomationsRoute
-  '/documents': typeof DocumentsRoute
-  '/history': typeof HistoryRoute
-  '/integrations': typeof IntegrationsRoute
-  '/library': typeof LibraryRoute
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
-  '/memory': typeof MemoryRoute
-  '/personality': typeof PersonalityRoute
-  '/settings': typeof SettingsRoute
-  '/shortcuts': typeof ShortcutsRoute
-  '/voice': typeof VoiceRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/dashboard/agents': typeof DashboardAgentsRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard': typeof DashboardIndexRoute
-  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/chat': typeof ChatIndexRoute
+  '/projects': typeof ProjectsIndexRoute
+  '/settings': typeof SettingsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/about': typeof AboutRoute
-  '/analytics': typeof AnalyticsRoute
-  '/automations': typeof AutomationsRoute
-  '/dashboard': typeof DashboardRouteWithChildren
-  '/documents': typeof DocumentsRoute
-  '/history': typeof HistoryRoute
-  '/integrations': typeof IntegrationsRoute
-  '/library': typeof LibraryRoute
+  '/chat': typeof ChatRouteWithChildren
   '/login': typeof LoginRoute
-  '/mcp': typeof McpRoute
-  '/memory': typeof MemoryRoute
-  '/personality': typeof PersonalityRoute
-  '/settings': typeof SettingsRoute
-  '/shortcuts': typeof ShortcutsRoute
-  '/voice': typeof VoiceRoute
-  '/.mcp/list-tools': typeof Char91DotmcpChar93ListToolsRoute
-  '/.well-known/oauth-protected-resource': typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  '/api/chat': typeof ApiChatRoute
-  '/api/transcribe': typeof ApiTranscribeRoute
-  '/dashboard/agents': typeof DashboardAgentsRoute
-  '/dashboard/chat': typeof DashboardChatRoute
-  '/dashboard/': typeof DashboardIndexRoute
-  '/.lovable/oauth/consent': typeof DotlovableOauthConsentRoute
-  '/.mcp/invoke-tool/$tool': typeof Char91DotmcpChar93InvokeToolToolRoute
+  '/projects': typeof ProjectsRouteWithChildren
+  '/settings': typeof SettingsRouteWithChildren
+  '/chat/$conversationId': typeof ChatConversationIdRoute
+  '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/chat/': typeof ChatIndexRoute
+  '/projects/': typeof ProjectsIndexRoute
+  '/settings/': typeof SettingsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/about'
-    | '/analytics'
-    | '/automations'
-    | '/dashboard'
-    | '/documents'
-    | '/history'
-    | '/integrations'
-    | '/library'
+    | '/chat'
     | '/login'
-    | '/mcp'
-    | '/memory'
-    | '/personality'
+    | '/projects'
     | '/settings'
-    | '/shortcuts'
-    | '/voice'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/dashboard/agents'
-    | '/dashboard/chat'
-    | '/dashboard/'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
+    | '/chat/$conversationId'
+    | '/projects/$projectId'
+    | '/chat/'
+    | '/projects/'
+    | '/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/about'
-    | '/analytics'
-    | '/automations'
-    | '/documents'
-    | '/history'
-    | '/integrations'
-    | '/library'
     | '/login'
-    | '/mcp'
-    | '/memory'
-    | '/personality'
+    | '/chat/$conversationId'
+    | '/projects/$projectId'
+    | '/chat'
+    | '/projects'
     | '/settings'
-    | '/shortcuts'
-    | '/voice'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/dashboard/agents'
-    | '/dashboard/chat'
-    | '/dashboard'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
   id:
     | '__root__'
     | '/'
-    | '/about'
-    | '/analytics'
-    | '/automations'
-    | '/dashboard'
-    | '/documents'
-    | '/history'
-    | '/integrations'
-    | '/library'
+    | '/chat'
     | '/login'
-    | '/mcp'
-    | '/memory'
-    | '/personality'
+    | '/projects'
     | '/settings'
-    | '/shortcuts'
-    | '/voice'
-    | '/.mcp/list-tools'
-    | '/.well-known/oauth-protected-resource'
-    | '/api/chat'
-    | '/api/transcribe'
-    | '/dashboard/agents'
-    | '/dashboard/chat'
-    | '/dashboard/'
-    | '/.lovable/oauth/consent'
-    | '/.mcp/invoke-tool/$tool'
+    | '/chat/$conversationId'
+    | '/projects/$projectId'
+    | '/chat/'
+    | '/projects/'
+    | '/settings/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  AboutRoute: typeof AboutRoute
-  AnalyticsRoute: typeof AnalyticsRoute
-  AutomationsRoute: typeof AutomationsRoute
-  DashboardRoute: typeof DashboardRouteWithChildren
-  DocumentsRoute: typeof DocumentsRoute
-  HistoryRoute: typeof HistoryRoute
-  IntegrationsRoute: typeof IntegrationsRoute
-  LibraryRoute: typeof LibraryRoute
+  ChatRoute: typeof ChatRouteWithChildren
   LoginRoute: typeof LoginRoute
-  McpRoute: typeof McpRoute
-  MemoryRoute: typeof MemoryRoute
-  PersonalityRoute: typeof PersonalityRoute
-  SettingsRoute: typeof SettingsRoute
-  ShortcutsRoute: typeof ShortcutsRoute
-  VoiceRoute: typeof VoiceRoute
-  Char91DotmcpChar93ListToolsRoute: typeof Char91DotmcpChar93ListToolsRoute
-  Char91DotwellKnownChar93OauthProtectedResourceRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRoute
-  ApiChatRoute: typeof ApiChatRoute
-  ApiTranscribeRoute: typeof ApiTranscribeRoute
-  DotlovableOauthConsentRoute: typeof DotlovableOauthConsentRoute
-  Char91DotmcpChar93InvokeToolToolRoute: typeof Char91DotmcpChar93InvokeToolToolRoute
+  ProjectsRoute: typeof ProjectsRouteWithChildren
+  SettingsRoute: typeof SettingsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/voice': {
-      id: '/voice'
-      path: '/voice'
-      fullPath: '/voice'
-      preLoaderRoute: typeof VoiceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/shortcuts': {
-      id: '/shortcuts'
-      path: '/shortcuts'
-      fullPath: '/shortcuts'
-      preLoaderRoute: typeof ShortcutsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -376,25 +158,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/personality': {
-      id: '/personality'
-      path: '/personality'
-      fullPath: '/personality'
-      preLoaderRoute: typeof PersonalityRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/memory': {
-      id: '/memory'
-      path: '/memory'
-      fullPath: '/memory'
-      preLoaderRoute: typeof MemoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/mcp': {
-      id: '/mcp'
-      path: '/mcp'
-      fullPath: '/mcp'
-      preLoaderRoute: typeof McpRouteImport
+    '/projects': {
+      id: '/projects'
+      path: '/projects'
+      fullPath: '/projects'
+      preLoaderRoute: typeof ProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/login': {
@@ -404,60 +172,11 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/library': {
-      id: '/library'
-      path: '/library'
-      fullPath: '/library'
-      preLoaderRoute: typeof LibraryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/integrations': {
-      id: '/integrations'
-      path: '/integrations'
-      fullPath: '/integrations'
-      preLoaderRoute: typeof IntegrationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/history': {
-      id: '/history'
-      path: '/history'
-      fullPath: '/history'
-      preLoaderRoute: typeof HistoryRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/documents': {
-      id: '/documents'
-      path: '/documents'
-      fullPath: '/documents'
-      preLoaderRoute: typeof DocumentsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/dashboard': {
-      id: '/dashboard'
-      path: '/dashboard'
-      fullPath: '/dashboard'
-      preLoaderRoute: typeof DashboardRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/automations': {
-      id: '/automations'
-      path: '/automations'
-      fullPath: '/automations'
-      preLoaderRoute: typeof AutomationsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/analytics': {
-      id: '/analytics'
-      path: '/analytics'
-      fullPath: '/analytics'
-      preLoaderRoute: typeof AnalyticsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/about': {
-      id: '/about'
-      path: '/about'
-      fullPath: '/about'
-      preLoaderRoute: typeof AboutRouteImport
+    '/chat': {
+      id: '/chat'
+      path: '/chat'
+      fullPath: '/chat'
+      preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/': {
@@ -467,123 +186,89 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/dashboard/': {
-      id: '/dashboard/'
+    '/settings/': {
+      id: '/settings/'
       path: '/'
-      fullPath: '/dashboard/'
-      preLoaderRoute: typeof DashboardIndexRouteImport
-      parentRoute: typeof DashboardRoute
+      fullPath: '/settings/'
+      preLoaderRoute: typeof SettingsIndexRouteImport
+      parentRoute: typeof SettingsRoute
     }
-    '/dashboard/chat': {
-      id: '/dashboard/chat'
-      path: '/chat'
-      fullPath: '/dashboard/chat'
-      preLoaderRoute: typeof DashboardChatRouteImport
-      parentRoute: typeof DashboardRoute
+    '/projects/': {
+      id: '/projects/'
+      path: '/'
+      fullPath: '/projects/'
+      preLoaderRoute: typeof ProjectsIndexRouteImport
+      parentRoute: typeof ProjectsRoute
     }
-    '/dashboard/agents': {
-      id: '/dashboard/agents'
-      path: '/agents'
-      fullPath: '/dashboard/agents'
-      preLoaderRoute: typeof DashboardAgentsRouteImport
-      parentRoute: typeof DashboardRoute
+    '/chat/': {
+      id: '/chat/'
+      path: '/'
+      fullPath: '/chat/'
+      preLoaderRoute: typeof ChatIndexRouteImport
+      parentRoute: typeof ChatRoute
     }
-    '/api/transcribe': {
-      id: '/api/transcribe'
-      path: '/api/transcribe'
-      fullPath: '/api/transcribe'
-      preLoaderRoute: typeof ApiTranscribeRouteImport
-      parentRoute: typeof rootRouteImport
+    '/projects/$projectId': {
+      id: '/projects/$projectId'
+      path: '/$projectId'
+      fullPath: '/projects/$projectId'
+      preLoaderRoute: typeof ProjectsProjectIdRouteImport
+      parentRoute: typeof ProjectsRoute
     }
-    '/api/chat': {
-      id: '/api/chat'
-      path: '/api/chat'
-      fullPath: '/api/chat'
-      preLoaderRoute: typeof ApiChatRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.well-known/oauth-protected-resource': {
-      id: '/.well-known/oauth-protected-resource'
-      path: '/.well-known/oauth-protected-resource'
-      fullPath: '/.well-known/oauth-protected-resource'
-      preLoaderRoute: typeof Char91DotwellKnownChar93OauthProtectedResourceRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/list-tools': {
-      id: '/.mcp/list-tools'
-      path: '/.mcp/list-tools'
-      fullPath: '/.mcp/list-tools'
-      preLoaderRoute: typeof Char91DotmcpChar93ListToolsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.mcp/invoke-tool/$tool': {
-      id: '/.mcp/invoke-tool/$tool'
-      path: '/.mcp/invoke-tool/$tool'
-      fullPath: '/.mcp/invoke-tool/$tool'
-      preLoaderRoute: typeof Char91DotmcpChar93InvokeToolToolRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/.lovable/oauth/consent': {
-      id: '/.lovable/oauth/consent'
-      path: '/.lovable/oauth/consent'
-      fullPath: '/.lovable/oauth/consent'
-      preLoaderRoute: typeof DotlovableOauthConsentRouteImport
-      parentRoute: typeof rootRouteImport
+    '/chat/$conversationId': {
+      id: '/chat/$conversationId'
+      path: '/$conversationId'
+      fullPath: '/chat/$conversationId'
+      preLoaderRoute: typeof ChatConversationIdRouteImport
+      parentRoute: typeof ChatRoute
     }
   }
 }
 
-interface DashboardRouteChildren {
-  DashboardAgentsRoute: typeof DashboardAgentsRoute
-  DashboardChatRoute: typeof DashboardChatRoute
-  DashboardIndexRoute: typeof DashboardIndexRoute
+interface ChatRouteChildren {
+  ChatConversationIdRoute: typeof ChatConversationIdRoute
+  ChatIndexRoute: typeof ChatIndexRoute
 }
 
-const DashboardRouteChildren: DashboardRouteChildren = {
-  DashboardAgentsRoute: DashboardAgentsRoute,
-  DashboardChatRoute: DashboardChatRoute,
-  DashboardIndexRoute: DashboardIndexRoute,
+const ChatRouteChildren: ChatRouteChildren = {
+  ChatConversationIdRoute: ChatConversationIdRoute,
+  ChatIndexRoute: ChatIndexRoute,
 }
 
-const DashboardRouteWithChildren = DashboardRoute._addFileChildren(
-  DashboardRouteChildren,
+const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
+
+interface ProjectsRouteChildren {
+  ProjectsProjectIdRoute: typeof ProjectsProjectIdRoute
+  ProjectsIndexRoute: typeof ProjectsIndexRoute
+}
+
+const ProjectsRouteChildren: ProjectsRouteChildren = {
+  ProjectsProjectIdRoute: ProjectsProjectIdRoute,
+  ProjectsIndexRoute: ProjectsIndexRoute,
+}
+
+const ProjectsRouteWithChildren = ProjectsRoute._addFileChildren(
+  ProjectsRouteChildren,
+)
+
+interface SettingsRouteChildren {
+  SettingsIndexRoute: typeof SettingsIndexRoute
+}
+
+const SettingsRouteChildren: SettingsRouteChildren = {
+  SettingsIndexRoute: SettingsIndexRoute,
+}
+
+const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
+  SettingsRouteChildren,
 )
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  AboutRoute: AboutRoute,
-  AnalyticsRoute: AnalyticsRoute,
-  AutomationsRoute: AutomationsRoute,
-  DashboardRoute: DashboardRouteWithChildren,
-  DocumentsRoute: DocumentsRoute,
-  HistoryRoute: HistoryRoute,
-  IntegrationsRoute: IntegrationsRoute,
-  LibraryRoute: LibraryRoute,
+  ChatRoute: ChatRouteWithChildren,
   LoginRoute: LoginRoute,
-  McpRoute: McpRoute,
-  MemoryRoute: MemoryRoute,
-  PersonalityRoute: PersonalityRoute,
-  SettingsRoute: SettingsRoute,
-  ShortcutsRoute: ShortcutsRoute,
-  VoiceRoute: VoiceRoute,
-  Char91DotmcpChar93ListToolsRoute: Char91DotmcpChar93ListToolsRoute,
-  Char91DotwellKnownChar93OauthProtectedResourceRoute:
-    Char91DotwellKnownChar93OauthProtectedResourceRoute,
-  ApiChatRoute: ApiChatRoute,
-  ApiTranscribeRoute: ApiTranscribeRoute,
-  DotlovableOauthConsentRoute: DotlovableOauthConsentRoute,
-  Char91DotmcpChar93InvokeToolToolRoute: Char91DotmcpChar93InvokeToolToolRoute,
+  ProjectsRoute: ProjectsRouteWithChildren,
+  SettingsRoute: SettingsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
   ._addFileTypes<FileRouteTypes>()
-
-import type { getRouter } from './router.tsx'
-import type { startInstance } from './start.ts'
-declare module '@tanstack/react-start' {
-  interface Register {
-    ssr: true
-    router: Awaited<ReturnType<typeof getRouter>>
-    config: Awaited<ReturnType<typeof startInstance.getOptions>>
-  }
-}

@@ -1,294 +1,137 @@
-# 🤖 Vard AI
+# Vard AI
 
-**Vard AI** (Voice-Activated Responsive Director) is a personal, voice-first AI assistant inspired by the cinematic feel of Jarvis and the everyday utility of Siri. Built with **TanStack Start**, **React 19**, **TypeScript**, and **Tailwind CSS v4**, it delivers a fast, immersive chat experience with persistent memory, custom branding, streaming AI responses, and a modular MCP tool system.
+A macOS desktop app that combines a ChatGPT-style **chat** with a Verdent-style **coding agent**. You point the agent at a git project. It plans the work, edits files and runs commands in an isolated worktree, asks before anything risky, and shows you the diff to merge.
 
-> **Live preview:** [id-preview.lovable.app](https://id-preview--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app)
-> **Published site:** [vard-ai.lovable.app](https://vard-ai.lovable.app)
-> **GitHub repo:** [github.com/vardhan23v/Vard-AI](https://github.com/vardhan23v/Vard-AI)
+Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You bring your own API keys for Anthropic, OpenAI, Gemini, OpenRouter or local Ollama.
 
-[![TanStack Start](https://img.shields.io/badge/TanStack_Start-v1-FF4154?style=for-the-badge&logo=react&logoColor=white)](https://tanstack.com/start)
-[![React](https://img.shields.io/badge/React-19.x-61DAFB?style=for-the-badge&logo=react&logoColor=black)](https://reactjs.org/)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.x-3178C6?style=for-the-badge&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
-[![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css&logoColor=white)](https://tailwindcss.com/)
-[![Groq](https://img.shields.io/badge/Groq-Llama_3.3-f97316?style=for-the-badge&logo=groq&logoColor=white)](https://groq.com/)
-[![Supabase](https://img.shields.io/badge/Supabase-Auth-3ECF8E?style=for-the-badge&logo=supabase&logoColor=white)](https://supabase.com/)
+## Features
 
----
+**Chat**
+- Conversations grouped by date, with search, pin, rename and delete
+- Streaming replies with Markdown, tables and highlighted code blocks (copy button)
+- Regenerate, edit-and-resend, and stop (Esc)
+- Model picker across every provider you have a key for
+- Chats sync across your Macs through Firebase
 
-## 🧠 What is Vard AI?
+**Coding agent (Projects)**
+- Add any git folder, then describe a task
+- **Plan first:** review, edit or reject the agent's plan before it touches code
+- Every task runs in its own git worktree (`vard/<task-id>` branch), so tasks run in parallel and never touch your working copy
+- Live step log of each file read, edit and command, plus a checklist
+- **Approvals:** risky commands wait for *Allow once*, *Always allow in this project* or *Deny*
+- Optional verify command (for example `bun test`) that runs after edits; failures go back to the agent
+- Review the diff, then **Merge**, **Discard** or **Show in Finder**
 
-Vard is designed to feel less like software and more like a companion. It combines:
+**App**
+- Sign in with Google or email
+- API keys stored in the macOS Keychain
+- "Starry Night" theme in dark and light, with three accent colours and a reduced-motion setting
 
-- **Natural voice input** — real-time browser microphone capture with WAV encoding and streaming transcription via the Lovable AI Gateway.
-- **Streaming AI chat** — powered by Groq (`llama-3.3-70b-versatile`) for fast, token-by-token responses with stop/cancel controls.
-- **Persistent memory** — remembers facts, preferences, and people across conversations.
-- **Customizable brand & motion** — switch themes, accents, logos, background styles, and route transitions.
-- **Reduced-motion support** — fully accessible animation controls with system preference detection and automated Playwright regression tests.
-- **MCP tool system** — extensible agent integrations via the Model Context Protocol with OAuth-protected tools.
+## Install
 
----
+1. Download `Vard AI_<version>_universal.dmg` (Apple Silicon and Intel).
+2. Open it and drag **Vard AI** to Applications.
+3. The app isn't notarized yet. On first launch, right-click it in Applications and choose **Open**, then **Open** again.
 
-## 🚀 Features
+## Getting started
 
-### 🎙️ Voice & Chat
-- **Voice Input**: Click the mic, speak naturally — audio is captured via the browser, encoded to WAV (16kHz mono PCM), and streamed to `/api/transcribe` for real-time transcription.
-- **Streaming Responses**: Chat endpoint at `/api/chat` streams Groq responses token-by-token with live progress and stop/cancel controls.
-- **Escape Key Abort**: Press Escape or click the stop button to cancel generation mid-stream.
-- **Regenerate**: Regenerate the last prompt per thread, persisted across page refresh.
-- **Command Bar**: Floating command bar with `/` shortcuts, voice toggle, and keyboard navigation (`⌘K`).
+1. Sign in with Google or email.
+2. Open **Settings → API keys** and add a key for at least one provider. OpenRouter's `:free` models work without paying. If they refuse requests, allow them under openrouter.ai → Settings → Privacy.
+3. **Chats:** start typing.
+4. **Projects:** click **Add project folder**, pick a git repository, describe a task and press ⌘↵.
 
-### 🎨 Theming & Branding
-- **Dark/Light/System Mode**: Full theme support with CSS custom properties.
-- **Accent Palettes**: Mint, Violet, Coral, Cyan, Amber — change the entire app's accent color.
-- **Brand Panel**: Upload and crop a custom logo, rename the app, pick accent colors, and choose background styles.
-- **Background Styles**: Nebula, Aurora, Mesh, Grid, Gradient, and more.
-- **Motion Customization**: Duration, easing, and transition presets (fade, slide, zoom, blur, lift).
+| Shortcut | Action |
+|---|---|
+| ⌘N | New chat |
+| ⌘\ | Show or hide the sidebar |
+| ⌘↵ | Start an agent task |
+| Enter / Shift+Enter | Send / new line |
+| Esc | Stop a streaming reply |
 
-### 🏠 Dashboard
-- **Bento Grid Layout**: Cinematic dashboard with ambient aurora backdrops, animated orb, and system status indicators.
-- **Today's Agenda**: Quick-view agenda panel with color-coded items.
-- **Quick Actions**: One-click actions for Draft Email, Schedule, and Analyze Data.
-- **Pending Actions Counter**: At-a-glance task count with animated stats.
-
-### ♿ Accessibility
-- **Reduced Motion Toggle**: Live preview of reduced vs. full motion.
-- **ARIA Support**: Progress indicators expose `role="progressbar"` and ARIA labels.
-- **Focus States & Keyboard Shortcuts**: Full keyboard navigation support.
-- **CI Regression Tests**: Automated Playwright tests for reduced-motion compliance.
-
-### 🔧 MCP Tool System
-- **Model Context Protocol**: OAuth-protected MCP server with extensible tools.
-- **Built-in Tools**: `echo` (connectivity check) and `whoami` (user identity).
-- **Granular Consent**: Per-tool OAuth consent flow via Supabase auth.
-
-### 🔐 Authentication
-- **Supabase Auth**: Full sign-up/login with email/password.
-- **Session Management**: Secure sessions with server-side auth middleware.
-- **Protected Routes**: All dashboard and API routes require authentication.
-
----
-
-## 🛠️ Technology Stack
-
-| Layer | Technology |
-|-------|-----------|
-| **Framework** | TanStack Start v1 (full-stack React) |
-| **UI** | React 19, TypeScript |
-| **Styling** | Tailwind CSS v4, CSS custom properties |
-| **Icons** | Lucide React |
-| **Auth** | Supabase Auth |
-| **AI / Chat** | Groq API (Llama 3.3 70B Versatile) |
-| **Voice / Transcription** | Lovable AI Gateway |
-| **Tools** | Model Context Protocol (MCP) |
-| **Testing** | Playwright (E2E + reduced-motion regression) |
-| **Package Manager** | Bun |
-
----
-
-## 📊 Architecture
+## Architecture
 
 ```
-Browser (Voice/Text Input)
-    │
-    ├── /api/chat (POST) ──────► Groq API (llama-3.3-70b-versatile)
-    │       Streaming SSE ──────► Token-by-token response
-    │
-    ├── /api/transcribe (POST) ─► Lovable AI Gateway
-    │       Streaming SSE ──────► Real-time transcript
-    │
-    └── /.mcp/* ───────────────► MCP Server (OAuth-protected tools)
-            echo, whoami, extensible
+Tauri shell (Rust, src-tauri/)
+ ├─ window, folder picker, macOS Keychain for API keys
+ ├─ spawns + supervises the `vard-agent` sidecar
+ └─ WebView: React SPA (src/)  ⇄  sidecar via JSON-lines over stdio
+Sidecar `vard-agent` (TypeScript, harness/, compiled with `bun build --compile`)
+ ├─ providers: Vercel AI SDK (Anthropic, OpenAI, Google, OpenAI-compatible, Ollama)
+ ├─ chat runner (streaming) + agent harness (loop, tools, policy, worktrees, traces)
+ └─ local tools: files, search, edit, shell commands, git
+Firebase: sign-in (email + Google) and Firestore sync of chats, projects and task summaries
 ```
 
----
+- **Keys never reach the WebView.** The Rust shell reads them from the Keychain and adds them to each sidecar request (`src-tauri/src/lib.rs`).
+- **The agent harness is code, not a prompt.**
+  - `harness/src/loop.ts`: plan → approve → act → observe → verify state machine
+  - `harness/src/policy.ts`: allow / ask / deny rules, path sandbox, command allowlist
+  - `harness/src/worktree.ts`: one git worktree per task
+  - `harness/src/trace.ts`: a JSONL trace per task in `~/.vard/traces`
+  - `harness/src/protocol.ts`: the typed protocol shared with the UI
+- **The protocol is shared.** `src/lib/agent-client.ts` imports its types from `harness/src/protocol.ts`.
 
-## 📁 Project Structure
+## Develop
 
-```
-Vard-AI/
-├── src/
-│   ├── components/
-│   │   ├── BrandPanel.tsx           # Logo upload, app name, accent, background
-│   │   ├── JarvisOrb.tsx            # Cinematic animated orb avatar
-│   │   ├── LogoCropper.tsx          # Logo crop tool
-│   │   ├── Sidebar.tsx              # Navigation sidebar
-│   │   ├── ThemeSwitcher.tsx        # Dark/light/system toggle
-│   │   ├── agents/
-│   │   │   └── VisualBuilder.tsx    # Agent builder interface
-│   │   ├── chat/
-│   │   │   ├── ChatPrompt.tsx       # Chat input with voice toggle
-│   │   │   └── ChatWindow.tsx       # Full chat interface with streaming
-│   │   └── ui/                      # 40+ shadcn/ui components
-│   ├── hooks/
-│   │   └── use-mobile.tsx           # Mobile detection hook
-│   ├── integrations/
-│   │   └── supabase/                # Supabase client, auth middleware, types
-│   ├── lib/
-│   │   ├── brand.tsx                # Brand customization context
-│   │   ├── motion.tsx               # Motion presets & reduced-motion
-│   │   ├── theme.tsx                # Theme provider & accent palettes
-│   │   ├── voice-input.ts           # Browser mic → WAV → transcription
-│   │   ├── utils.ts                 # Shared utilities
-│   │   ├── require-auth.server.ts   # Server-side auth guard
-│   │   └── mcp/
-│   │       ├── index.ts             # MCP server definition
-│   │       └── tools/
-│   │           ├── echo.ts          # Connectivity check tool
-│   │           └── whoami.ts        # User identity tool
-│   ├── routes/
-│   │   ├── __root.tsx               # Root layout with providers
-│   │   ├── index.tsx                # Landing page (hero, features, orb)
-│   │   ├── login.tsx                # Auth entry point
-│   │   ├── dashboard.tsx            # Dashboard layout
-│   │   ├── dashboard.index.tsx      # Dashboard home (bento grid)
-│   │   ├── dashboard.chat.tsx       # AI chat interface
-│   │   ├── dashboard.agents.tsx     # Agent builder
-│   │   ├── memory.tsx               # Persistent memory management
-│   │   ├── automations.tsx          # Recurring routines & triggers
-│   │   ├── integrations.tsx         # Connected services & MCP tools
-│   │   ├── personality.tsx          # Assistant personality settings
-│   │   ├── history.tsx              # Conversation history
-│   │   ├── analytics.tsx            # Usage analytics
-│   │   ├── documents.tsx            # Document library
-│   │   ├── voice.tsx                # Voice & avatar settings
-│   │   ├── shortcuts.tsx            # Keyboard shortcuts
-│   │   ├── settings.tsx             # App settings, theme, motion, brand
-│   │   ├── about.tsx                # About Vard AI
-│   │   ├── library.tsx              # Content library
-│   │   ├── api/
-│   │   │   ├── chat.ts              # Groq streaming chat endpoint
-│   │   │   └── transcribe.ts        # Voice transcription endpoint
-│   │   └── [.mcp]/                  # MCP OAuth & tool endpoints
-│   ├── server.ts                    # Server entry configuration
-│   ├── start.ts                     # Start instance with auth middleware
-│   └── styles.css                   # Global theme variables & animations
-├── supabase/                        # Supabase configuration
-├── tests/                           # Playwright E2E & regression tests
-├── .github/workflows/               # CI (reduced-motion regression)
-├── package.json
-├── vite.config.ts
-└── tsconfig.json
+Requirements: macOS 12+, [Bun](https://bun.sh) 1.4+, Rust (stable), and Xcode Command Line Tools.
+
+```bash
+bun install
+(cd harness && bun install)
+cp .env.example .env   # fill in the Firebase web config and Google desktop client
+bun run desktop:dev    # builds the sidecar, then starts Tauri with hot reload
 ```
 
----
+If you installed Rust with Homebrew's `rustup`, put it on your PATH:
 
-## 🗺️ Available Routes
+```bash
+export PATH="$(brew --prefix rustup)/bin:$PATH"
+```
 
-| Route | Description |
-|-------|-------------|
-| `/` | Landing page with hero, animated orb, and feature cards |
-| `/login` | Authentication entry point |
-| `/dashboard` | Main dashboard with bento-grid layout |
-| `/dashboard/chat` | AI chat interface with streaming responses |
-| `/dashboard/agents` | Agent builder |
-| `/memory` | Persistent memory management |
-| `/automations` | Recurring routines and triggers |
-| `/integrations` | Connected services and MCP tools |
-| `/personality` | Assistant personality settings |
-| `/history` | Conversation history |
-| `/analytics` | Usage analytics |
-| `/documents` | Document library |
-| `/voice` | Voice and avatar settings |
-| `/shortcuts` | Keyboard shortcuts |
-| `/settings` | App settings, theme, motion, brand |
-| `/about` | About Vard AI |
-| `/library` | Content library |
+| Command | What it does |
+|---|---|
+| `bun run dev` | Web UI only, at http://localhost:1420 (no agent; replies need the desktop app) |
+| `bun run desktop:dev` | Full desktop app in development |
+| `bun run build:agent` | Compile `harness/` to `src-tauri/binaries/vard-agent-<triple>` |
+| `bun run desktop:build` | Universal (Apple Silicon + Intel) `.dmg` |
+| `bun run typecheck` | Typecheck the app |
+| `cd harness && bun test` | Harness unit and loop tests |
 
----
+The DMG ends up in `src-tauri/target/universal-apple-darwin/release/bundle/dmg/`.
 
-## ⚙️ Getting Started
+## Firebase
 
-### Prerequisites
+- **Project:** `vard-ai-7f1054` (see `.firebaserc`).
+- **Data:** every document lives under `users/{uid}/…`:
+  - `conversations/{id}/messages/{id}`
+  - `projects/{id}/tasks/{id}`
+- **Rules:** [`firestore.rules`](firestore.rules) limits each user to their own data. Deploy them with:
 
-- Node.js (v18+) — recommended via [nvm](https://github.com/nvm-sh/nvm)
-- A package manager: `npm`, `yarn`, `pnpm`, or `bun`
-- Supabase project (for auth)
-- Groq API key ([get one free](https://console.groq.com/keys))
+```bash
+bunx firebase-tools deploy --only firestore
+```
 
-### Installation
+- **Sign-in:** email/password and Google, both enabled under Authentication → Sign-in method.
+- **Google in the desktop app:** uses a Google OAuth client of type **Desktop app** in the same Google Cloud project, set through `VITE_GOOGLE_DESKTOP_CLIENT_ID` and `VITE_GOOGLE_DESKTOP_CLIENT_SECRET`. The Rust shell runs the browser sign-in with PKCE and a loopback redirect to `127.0.0.1:47823`, then signs in to Firebase with Google's ID token.
+- **Not synced:** project folder paths stay on each Mac.
 
-1. **Clone the repository**
-   ```bash
-   git clone https://github.com/vardhan23v/Vard-AI.git
-   cd Vard-AI
-   ```
+## Troubleshooting
 
-2. **Install dependencies**
-   ```bash
-   npm install
-   # or: bun install
-   ```
+| Problem | Fix |
+|---|---|
+| "No … API key saved" | Add the key in **Settings → API keys**. Keys saved by other tools aren't readable by the app. |
+| macOS asks for Keychain access | Enter your password and choose **Always Allow**. Unsigned development builds can ask again after a rebuild. |
+| OpenRouter 404 or "guardrail restrictions" | Your OpenRouter privacy settings block that model. Allow it, or choose another model. |
+| OpenRouter 429 (rate-limited) | Free models are shared. The agent waits and retries; a paid model or your own provider key avoids it. |
+| "Sign-in isn't set up" | Enable Authentication and its Email and Google providers in the Firebase console. |
+| Google says "access blocked" | Add your account as a test user on the OAuth consent screen, or publish the app. |
 
-3. **Configure environment variables**
+## Distribution
 
-   Create a `.env` file in the project root:
-   ```env
-   VITE_SUPABASE_URL=your_supabase_url
-   VITE_SUPABASE_PUBLISHABLE_KEY=your_supabase_anon_key
-   VITE_SUPABASE_PROJECT_ID=your_supabase_project_id
-   GROQ_API_KEY=your_groq_api_key
-   LOVABLE_API_KEY=your_lovable_api_key
-   ```
+Builds are **unsigned** (ad-hoc signature) for now. On first launch, right-click the app and choose **Open**. Signing and notarization need an Apple Developer ID; add them in `src-tauri/tauri.conf.json` (`bundle.macOS.signingIdentity`) and the CI workflow.
 
-   > Backend secrets (`GROQ_API_KEY`, `LOVABLE_API_KEY`) are read server-side only via `process.env` in server functions and API routes.
+CI (`.github/workflows/desktop.yml`) typechecks, runs the harness tests and uploads a universal DMG as a build artifact. It needs the six variables in `.env.example` as repository secrets.
 
-4. **Run the development server**
-   ```bash
-   npm run dev
-   # or: bun run dev
-   ```
+## License
 
-5. **Open in Browser**
-
-   Navigate to `http://localhost:8080` to meet Vard!
-
----
-
-## 🎤 Voice & Chat Flow
-
-1. User clicks the mic button → browser captures audio via `getUserMedia`
-2. Raw PCM chunks are collected, downsampled to 16kHz mono, and encoded as a WAV blob
-3. WAV is POSTed to `/api/transcribe` with Supabase auth token
-4. Lovable AI Gateway transcribes the audio and streams the result back via SSE
-5. Transcript appears in the command bar — user can edit or send
-6. Chat messages are POSTed to `/api/chat` → Groq streams `llama-3.3-70b-versatile` responses token-by-token
-7. User can stop generation with Escape key or stop button
-
----
-
-## 🎨 Customization
-
-Open the **Brand Panel** in Settings to customize:
-
-- **Logo**: Upload + crop your own logo
-- **App Name**: Rename the assistant
-- **Accent Color**: Choose from Mint, Violet, Coral, Cyan, Amber
-- **Background Style**: Nebula, Aurora, Mesh, Grid, Gradient, and more
-- **Route Transitions**: Fade, slide, zoom, blur, lift
-- **Motion Intensity**: Duration, easing, and reduced-motion preference
-
----
-
-## ♿ Accessibility
-
-Vard AI is built with accessibility in mind:
-
-- Respects `prefers-reduced-motion` system preference
-- Progress indicators expose `role="progressbar"` and ARIA labels
-- Focus states and keyboard shortcuts are supported throughout
-- Reduced-motion regression tests run in CI via Playwright
-- All animations (spinner, shimmer, toast, modal, route transitions) respect the reduced-motion setting
-
----
-
-## 🤝 Contributing
-
-Contributions, issues, and feature requests are welcome! Feel free to check the [issues page](https://github.com/vardhan23v/Vard-AI/issues).
-
-## 📄 License
-
-This project is licensed under the MIT License.
-
----
-
-Built with ❤️ by [Sree Vardhan V](https://github.com/vardhan23v)
+MIT

@@ -5,17 +5,12 @@ import {
   createRootRouteWithContext,
   useRouter,
   useRouterState,
-  HeadContent,
-  Scripts,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { toast } from "sonner";
 
-import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
-import { ThemeProvider, THEME_INIT_SCRIPT } from "../lib/theme";
-import { BrandProvider, BRAND_INIT_SCRIPT } from "../lib/brand";
-import { MotionProvider, MOTION_INIT_SCRIPT } from "../lib/motion";
+import { ThemeProvider } from "../lib/theme";
+import { MotionProvider } from "../lib/motion";
 import { Toaster } from "../components/ui/sonner";
 
 function NotFoundComponent() {
@@ -43,9 +38,6 @@ function NotFoundComponent() {
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
-  useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
-  }, [error]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -54,7 +46,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
           This page didn't load
         </h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          Something went wrong on our end. You can try refreshing or head back home.
+          Something went wrong. Try again, or go back home.
         </p>
         <div className="mt-6 flex flex-wrap justify-center gap-2">
           <button
@@ -79,59 +71,10 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Vard — Your Personal AI Assistant" },
-      { name: "description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
-      { name: "author", content: "Vard AI" },
-      { property: "og:title", content: "Vard — Your Personal AI Assistant" },
-      { property: "og:description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@VardAI" },
-      { name: "twitter:title", content: "Vard — Your Personal AI Assistant" },
-      { name: "twitter:description", content: "A Siri and Jarvis-style personal AI assistant. Talk to Vard by voice or text." },
-      { property: "og:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a9f3a528-2ab6-406c-8f10-ef0ecb88120b/id-preview-ccafc0c0--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app-1785130394113.png" },
-      { name: "twitter:image", content: "https://pub-bb2e103a32db4e198524a2e9ed8f35b4.r2.dev/a9f3a528-2ab6-406c-8f10-ef0ecb88120b/id-preview-ccafc0c0--bb13927f-f260-4c47-a5d2-192e5c2dcd9a.lovable.app-1785130394113.png" },
-    ],
-    links: [
-      {
-        rel: "stylesheet",
-        href: appCss,
-      },
-      { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=DM+Sans:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap",
-      },
-    ],
-  }),
-  shellComponent: RootShell,
   component: RootComponent,
   notFoundComponent: NotFoundComponent,
   errorComponent: ErrorComponent,
 });
-
-function RootShell({ children }: { children: ReactNode }) {
-  return (
-    <html lang="en" className="dark">
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: THEME_INIT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: BRAND_INIT_SCRIPT }} />
-        <script dangerouslySetInnerHTML={{ __html: MOTION_INIT_SCRIPT }} />
-        <HeadContent />
-      </head>
-      <body style={{ fontFamily: "'DM Sans', ui-sans-serif, system-ui, sans-serif" }}>
-        {children}
-        <Scripts />
-      </body>
-    </html>
-  );
-}
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
@@ -291,7 +234,7 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <BrandProvider>
+        
           <MotionProvider>
             <RouteTransition>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
@@ -299,7 +242,7 @@ function RootComponent() {
             </RouteTransition>
             <Toaster />
           </MotionProvider>
-        </BrandProvider>
+        
       </ThemeProvider>
     </QueryClientProvider>
   );
