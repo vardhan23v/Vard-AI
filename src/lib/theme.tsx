@@ -1,14 +1,12 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 
 export type ThemeMode = "dark" | "light";
-export type ThemeAccent = "mint" | "violet" | "coral" | "cyan" | "amber";
+export type ThemeAccent = "star" | "cerulean" | "sage";
 
 export const ACCENTS: { id: ThemeAccent; label: string; swatch: string }[] = [
-  { id: "mint", label: "Aurora Mint", swatch: "oklch(0.82 0.17 175)" },
-  { id: "violet", label: "Iris Bloom", swatch: "oklch(0.7 0.22 295)" },
-  { id: "coral", label: "Sunset Coral", swatch: "oklch(0.75 0.2 25)" },
-  { id: "cyan", label: "Ice Cyan", swatch: "oklch(0.8 0.15 220)" },
-  { id: "amber", label: "Solar Amber", swatch: "oklch(0.82 0.16 80)" },
+  { id: "star", label: "Star Yellow", swatch: "#c2b75d" },
+  { id: "cerulean", label: "Swirl Blue", swatch: "#7f97b0" },
+  { id: "sage", label: "Cypress Sage", swatch: "#b2b580" },
 ];
 
 type ThemeCtx = {
@@ -26,7 +24,7 @@ const ACCENT_KEY = "vard-theme-accent";
 
 export function ThemeProvider({ children }: { children: ReactNode }) {
   const [mode, setModeState] = useState<ThemeMode>("dark");
-  const [accent, setAccentState] = useState<ThemeAccent>("mint");
+  const [accent, setAccentState] = useState<ThemeAccent>("star");
 
   // Hydrate from localStorage after mount (SSR-safe)
   useEffect(() => {
@@ -68,4 +66,4 @@ export function useTheme() {
 }
 
 // Inline script that runs before hydration to prevent flash of wrong theme.
-export const THEME_INIT_SCRIPT = `(function(){try{var m=localStorage.getItem('${MODE_KEY}');var a=localStorage.getItem('${ACCENT_KEY}');var h=document.documentElement;if(m==='light'){h.classList.remove('dark');h.classList.add('light');}else{h.classList.add('dark');h.classList.remove('light');}h.setAttribute('data-accent',a||'mint');}catch(e){}})();`;
+export const THEME_INIT_SCRIPT = `(function(){try{var m=localStorage.getItem('${MODE_KEY}');var a=localStorage.getItem('${ACCENT_KEY}');var h=document.documentElement;if(m==='light'){h.classList.remove('dark');h.classList.add('light');}else{h.classList.add('dark');h.classList.remove('light');}h.setAttribute('data-accent',(a==='cerulean'||a==='sage'?a:'star'));}catch(e){}})();`;
