@@ -60,6 +60,10 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
 - **Project memory:** Vard analyzes each project, remembers its stack, commands, conventions, decisions and past fixes, and uses the relevant ones on every task. After a task it suggests new notes; you choose what's saved
 
+**Integrations (MCP)**
+- Connect MCP servers, local (stdio) or remote (Streamable HTTP, with bearer or OAuth sign-in), to give the agent new tools, data and prompts
+- Every call goes through Vard's approvals, never leaves the project folder, and is clearly marked as coming from an external server
+
 **Command line (`vard`)**
 - A full-screen terminal UI: Starry Night banner, streamed Markdown replies, tool steps that tick off, pop-ups for approvals and merging, a status bar (model · branch · tokens), slash-command autocomplete and a model/session picker
 - Uses the API keys you saved in the app
@@ -140,6 +144,34 @@ Vard learns each project and reuses that knowledge on every task, so the agent d
 | TUI | `/memory`, `/memory search <q>`, `/memory analyze`; a "Remember for next time?" checklist after tasks; `memory N` in the status bar |
 | CLI | `vard memory list [--category c] [--search q]`, `search`, `show`, `add <category> <text>`, `edit <id>`, `rm <id>`, `verify <id>`, `analyze`, `clear`, `config [key value]`, `path`; `vard run --no-memory` and `--remember` |
 
+## Integrations (MCP)
+
+Vard is an [MCP](https://modelcontextprotocol.io) client, built on the official TypeScript SDK and protocol `2025-11-25`. Open **Integrations** in the rail:
+
+- **Add a server.**
+  - **Local:** a command, arguments, a working folder and only the environment variables you list.
+  - **Remote:** a URL with bearer-token or OAuth sign-in.
+  - **Test connection** shows the protocol version, capabilities and what the server offers.
+  - **Import** brings in servers from Claude Desktop, Cursor, Windsurf or VS Code. Imported servers start disabled.
+- **Inspect it:** tabs for Overview, Tools (descriptions, input schemas, per-tool on/off), Resources (browse and read), Prompts (fill in, then *Use in a new chat*), Permissions and Logs.
+- **Use it:** connected servers' tools join the agent's tools for every task in that project, through the same plan → approval → execution → verification loop. The task view shows the server, tool, input, status and output of each MCP call.
+
+**Security model:**
+- **Approvals:** every MCP tool **asks** by default. Per project you can *Allow once*, *Always allow this tool*, or *Deny*, and revoke at any time. Tools the server marks destructive ask **every time**. Server hints only ever make Vard stricter.
+- **Sandbox:** arguments that point outside the project or the task's worktree are refused. Servers only see the project and the worktree as MCP roots.
+- **Untrusted output:** tool and resource output is wrapped and labelled as untrusted data, and the agent is told never to follow instructions inside it. Tool descriptions are cleaned and labelled as unverified.
+- **Secrets:** env secrets, headers, bearer tokens and OAuth tokens live in the macOS Keychain (service `ai.vard.mcp`). They never appear in config files, the UI, task traces, logs (masked) or the model's context. Local servers get a minimal environment plus only the variables you configure.
+- **Remote URLs:** https only (http only to this Mac), no credentials in URLs, no link-local or cloud-metadata addresses. A project's config can't target private networks.
+- **Project configs:** a project can ship its own `.vard/mcp.json`, but it starts nothing until you **trust** it, and any change needs trust again. Global servers live in `~/.vard/mcp.json`.
+
+CLI: `vard mcp list | add | remove | enable | disable | test | tools | resources | prompts | secret | trust | import | permissions | revoke`. TUI: `/mcp`.
+
+```bash
+vard mcp add everything -- npx -y @modelcontextprotocol/server-everything
+vard mcp test everything
+vard run "use the everything server's add tool to add 2 and 3"
+```
+
 ## Architecture
 
 ```
@@ -151,7 +183,8 @@ Tauri shell (Rust, src-tauri/)
  ├─ `agent --stdio`: the app's sidecar
  ├─ otherwise: the command-line tool (harness/src/cli/), same harness in-process
  ├─ providers: Vercel AI SDK (Groq, Anthropic, OpenAI, Google, OpenRouter, Ollama)
- ├─ chat runner (streaming) + agent harness (loop, tools, policy, worktrees, traces)
+ ├─ chat runner (streaming) + agent harness (loop, tools, policy, worktrees, traces, memory)
+ ├─ MCP client (harness/src/mcp): stdio + Streamable HTTP servers, tools/resources/prompts
  └─ local tools: files, search, edit, shell commands, git
 Firebase: sign-in (email + Google) and Firestore sync of chats, projects and task summaries
 ```

@@ -1,16 +1,17 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { FolderGit2, LogOut, MessagesSquare, PanelLeft, Settings } from "lucide-react";
+import { FolderGit2, LogOut, MessagesSquare, PanelLeft, Plug, Settings } from "lucide-react";
 
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
-type RailItem = { to: "/chat" | "/projects" | "/settings"; label: string; icon: ComponentType<{ className?: string }> };
+type RailItem = { to: "/chat" | "/projects" | "/integrations" | "/settings"; label: string; icon: ComponentType<{ className?: string }> };
 
 const RAIL: RailItem[] = [
   { to: "/chat", label: "Chats", icon: MessagesSquare },
   { to: "/projects", label: "Projects", icon: FolderGit2 },
+  { to: "/integrations", label: "Integrations", icon: Plug },
 ];
 
 /**

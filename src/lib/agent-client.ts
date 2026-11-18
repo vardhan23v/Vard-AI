@@ -145,3 +145,62 @@ export const MEMORY_CATEGORIES: { id: MemoryCategory; title: string }[] = [
   { id: "issues", title: "Known issues and limitations" },
   { id: "details", title: "Implementation details" },
 ];
+
+// ---- MCP integrations (servers run by the local agent; secrets stay in the Keychain) ----
+
+export type McpServersEvent = Extract<AgentEvent, { type: "mcp_servers" }>;
+export type McpServerStatus = McpServersEvent["servers"][number];
+export type McpScope = McpServerStatus["scope"];
+export type McpServerConfigInput = McpServerStatus["config"];
+export type McpTestResult = Extract<AgentEvent, { type: "mcp_test" }>;
+export type McpInspect = Extract<AgentEvent, { type: "mcp_inspect" }>;
+type McpRequest = Extract<AgentRequest, { type: `mcp.${string}` }>;
+
+/** Sends one MCP request and resolves with its answer event (or rejects with the agent's error). */
+function mcpRequest<T extends AgentEvent["type"]>(request: WithoutId<McpRequest>, answer: T): Promise<Extract<AgentEvent, { type: T }>> {
+  return new Promise((resolve, reject) => {
+    const id = newId("mcp");
+    const off = onAgentEvent((e) => {
+      if (e.id !== id) return;
+      if (e.type === answer) {
+        off();
+        resolve(e as Extract<AgentEvent, { type: T }>);
+      } else if (e.type === "error") {
+        off();
+        reject(new Error(e.message));
+      }
+    });
+    send(request, id).catch((err) => {
+      off();
+      reject(err);
+    });
+  });
+}
+
+type Ref = { scope: McpScope; id: string; projectRoot?: string };
+
+export const mcp = {
+  list: (projectRoot?: string) => mcpRequest({ type: "mcp.list", projectRoot }, "mcp_servers"),
+  save: (scope: McpScope, server: unknown, opts: { projectRoot?: string; replaceId?: string } = {}) =>
+    mcpRequest({ type: "mcp.config", scope, projectRoot: opts.projectRoot, change: { op: "save", server, replaceId: opts.replaceId } }, "mcp_servers"),
+  remove: (r: Ref) => mcpRequest({ type: "mcp.config", scope: r.scope, projectRoot: r.projectRoot, change: { op: "remove", id: r.id } }, "mcp_servers"),
+  trust: (projectRoot: string, trusted: boolean) => mcpRequest({ type: "mcp.config", scope: "project", projectRoot, change: { op: "trust", trusted } }, "mcp_servers"),
+  importFile: (scope: McpScope, file: string, projectRoot?: string) =>
+    mcpRequest({ type: "mcp.config", scope, projectRoot, change: { op: "import", file } }, "mcp_servers"),
+  connection: (r: Ref, action: "connect" | "disconnect" | "reconnect" | "authorize") => mcpRequest({ type: "mcp.connection", ...r, action }, "mcp_servers"),
+  test: (r: Ref, server?: unknown) => mcpRequest({ type: "mcp.connection", ...r, action: "test", server }, "mcp_test"),
+  inspect: (r: Ref, kind: McpInspect["kind"]) => mcpRequest({ type: "mcp.inspect", ...r, kind }, "mcp_inspect"),
+  readResource: (r: Ref, uri: string) => mcpRequest({ type: "mcp.read_resource", ...r, uri }, "mcp_resource"),
+  getPrompt: (r: Ref, name: string, args: Record<string, string>) => mcpRequest({ type: "mcp.get_prompt", ...r, name, args }, "mcp_prompt"),
+  permissions: (projectRoot: string, change: Extract<McpRequest, { type: "mcp.permissions" }>["change"]) =>
+    mcpRequest({ type: "mcp.permissions", projectRoot, change }, "mcp_permissions"),
+  /** Stores a secret in the Keychain. The value is never sent back to the WebView. */
+  setSecret: (r: Ref, name: string, value: string | null) => mcpRequest({ type: "mcp.secret", ...r, name, value }, "mcp_servers"),
+};
+
+/** Live status pushes from the agent (connections, crashes, list changes). */
+export function onMcpStatus(handler: (e: McpServersEvent) => void): () => void {
+  return onAgentEvent((e) => {
+    if (e.type === "mcp_servers" && e.id === "mcp") handler(e);
+  });
+}

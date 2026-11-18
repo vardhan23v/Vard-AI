@@ -7,6 +7,7 @@ import fs from "node:fs";
 import { type ModelMessage, streamText } from "ai";
 import { AgentLoop, type ApprovalResponse, type LoopOptions, reflectOnTask } from "./loop";
 import { analyze, applyAuto, MemoryError, MemoryStore } from "./memory";
+import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, validateServerUrl, type SecretStore } from "./mcp";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
 import { createModel, type ModelFactory } from "./providers";
@@ -15,7 +16,9 @@ import { DEFAULT_RETRY, type RetryOptions, withRetry } from "./retry";
 import { describeError } from "./util";
 import { createWorktree, discardWorktree, isGitRepo, mergeWorktree, type Worktree, worktreeDiff } from "./worktree";
 
-export const VERSION = "0.2.0";
+import { VERSION } from "./version";
+
+export { VERSION };
 
 export interface ServerDeps {
   write: (e: Event) => void;
@@ -24,6 +27,10 @@ export interface ServerDeps {
   rulesStoreFor?: (projectRoot: string) => RulesStore;
   /** Backoff for rate limits / transient provider errors (tests use short delays). */
   retry?: RetryOptions;
+  /** MCP: a ready manager (tests), or where its config lives and which secret store to use. */
+  mcp?: McpManager;
+  mcpHome?: string;
+  mcpSecrets?: SecretStore;
 }
 
 interface TaskEntry {
@@ -43,8 +50,36 @@ export class Server {
   private chats = new Map<string, AbortController>();
   private modelFactory: ModelFactory;
 
+  readonly mcp: McpManager;
+  private mcpPush = new Map<string, ReturnType<typeof setTimeout>>();
+
   constructor(private deps: ServerDeps) {
     this.modelFactory = deps.modelFactory ?? createModel;
+    this.mcp =
+      deps.mcp ??
+      new McpManager({
+        home: deps.mcpHome,
+        secrets: deps.mcpSecrets,
+        onChange: (root) => this.pushMcp(root),
+        onProgress: (tool, p) => this.emitter("mcp")({ type: "mcp_progress", tool, ...p }),
+      });
+  }
+
+  /** Live MCP status for the UI (debounced; id "mcp"). */
+  private pushMcp(projectRoot?: string) {
+    const k = projectRoot ?? "";
+    clearTimeout(this.mcpPush.get(k));
+    this.mcpPush.set(
+      k,
+      setTimeout(() => {
+        this.mcpPush.delete(k);
+        try {
+          this.emitter("mcp")({ type: "mcp_servers", projectRoot, servers: this.mcp.status(projectRoot), trusted: projectRoot ? this.mcp.trusted(projectRoot) : undefined });
+        } catch {
+          // A broken config file is reported on the next explicit mcp.list.
+        }
+      }, 80),
+    );
   }
 
   private emitter(id: string, taskId?: string, tracer?: Tracer) {
@@ -102,6 +137,15 @@ export class Server {
       case "memory.get":
       case "memory.update":
         return this.memory(req);
+      case "mcp.list":
+      case "mcp.config":
+      case "mcp.connection":
+      case "mcp.inspect":
+      case "mcp.read_resource":
+      case "mcp.get_prompt":
+      case "mcp.permissions":
+      case "mcp.secret":
+        return this.mcpRequest(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -248,6 +292,21 @@ export class Server {
       signal: entry.abort.signal,
       memory,
     };
+    // MCP: connect this project's servers (bounded wait; failures stay per server) and offer
+    // their tools through the normal tool registry.
+    const projectRoot = policy.projectRoot;
+    let hasMcp = false;
+    try {
+      hasMcp = this.mcp.configs(projectRoot).some((c) => c.config.enabled);
+    } catch {
+      hasMcp = false;
+    }
+    if (hasMcp) {
+      await this.mcp.prepare(projectRoot).catch(() => {});
+      if (workRoot !== projectRoot) this.mcp.addRoot(projectRoot, workRoot);
+      loopOptions.extraTools = () => this.mcp.toolDefs(projectRoot);
+      loopOptions.mcpSummary = () => this.mcp.summary(projectRoot);
+    }
     const loop = new AgentLoop(loopOptions);
 
     entry.done = (async () => {
@@ -262,6 +321,7 @@ export class Server {
       }
       entry.running = false;
       entry.approvals.clear();
+      if (hasMcp && workRoot !== projectRoot) this.mcp.removeRoot(projectRoot, workRoot);
       emit({
         type: "done",
         status: r.status,
@@ -335,8 +395,88 @@ export class Server {
     });
   }
 
+  /** MCP requests from the UI and CLI. Answers carry the request id; failures become `error` events. */
+  private async mcpRequest(req: Extract<Request, { type: `mcp.${string}` }>) {
+    const emit = this.emitter(req.id);
+    const m = this.mcp;
+    const snapshot = (extra: Record<string, unknown> = {}) => {
+      const root = "projectRoot" in req ? req.projectRoot : undefined;
+      emit({ type: "mcp_servers", projectRoot: root, servers: m.status(root), trusted: root ? m.trusted(root) : undefined, ...extra });
+    };
+    try {
+      switch (req.type) {
+        case "mcp.list":
+          return snapshot({ importSources: knownImportSources(req.projectRoot) });
+        case "mcp.config": {
+          const c = req.change;
+          if (req.scope === "project" && !req.projectRoot) throw new McpError("config", "Choose a project for project servers.");
+          if (c.op === "save") {
+            const parsed = McpServerConfig.safeParse(c.server);
+            if (!parsed.success) throw new McpError("config", parsed.error.issues.map((i) => `${i.path.join(".") || "server"}: ${i.message}`).join("; "));
+            if (parsed.data.transport.type === "http") validateServerUrl(parsed.data.transport.url, { allowPrivate: req.scope === "global" });
+            await m.save(req.scope, parsed.data, { projectRoot: req.projectRoot, replaceId: c.replaceId });
+            return snapshot();
+          }
+          if (c.op === "remove") {
+            await m.remove({ scope: req.scope, id: c.id, projectRoot: req.projectRoot });
+            return snapshot();
+          }
+          if (c.op === "trust") {
+            if (!req.projectRoot) throw new McpError("config", "Trust applies to a project's config.");
+            await m.setTrusted(req.projectRoot, c.trusted);
+            return snapshot();
+          }
+          const imported = m.importFrom(req.scope, { file: c.file, json: c.json }, req.projectRoot);
+          return snapshot({ imported });
+        }
+        case "mcp.connection": {
+          const ref = { scope: req.scope, id: req.id, projectRoot: req.projectRoot };
+          if (req.action === "test") {
+            const r = req.server !== undefined ? await m.test({ scope: req.scope, config: req.server as never, projectRoot: req.projectRoot }) : await m.test(ref);
+            return emit({ type: "mcp_test", ...r });
+          }
+          try {
+            if (req.action === "connect") await m.connect(ref);
+            else if (req.action === "reconnect") await m.reconnect(ref);
+            else if (req.action === "authorize") await m.authorize(ref);
+            else await m.disconnect(ref);
+          } catch {
+            // The failure is on the server's status (state "error" + message).
+          }
+          return snapshot();
+        }
+        case "mcp.inspect": {
+          const ref = { scope: req.scope, id: req.id, projectRoot: req.projectRoot };
+          if (req.kind === "logs") return emit({ type: "mcp_inspect", kind: "logs", logs: m.logs(ref) });
+          if (req.kind === "tools") return emit({ type: "mcp_inspect", kind: "tools", tools: m.tools(ref) });
+          if (req.kind === "resources") return emit({ type: "mcp_inspect", kind: "resources", resources: m.resources(ref) });
+          return emit({ type: "mcp_inspect", kind: "prompts", prompts: m.prompts(ref) });
+        }
+        case "mcp.read_resource":
+          return emit({ type: "mcp_resource", uri: req.uri, text: await m.readResource({ scope: req.scope, id: req.id, projectRoot: req.projectRoot }, req.uri) });
+        case "mcp.get_prompt": {
+          const r = await m.getPrompt({ scope: req.scope, id: req.id, projectRoot: req.projectRoot }, req.name, req.args);
+          return emit({ type: "mcp_prompt", name: req.name, ...r });
+        }
+        case "mcp.permissions": {
+          const policy = new Policy({ projectRoot: req.projectRoot, workRoot: req.projectRoot, store: this.deps.rulesStoreFor?.(req.projectRoot) });
+          const c = req.change;
+          if (c.op === "set") policy.setMcpRule(c.key, c.value);
+          else if (c.op === "revoke") policy.revokeMcp(c.prefix);
+          return emit({ type: "mcp_permissions", projectRoot: req.projectRoot, rules: policy.mcpRules() });
+        }
+        case "mcp.secret":
+          m.setSecret({ scope: req.scope, id: req.id, projectRoot: req.projectRoot }, req.name, req.value);
+          return snapshot();
+      }
+    } catch (e) {
+      throw new Error(toMcpError(e, "config").message);
+    }
+  }
+
   /** Abort everything (used on stdin EOF) and wait for tasks to settle. */
   async shutdown() {
+    await this.mcp.closeAll().catch(() => {});
     for (const c of this.chats.values()) c.abort();
     for (const t of this.tasks.values()) t.abort.abort();
     await Promise.allSettled([...this.tasks.values()].map((t) => t.done));

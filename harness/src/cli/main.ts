@@ -4,6 +4,7 @@ import { VERSION } from "../server";
 import { ask } from "./commands/ask";
 import { keysCommand } from "./commands/keys";
 import { memoryCommand } from "./commands/memory";
+import { mcpCommand } from "./commands/mcp";
 import { modelsCommand } from "./commands/models";
 import { session } from "./commands/session";
 import { runTask } from "./commands/task";
@@ -11,6 +12,7 @@ import { makeCtx, type Ctx } from "./context";
 import type { KeyStore } from "./keys";
 import { NonInteractivePrompter, TtyPrompter, TuiPrompter, type Prompter } from "./prompt";
 import { useColor, type Writer } from "./render";
+import type { SecretStore } from "../mcp";
 import type { ModelFactory } from "../providers";
 
 export const HELP = `vard ${VERSION}: chat and a coding agent in your terminal
@@ -23,6 +25,8 @@ Usage
   vard run "<task>"         run the coding agent in this git repo
   vard memory [list|search|show|add|edit|rm|verify|analyze|clear|config]
                             what Vard remembers about this project
+  vard mcp [list|add|remove|test|tools|resources|prompts|secret|trust|import|permissions]
+                            MCP servers (external tools); see vard mcp help
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
                                             pbpaste | vard keys set openrouter)
   vard models [use <id>]
@@ -45,7 +49,7 @@ or the macOS Keychain shared with the Vard AI app.
 `;
 
 export type ParsedArgs = {
-  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "help" | "version";
+  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "mcp" | "help" | "version";
   rest: string[];
   flags: {
     model?: string;
@@ -61,6 +65,10 @@ export type ParsedArgs = {
     remember?: boolean;
     category?: string;
     search?: string;
+    project?: boolean;
+    url?: string;
+    bearer?: boolean;
+    name?: string;
   };
 };
 
@@ -83,6 +91,10 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       "no-memory": { type: "boolean" },
       category: { type: "string" },
       search: { type: "string" },
+      project: { type: "boolean" },
+      url: { type: "string" },
+      bearer: { type: "boolean" },
+      name: { type: "string" },
       remember: { type: "boolean" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
@@ -105,12 +117,16 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     remember: values.remember,
     category: values.category,
     search: values.search,
+    project: values.project,
+    url: values.url,
+    bearer: values.bearer,
+    name: values.name,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };
   const [first, ...rest] = positionals;
   if (first === undefined) return { command: "session", rest: [], flags };
-  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory")
+  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory" || first === "mcp")
     return { command: first, rest, flags };
   if (first === "help") return { command: "help", rest: [], flags };
   throw new Error(`Unknown command "${first}". To ask a question, use: vard ask "${positionals.join(" ")}"`);
@@ -129,6 +145,8 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
       return keysCommand(ctx, p.rest);
     case "memory":
       return memoryCommand(ctx, p.rest, p.flags);
+    case "mcp":
+      return mcpCommand(ctx, p.rest, p.flags);
     case "models":
       return modelsCommand(ctx, p.rest, p.flags);
     case "ask": {
@@ -170,6 +188,7 @@ export type CliIO = {
   prompter?: Prompter;
   keys?: KeyStore;
   modelFactory?: ModelFactory;
+  mcpSecrets?: SecretStore;
 };
 
 export async function runCli(argv: string[], io: CliIO = {}): Promise<number> {
@@ -186,7 +205,7 @@ export async function runCli(argv: string[], io: CliIO = {}): Promise<number> {
   const stdinIsTTY = io.stdinIsTTY ?? !!process.stdin.isTTY;
   // Piped input is context for `ask`; read it before any prompt touches stdin.
   let stdinText: string | undefined;
-  if (!stdinIsTTY && (parsed.command === "ask" || (parsed.command === "keys" && parsed.rest[0] === "set")))
+  if (!stdinIsTTY && (parsed.command === "ask" || (parsed.command === "keys" && parsed.rest[0] === "set") || (parsed.command === "mcp" && parsed.rest[0] === "secret")))
     stdinText = await (io.readStdin ?? (() => Bun.stdin.text()))();
   const interactive = stdinIsTTY && !!stdout.isTTY;
   // The full-screen UI owns the terminal itself; readline must not attach to stdin.
@@ -204,6 +223,7 @@ export async function runCli(argv: string[], io: CliIO = {}): Promise<number> {
     env,
     keys: io.keys,
     modelFactory: io.modelFactory,
+    mcpSecrets: io.mcpSecrets,
     stdinText,
   });
   try {

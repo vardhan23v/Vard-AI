@@ -10,6 +10,8 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { decideMcp, type McpRules, rememberMcp } from "./mcp/permissions";
+import type { McpCallInfo } from "./mcp/types";
 import type { ToolDef } from "./tools/types";
 import { isInside, realpathLoose } from "./util";
 
@@ -17,6 +19,8 @@ export type PolicyAction = "allow" | "ask" | "deny";
 export interface Decision {
   action: PolicyAction;
   reason: string;
+  /** For MCP tools: what the user is approving (shown with the approval). */
+  mcp?: McpCallInfo;
 }
 
 export interface ProjectRules {
@@ -24,6 +28,8 @@ export interface ProjectRules {
   allowlist: string[];
   /** Tool names approved "always" for this project (only skips 'ask', never 'deny'). */
   tools: string[];
+  /** MCP decisions for this project, keyed "<server>/<tool>" ("*" for a whole server). */
+  mcp?: McpRules;
 }
 
 export interface RulesStore {
@@ -40,7 +46,7 @@ export class FileRulesStore implements RulesStore {
   load(): ProjectRules {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return { allowlist: raw.allowlist ?? [], tools: raw.tools ?? [] };
+      return { allowlist: raw.allowlist ?? [], tools: raw.tools ?? [], mcp: raw.mcp ?? {} };
     } catch {
       return { allowlist: [], tools: [] };
     }
@@ -189,6 +195,8 @@ export class Policy {
 
     // 2. Risk classes.
     switch (tool.risk) {
+      case "mcp":
+        return decideMcp(tool, input, (this.rules.mcp ??= {}), { workRoot: this.workRoot, projectRoot: this.projectRoot });
       case "read":
         return { action: "allow", reason: "read-only" };
       case "write":
@@ -211,13 +219,38 @@ export class Policy {
   }
 
   /** "Always for this project": remember the approval so the same call does not ask again. */
-  remember(tool: ToolDef, input: Record<string, unknown>) {
+  remember(tool: ToolDef, input: Record<string, unknown>): boolean {
+    if (tool.risk === "mcp") {
+      if (!rememberMcp(tool, input, (this.rules.mcp ??= {}))) return false;
+      this.store.save(this.rules);
+      return true;
+    }
     if (tool.risk === "exec") {
       const cmd = String(input.command ?? "").trim();
       if (cmd && !this.rules.allowlist.includes(cmd)) this.rules.allowlist.push(cmd);
     } else if (!this.rules.tools.includes(tool.name)) {
       this.rules.tools.push(tool.name);
     }
+    this.store.save(this.rules);
+    return true;
+  }
+
+  /** MCP permissions saved for this project. */
+  mcpRules(): McpRules {
+    return { ...(this.rules.mcp ?? {}) };
+  }
+
+  /** Sets ("allow" | "deny") or clears (null) one MCP permission; `*` covers a whole server. */
+  setMcpRule(key: string, value: "allow" | "deny" | null) {
+    this.rules.mcp ??= {};
+    if (value) this.rules.mcp[key] = value;
+    else delete this.rules.mcp[key];
+    this.store.save(this.rules);
+  }
+
+  /** Clears MCP permissions: one tool, one server ("<server>/"), or all. */
+  revokeMcp(prefix = "") {
+    for (const k of Object.keys(this.rules.mcp ?? {})) if (k.startsWith(prefix)) delete this.rules.mcp![k];
     this.store.save(this.rules);
   }
 }

@@ -18,6 +18,7 @@
  */
 import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 import { buildSystemPrompt, compactMessages, repoMap } from "./context";
+import type { McpCallInfo } from "./mcp/types";
 import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall, reflectPrompt } from "./memory";
 import { Policy } from "./policy";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
@@ -33,6 +34,8 @@ export interface ApprovalRequest {
   tool?: string;
   input?: unknown;
   plan?: string;
+  /** For MCP tools: server, tool and what the call can do. */
+  mcp?: McpCallInfo;
 }
 
 export interface ApprovalResponse {
@@ -63,6 +66,10 @@ export interface LoopOptions {
   /** Backoff for rate limits / transient provider errors. */
   retry?: RetryOptions;
   signal?: AbortSignal;
+  /** Tools added at run time (MCP servers); read every step, so list changes apply mid-task. */
+  extraTools?: () => ToolDef[];
+  /** Connected MCP servers and their tool names, for the system prompt. */
+  mcpSummary?: () => { name: string; id: string; tools: string[] }[];
   /** Project memory (the user's checkout). `recall` puts relevant entries into the prompt. */
   memory?: { store: MemoryStore; recall: boolean } | null;
 }
@@ -98,6 +105,12 @@ export class AgentLoop {
 
   constructor(private o: LoopOptions) {
     this.tools = o.tools ?? ALL_TOOLS;
+  }
+
+  /** Vard's tools plus any MCP tools available right now. */
+  private currentTools(): ToolDef[] {
+    const extra = this.o.extraTools?.() ?? [];
+    return extra.length ? [...this.tools, ...extra] : this.tools;
   }
 
   private setState(s: TaskState) {
@@ -139,7 +152,7 @@ export class AgentLoop {
       this.setState("acting");
       let verifyAttempts = 0;
       for (;;) {
-        const step = await this.modelStep(this.tools, "act");
+        const step = await this.modelStep(this.currentTools(), "act");
         if (step.toolCalls.length) {
           await this.observe(step.toolCalls);
           continue;
@@ -262,6 +275,7 @@ export class AgentLoop {
       phase,
       repoMap: this.repoMapCache,
       memory: this.memoryCache,
+      mcp: o.mcpSummary?.(),
     });
     const { messages, compacted } = compactMessages(this.messages, { budgetTokens: o.contextBudget ?? 120_000 });
     if (compacted) this.messages = messages;
@@ -341,8 +355,14 @@ export class AgentLoop {
   /** Validate → policy → (approval) → execute → truncate. Never throws except on cancel. */
   async executeCall(call: { toolCallId: string; toolName: string; input: unknown }): Promise<{ ok: boolean; output: string }> {
     const o = this.o;
-    o.emit({ type: "tool_call", callId: call.toolCallId, tool: call.toolName, input: call.input });
-    const def = toolByName(this.tools, call.toolName);
+    const def = toolByName(this.currentTools(), call.toolName);
+    o.emit({
+      type: "tool_call",
+      callId: call.toolCallId,
+      tool: call.toolName,
+      input: call.input,
+      ...(def?.mcp ? { mcp: { serverId: def.mcp.serverId, serverName: def.mcp.serverName, tool: def.mcp.tool } } : {}),
+    });
     if (!def) return { ok: false, output: `unknown tool: ${call.toolName}` };
     const parsed = def.inputSchema.safeParse(call.input);
     if (!parsed.success)
@@ -353,7 +373,7 @@ export class AgentLoop {
     if (decision.action === "deny") return { ok: false, output: `blocked by policy: ${decision.reason}` };
     if (decision.action === "ask") {
       const prev = this.state;
-      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason });
+      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}) });
       this.state = prev;
       if (answer.decision === "deny")
         return { ok: false, output: `the user denied this call${answer.reason ? `: ${answer.reason}` : ""}` };

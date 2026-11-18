@@ -17,6 +17,8 @@ export type TimelineItem =
       input: unknown;
       result?: { ok: boolean; output: string };
       ts: number;
+      /** Set for tools from MCP servers. */
+      mcp?: { serverId: string; serverName: string; tool: string };
     }
   | { kind: "approval"; event: Ev<"approval_request">; decision?: string }
   | { kind: "verify"; event: Ev<"verify"> }
@@ -66,7 +68,7 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, timeline };
     }
     case "tool_call":
-      timeline.push({ kind: "tool", callId: e.callId, tool: e.tool, input: e.input, ts: e.ts });
+      timeline.push({ kind: "tool", callId: e.callId, tool: e.tool, input: e.input, ts: e.ts, mcp: e.mcp });
       return { ...t, timeline };
     case "tool_result": {
       const i = timeline.findIndex((x) => x.kind === "tool" && x.callId === e.callId);

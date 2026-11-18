@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
+import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
 
 export { MemoryCategory, MemoryEntry, MemorySettings };
 
@@ -120,6 +121,54 @@ export type MemoryChange = z.infer<typeof MemoryChange>;
 export const MemoryGetRequest = z.object({ ...memReq, type: z.literal("memory.get") });
 export const MemoryUpdateRequest = z.object({ ...memReq, type: z.literal("memory.update"), change: MemoryChange });
 
+// ---------- MCP servers (harness/src/mcp) ----------
+
+const mcpRef = { ...reqBase, scope: McpScope, id: z.string().min(1).max(40), projectRoot: z.string().min(1).optional() };
+export const McpListRequest = z.object({ ...reqBase, type: z.literal("mcp.list"), projectRoot: z.string().min(1).optional() });
+export const McpConfigRequest = z.object({
+  ...reqBase,
+  type: z.literal("mcp.config"),
+  scope: McpScope,
+  projectRoot: z.string().min(1).optional(),
+  change: z.discriminatedUnion("op", [
+    /** Add or replace a server (validated by the agent against McpServerConfig). */
+    z.object({ op: z.literal("save"), server: z.unknown(), replaceId: z.string().optional() }),
+    z.object({ op: z.literal("remove"), id: z.string() }),
+    z.object({ op: z.literal("trust"), trusted: z.boolean() }),
+    /** Import another client's config (a known file path, or pasted JSON). Imported servers start disabled. */
+    z.object({ op: z.literal("import"), file: z.string().optional(), json: z.unknown().optional() }),
+  ]),
+});
+export const McpConnectionRequest = z.object({
+  ...mcpRef,
+  type: z.literal("mcp.connection"),
+  action: z.enum(["connect", "disconnect", "reconnect", "test", "authorize"]),
+  /** For "test" before saving: an unsaved server config. */
+  server: z.unknown().optional(),
+});
+export const McpInspectRequest = z.object({ ...mcpRef, type: z.literal("mcp.inspect"), kind: z.enum(["tools", "resources", "prompts", "logs"]) });
+export const McpReadResourceRequest = z.object({ ...mcpRef, type: z.literal("mcp.read_resource"), uri: z.string().min(1).max(4000) });
+export const McpGetPromptRequest = z.object({
+  ...mcpRef,
+  type: z.literal("mcp.get_prompt"),
+  name: z.string().min(1),
+  args: z.record(z.string(), z.string().max(20_000)).default({}),
+});
+export const McpPermissionsRequest = z.object({
+  ...reqBase,
+  type: z.literal("mcp.permissions"),
+  projectRoot: z.string().min(1),
+  change: z.discriminatedUnion("op", [
+    z.object({ op: z.literal("list") }),
+    /** key "<server>/<tool>" ("<server>/*" for the whole server); null clears (back to "ask"). */
+    z.object({ op: z.literal("set"), key: z.string().min(3).max(300), value: z.enum(["allow", "deny"]).nullable() }),
+    /** Clears every rule starting with prefix ("" = all, "<server>/" = one server). */
+    z.object({ op: z.literal("revoke"), prefix: z.string().max(300) }),
+  ]),
+});
+/** Stores a server secret in the Keychain (null clears). The value is never sent back. */
+export const McpSecretRequest = z.object({ ...mcpRef, type: z.literal("mcp.secret"), name: z.string().min(1).max(140), value: z.string().max(20_000).nullable() });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -131,6 +180,14 @@ export const Request = z.discriminatedUnion("type", [
   TaskDiscardRequest,
   MemoryGetRequest,
   MemoryUpdateRequest,
+  McpListRequest,
+  McpConfigRequest,
+  McpConnectionRequest,
+  McpInspectRequest,
+  McpReadResourceRequest,
+  McpGetPromptRequest,
+  McpPermissionsRequest,
+  McpSecretRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -167,7 +224,15 @@ export const Event = z.discriminatedUnion("type", [
   z.object({ ...evBase, type: z.literal("pong"), version: z.string() }),
   z.object({ ...evBase, type: z.literal("state"), state: TaskState }),
   z.object({ ...evBase, type: z.literal("token"), text: z.string() }),
-  z.object({ ...evBase, type: z.literal("tool_call"), callId: z.string(), tool: z.string(), input: z.unknown() }),
+  z.object({
+    ...evBase,
+    type: z.literal("tool_call"),
+    callId: z.string(),
+    tool: z.string(),
+    input: z.unknown(),
+    /** Set when the tool comes from an MCP server. */
+    mcp: z.object({ serverId: z.string(), serverName: z.string(), tool: z.string() }).optional(),
+  }),
   z.object({
     ...evBase,
     type: z.literal("tool_result"),
@@ -185,6 +250,8 @@ export const Event = z.discriminatedUnion("type", [
     input: z.unknown().optional(),
     plan: z.string().optional(),
     reason: z.string(),
+    /** For MCP tools: server, tool, and what the call can do (destructive ones can't be "always"). */
+    mcp: McpCallInfo.optional(),
   }),
   z.object({ ...evBase, type: z.literal("plan"), plan: z.string() }),
   z.object({
@@ -231,6 +298,50 @@ export const Event = z.discriminatedUnion("type", [
     steps: z.number().optional(),
     usage: Usage.optional(),
     diffStat: z.string().optional(),
+  }),
+  /** MCP servers visible in a project (or globally), with live status. Also pushed on changes (id "mcp"). */
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_servers"),
+    projectRoot: z.string().optional(),
+    servers: z.array(McpServerStatus),
+    trusted: z.boolean().optional(),
+    /** Other MCP clients' config files found on this Mac (for import). */
+    importSources: z.array(z.object({ label: z.string(), file: z.string() })).optional(),
+    imported: z.array(z.string()).optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_test"),
+    ok: z.boolean(),
+    error: z.string().optional(),
+    serverInfo: z.object({ name: z.string(), version: z.string() }).optional(),
+    protocolVersion: z.string().optional(),
+    capabilities: z.array(z.string()).optional(),
+    tools: z.number().optional(),
+    resources: z.number().optional(),
+    prompts: z.number().optional(),
+    logs: z.array(z.string()),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_inspect"),
+    kind: z.enum(["tools", "resources", "prompts", "logs"]),
+    tools: z.array(McpToolInfo).optional(),
+    resources: z.array(McpResourceInfo).optional(),
+    prompts: z.array(McpPromptInfo).optional(),
+    logs: z.array(z.string()).optional(),
+  }),
+  z.object({ ...evBase, type: z.literal("mcp_resource"), uri: z.string(), text: z.string() }),
+  z.object({ ...evBase, type: z.literal("mcp_prompt"), name: z.string(), description: z.string().optional(), text: z.string() }),
+  z.object({ ...evBase, type: z.literal("mcp_permissions"), projectRoot: z.string(), rules: z.record(z.string(), z.enum(["allow", "deny"])) }),
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_progress"),
+    tool: z.string(),
+    progress: z.number(),
+    total: z.number().optional(),
+    message: z.string().optional(),
   }),
   /** A project's memory (answer to memory.get / memory.update). Includes history entries. */
   z.object({

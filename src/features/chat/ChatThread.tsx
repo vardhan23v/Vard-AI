@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useNavigate } from "@tanstack/react-router";
+import { useNavigate, useSearch } from "@tanstack/react-router";
 import { AlertCircle, Check, Copy, Pencil, RefreshCw } from "lucide-react";
 import { toast } from "sonner";
 
@@ -28,6 +28,7 @@ const toTurns = (msgs: Message[]): ChatTurn[] =>
 
 export function NewChat() {
   const navigate = useNavigate();
+  const draft = useSearch({ strict: false }) as { draft?: string };
   const qc = useQueryClient();
   const [choice] = useModelChoice();
   const [busy, setBusy] = useState(false);
@@ -51,7 +52,7 @@ export function NewChat() {
       <StarField />
       <div className="relative w-full max-w-2xl">
         <h1 className="mb-6 text-center text-3xl text-foreground">What are we making tonight?</h1>
-        <Composer onSend={start} disabled={busy} placeholder="Ask anything" />
+        <Composer key={draft.draft ?? ""} onSend={start} disabled={busy} placeholder="Ask anything" initial={draft.draft ?? ""} />
         {!isTauri() && <DesktopOnlyNote />}
       </div>
     </div>
