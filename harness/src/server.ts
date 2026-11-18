@@ -15,7 +15,7 @@ import { DEFAULT_RETRY, type RetryOptions, withRetry } from "./retry";
 import { describeError } from "./util";
 import { createWorktree, discardWorktree, isGitRepo, mergeWorktree, type Worktree, worktreeDiff } from "./worktree";
 
-export const VERSION = "0.1.0";
+export const VERSION = "0.2.0";
 
 export interface ServerDeps {
   write: (e: Event) => void;
