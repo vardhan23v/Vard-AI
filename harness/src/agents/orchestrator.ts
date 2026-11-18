@@ -11,7 +11,7 @@ import { reflectOnTask, type ApprovalRequest, type ApprovalResponse, type LoopRe
 import { applyAuto, type MemoryStore, type Proposal } from "../memory";
 import type { EventBody, Usage } from "../protocol";
 import { runCommand } from "../tools/command";
-import { truncateMiddle } from "../util";
+import { git, truncateMiddle } from "../util";
 import { createWorktree, discardWorktree, type Worktree } from "../worktree";
 import { MessageBus } from "./communication";
 import { addFileEdges, allDeps, validateGraph, dedupeGraph } from "./dependencies";
@@ -96,6 +96,7 @@ export class Orchestrator {
   constructor(private d: OrchestratorDeps) {
     this.tokenBudget = d.options.tokenBudget ?? DEFAULT_TOKEN_BUDGET;
     this.integrator = new Integrator(d.integration);
+    d.signal.addEventListener("abort", () => this.releaseWaiters(), { once: true });
     this.bus = new MessageBus((message) => this.emit({ type: "agent_message", message }));
     this.env = {
       ...d,
@@ -159,8 +160,12 @@ export class Orchestrator {
   // ---------- control ----------
 
   private waitResume(): Promise<void> {
-    if (!this.isPaused) return Promise.resolve();
+    if (!this.isPaused || this.d.signal.aborted) return Promise.resolve();
     return new Promise((r) => this.resumeWaiters.push(r));
+  }
+
+  private releaseWaiters() {
+    this.resumeWaiters.splice(0).forEach((r) => r());
   }
 
   control(action: OrchControl, subtaskId?: string, note?: string): string {
@@ -172,8 +177,7 @@ export class Orchestrator {
         return "paused";
       case "resume": {
         this.isPaused = false;
-        const w = this.resumeWaiters.splice(0);
-        w.forEach((r) => r());
+        this.releaseWaiters();
         if (this.phase === "paused") this.setPhase("running");
         this.scheduler?.poke();
         return "resumed";
@@ -192,6 +196,8 @@ export class Orchestrator {
       }
       case "retry_subtask": {
         const s = this.sub(subtaskId);
+        if (!["running", "paused", "attention"].includes(this.phase))
+          throw new OrchestrationError("config", `subtasks can be retried only while the run is going (it is ${this.phase})`);
         if (!["failed", "needs_attention", "cancelled", "blocked", "skipped"].includes(s.status))
           throw new OrchestrationError("config", `subtask ${s.id} is ${s.status}; only failed, blocked or cancelled subtasks can be retried`);
         s.status = "pending";
@@ -199,13 +205,19 @@ export class Orchestrator {
         this.accepted.delete(s.id);
         s.note = note?.trim() ? `Note from the user: ${note.trim()}${s.question ? `\n(Your question was: ${s.question})` : ""}` : s.note;
         this.subChanged(s, "retry requested");
-        // Dependents that were blocked by it get another chance.
-        for (const x of this.subtasks)
-          if (x.status === "blocked") {
-            x.status = "pending";
-            x.blockedBy = undefined;
-            this.subChanged(x);
-          }
+        // Subtasks blocked (directly or through others) by this one get another chance.
+        const freed = new Set([s.id]);
+        for (let changed = true; changed; ) {
+          changed = false;
+          for (const x of this.subtasks)
+            if (x.status === "blocked" && x.blockedBy?.some((b) => freed.has(b))) {
+              x.status = "pending";
+              x.blockedBy = undefined;
+              freed.add(x.id);
+              this.subChanged(x);
+              changed = true;
+            }
+        }
         this.attention?.("retry");
         this.scheduler?.poke();
         return "retrying";
@@ -367,10 +379,15 @@ export class Orchestrator {
       const stuck = this.subtasks.filter((s) => ["failed", "needs_attention", "blocked", "skipped"].includes(s.status) && !this.accepted.has(s.id));
       if (!stuck.length || d.options.onFailure === "continue") return;
       this.setPhase("attention", `${stuck.length} subtask${stuck.length > 1 ? "s need" : " needs"} your attention`);
+      let onAbort = () => {};
       const choice = await new Promise<"retry" | "continue">((resolve, reject) => {
         this.attention = resolve;
-        d.signal.addEventListener("abort", () => reject(new OrchestrationError("cancelled", "cancelled")), { once: true });
-      }).finally(() => (this.attention = undefined));
+        onAbort = () => reject(new OrchestrationError("cancelled", "cancelled"));
+        d.signal.addEventListener("abort", onAbort, { once: true });
+      }).finally(() => {
+        this.attention = undefined;
+        d.signal.removeEventListener("abort", onAbort);
+      });
       if (choice === "continue") {
         for (const s of stuck) this.accepted.add(s.id);
         for (const s of this.subtasks)
@@ -466,6 +483,10 @@ export class Orchestrator {
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);
     this.emit({ type: "verify", status: ok ? "passed" : "failed", command: cmd, output });
+    // The integration branch is fully committed; undo anything the command changed (formatters,
+    // lockfiles) so it neither blocks later merges nor ends up in the diff. Ignored files stay.
+    await git(this.d.integration.path, ["reset", "--hard", "-q", "HEAD"]);
+    await git(this.d.integration.path, ["clean", "-fdq"]);
     return { command: cmd, ok, output };
   }
 

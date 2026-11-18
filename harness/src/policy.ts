@@ -187,7 +187,7 @@ export class Policy {
         const relToWork = path.relative(inWork ? this.workRoot : this.projectRoot, abs);
         if (relToWork.split(path.sep).includes(".git"))
           return { action: "deny", reason: `writes into .git are not allowed: ${v}` };
-        if (!inWork && isInside(abs, path.join(this.projectRoot, ".vard")))
+        if ((!inWork && isInside(abs, path.join(this.projectRoot, ".vard"))) || isInside(abs, path.join(this.workRoot, ".vard")))
           return { action: "deny", reason: `writes into .vard are not allowed: ${v}` };
         if (!inWork) writeOutsideWork = true;
       }

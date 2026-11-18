@@ -427,3 +427,23 @@ describe("server: skills requests and tasks", () => {
     }
   });
 });
+
+describe("review fixes (skills)", () => {
+  test("the agent can't write into .vard even when it works in the project itself", () => {
+    const e = env();
+    const policy = new Policy({ projectRoot: e.project, workRoot: e.project, store: new MemoryRulesStore() });
+    const write = { name: "write_file", risk: "write", pathFields: ["path"] } as any;
+    expect(policy.decide(write, { path: ".vard/skills/x/scripts/run.sh" }).action).toBe("deny");
+    expect(policy.decide(write, { path: "src/a.ts" }).action).toBe("allow");
+  });
+
+  test("a project skills folder over the limits can't be trusted", () => {
+    const e = env();
+    const dir = writeSkill(e.projectDir, "big");
+    fs.mkdirSync(path.join(dir, "assets"));
+    for (let i = 0; i < 2001; i++) fs.writeFileSync(path.join(dir, "assets", `f${i}.txt`), "x");
+    const reg = new SkillRegistry({ home: e.home, projectRoot: e.project });
+    expect(() => reg.setTrusted(true)).toThrow("too large to trust");
+    expect(reg.find("big")!.usable).toBe(false);
+  });
+});

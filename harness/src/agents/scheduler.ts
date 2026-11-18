@@ -106,11 +106,19 @@ export class Scheduler {
     const ctrl = new AbortController();
     const entry: { ctrl: AbortController; reason?: "user" | "timeout" } = { ctrl };
     this.controllers.set(s.id, entry);
+    // The time limit counts only time the run isn't paused.
     const ms = h.timeoutMs(s);
-    const timer = setTimeout(() => {
-      entry.reason = "timeout";
-      ctrl.abort();
-    }, ms);
+    let used = 0;
+    let last = Date.now();
+    const timer = setInterval(() => {
+      const now = Date.now();
+      if (!h.paused()) used += now - last;
+      last = now;
+      if (used >= ms) {
+        entry.reason = "timeout";
+        ctrl.abort();
+      }
+    }, Math.min(1_000, Math.max(10, Math.floor(ms / 4))));
     this.set(s, { status: "running", attempts: s.attempts + 1, startedAt: Date.now(), endedAt: undefined, error: undefined, question: undefined });
     let out: Outcome;
     try {
@@ -118,7 +126,7 @@ export class Scheduler {
     } catch (e) {
       out = { status: "failed", error: (e as Error)?.message ?? String(e), retryable: true };
     } finally {
-      clearTimeout(timer);
+      clearInterval(timer);
       this.controllers.delete(s.id);
     }
     if (out.status === "cancelled" && entry.reason === "timeout")

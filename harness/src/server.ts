@@ -286,7 +286,10 @@ export class Server {
     }
     const tracer = new Tracer(taskId, this.deps.traceDir);
     const { apiKey: _redacted, ...provider } = req.provider;
-    tracer.append({ type: "request", request: { ...req, provider }, ts: Date.now() });
+    const teamForTrace = req.team?.models
+      ? { ...req.team, models: Object.fromEntries(Object.entries(req.team.models).map(([k, v]) => [k, v && typeof v === "object" ? { ...(v as object), apiKey: undefined } : v])) }
+      : req.team;
+    tracer.append({ type: "request", request: { ...req, provider, ...(teamForTrace ? { team: teamForTrace } : {}) }, ts: Date.now() });
     const emit = this.emitter(req.id, taskId, tracer);
     if (skills?.activated.length) emit({ type: "skills_activated", skills: skills.activated, tokens: skills.tokens });
 
@@ -547,7 +550,7 @@ export class Server {
         if (cfg.success) return { model: this.modelFactory(cfg.data), label: label(cfg.data) };
       }
       // A role model on the task's provider can reuse the task's key; others need team.models.
-      if (role.model && role.model.provider === req.provider.provider)
+      if (role.model && role.model.provider === req.provider.provider && (!role.model.baseURL || role.model.baseURL === req.provider.baseUrl))
         return {
           model: this.modelFactory({ ...req.provider, model: role.model.model, ...(role.model.baseURL ? { baseUrl: role.model.baseURL } : {}) }),
           label: label(role.model),

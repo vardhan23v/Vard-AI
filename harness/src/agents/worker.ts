@@ -172,10 +172,18 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
   };
 
   const gate = async () => {
-    if (!env.paused()) return;
+    if (!env.paused() || spec.signal.aborted) return;
     agent.status = "paused";
     push(true);
-    await env.gate();
+    // Cancelling (the run, this subtask, or a timeout) must wake a paused agent.
+    await new Promise<void>((resolve) => {
+      const done = () => {
+        spec.signal.removeEventListener("abort", done);
+        resolve();
+      };
+      spec.signal.addEventListener("abort", done, { once: true });
+      void env.gate().then(done);
+    });
     agent.status = "running";
     push(true);
   };

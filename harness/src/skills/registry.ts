@@ -48,13 +48,21 @@ function readJson<T>(file: string, fallback: T): T {
   }
 }
 
-/** Hash of every file under a project's .vard/skills (names and contents), or null if it has none. */
-export function projectSkillsHash(projectRoot: string): string | null {
+const MAX_TRUST_FILES = 2_000;
+const MAX_TRUST_BYTES = 20 * 1024 * 1024;
+
+/**
+ * Hash of every file under a project's .vard/skills (names, sizes and contents). Returns null when
+ * there is nothing to trust, and "too_large" when the folder is over the limits: then it can't be
+ * trusted at all, so no file can change unnoticed.
+ */
+export function projectSkillsHash(projectRoot: string): string | null | "too_large" {
   const root = projectSkillsDir(projectRoot);
   if (!fs.existsSync(root)) return null;
   const h = crypto.createHash("sha256");
   let files = 0;
   let bytes = 0;
+  let tooLarge = false;
   const walk = (dir: string, rel: string) => {
     let entries: fs.Dirent[] = [];
     try {
@@ -63,20 +71,25 @@ export function projectSkillsHash(projectRoot: string): string | null {
       return;
     }
     for (const e of entries.sort((a, b) => a.name.localeCompare(b.name))) {
+      if (tooLarge) return;
       const abs = path.join(dir, e.name);
       const r = rel ? `${rel}/${e.name}` : e.name;
-      if (e.isSymbolicLink()) {
-        h.update(`link:${r}->${fs.readlinkSync(abs)}\n`);
-      } else if (e.isDirectory()) walk(abs, r);
-      else if (e.isFile() && files < 2000 && bytes < 20 * 1024 * 1024) {
-        const data = fs.readFileSync(abs);
+      if (e.isSymbolicLink()) h.update(`link:${r}->${fs.readlinkSync(abs)}\n`);
+      else if (e.isDirectory()) walk(abs, r);
+      else if (e.isFile()) {
+        const size = fs.statSync(abs).size;
         files++;
-        bytes += data.length;
-        h.update(`file:${r}:${data.length}\n`).update(data);
+        bytes += size;
+        if (files > MAX_TRUST_FILES || bytes > MAX_TRUST_BYTES) {
+          tooLarge = true;
+          return;
+        }
+        h.update(`file:${r}:${size}\n`).update(fs.readFileSync(abs));
       }
     }
   };
   walk(root, "");
+  if (tooLarge) return "too_large";
   return files ? h.digest("hex") : null;
 }
 
@@ -117,13 +130,15 @@ export class SkillRegistry {
   projectTrusted(): boolean {
     if (!this.projectRoot) return false;
     const h = projectSkillsHash(this.projectRoot);
-    return !!h && readJson<Record<string, string>>(this.trustFile, {})[this.projectRoot] === h;
+    return !!h && h !== "too_large" && readJson<Record<string, string>>(this.trustFile, {})[this.projectRoot] === h;
   }
 
   setTrusted(trusted: boolean) {
     if (!this.projectRoot) throw new Error("trust applies to a project's skills");
     const all = readJson<Record<string, string>>(this.trustFile, {});
     const h = projectSkillsHash(this.projectRoot);
+    if (trusted && h === "too_large")
+      throw new Error("This project's .vard/skills folder is too large to trust (over 2,000 files or 20 MB).");
     if (trusted && h) all[this.projectRoot] = h;
     else delete all[this.projectRoot];
     writeJsonAtomic(this.trustFile, all);
