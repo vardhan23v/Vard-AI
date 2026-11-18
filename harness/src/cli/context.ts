@@ -2,6 +2,7 @@
 import path from "node:path";
 import { PROVIDERS, providerConfig, providerInfo, type ModelChoice } from "../catalog";
 import type { ProviderConfig, ProviderId } from "../protocol";
+import type { SecretStore } from "../mcp";
 import type { ModelFactory } from "../providers";
 import { Client } from "./client";
 import { ConfigStore, vardHome } from "./config";
@@ -35,6 +36,7 @@ export function makeCtx(o: {
   keys?: KeyStore;
   modelFactory?: ModelFactory;
   stdinText?: string;
+  mcpSecrets?: SecretStore;
 }): Ctx {
   const theme = makeTheme(o.color);
   const home = vardHome(o.env);
@@ -46,7 +48,12 @@ export function makeCtx(o: {
     prompter: o.prompter,
     keys: o.keys ?? new KeyStore(o.env),
     config: new ConfigStore(home),
-    client: new Client({ modelFactory: o.modelFactory, traceDir: o.env.VARD_TRACE_DIR || path.join(home, "traces") }),
+    client: new Client({
+      modelFactory: o.modelFactory,
+      traceDir: o.env.VARD_TRACE_DIR || path.join(home, "traces"),
+      mcpHome: home,
+      mcpSecrets: o.mcpSecrets,
+    }),
     cwd: o.cwd,
     env: o.env,
     stdinText: o.stdinText,

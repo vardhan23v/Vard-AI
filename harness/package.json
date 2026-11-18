@@ -13,6 +13,7 @@
     "@ai-sdk/google": "^4.0.114",
     "@ai-sdk/openai": "^4.0.111",
     "@ai-sdk/provider": "^4.0.37",
+    "@modelcontextprotocol/sdk": "1.32.2",
     "ai": "^7.0.166",
     "ink": "^6.8.0",
     "ollama-ai-provider-v2": "^4.1.0",

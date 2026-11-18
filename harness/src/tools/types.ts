@@ -2,8 +2,24 @@ import path from "node:path";
 import type { z } from "zod";
 import { isInside, realpathLoose } from "../util";
 
-/** read: no side effects. write: changes files. exec: runs arbitrary processes. */
-export type Risk = "read" | "write" | "exec";
+/**
+ * read: no side effects. write: changes files. exec: runs arbitrary processes.
+ * mcp: a tool from an external MCP server (untrusted; permission is decided per server/tool).
+ */
+export type Risk = "read" | "write" | "exec" | "mcp";
+
+/** Where an MCP tool comes from, and what its (unverified) annotations claim. */
+export interface McpToolMeta {
+  serverId: string;
+  serverName: string;
+  /** The server's own tool name. */
+  tool: string;
+  scope: "global" | "project";
+  readOnly: boolean;
+  destructive: boolean;
+  /** "tool" for server tools; "resource" for Vard's resource helpers. */
+  kind: "tool" | "resource";
+}
 
 export interface Todo {
   id: string;
@@ -33,6 +49,10 @@ export interface ToolDef<I = any> {
   /** Shapes the raw output to fit maxOutput. */
   truncate(output: string): string;
   execute(input: I, ctx: ToolContext): Promise<string>;
+  /** JSON Schema sent to the model as-is (MCP tools); otherwise derived from inputSchema. */
+  jsonSchema?: Record<string, unknown>;
+  /** Set for MCP tools. */
+  mcp?: McpToolMeta;
 }
 
 export class ToolError extends Error {}

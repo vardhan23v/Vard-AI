@@ -111,6 +111,7 @@ export const COMMANDS: { name: string; args?: string; desc: string }[] = [
   { name: "/diff", desc: "Show the kept task's changes" },
   { name: "/merge", desc: "Merge the kept task into your branch" },
   { name: "/discard", desc: "Drop the kept task" },
+  { name: "/mcp", desc: "MCP servers (external tools) for this project" },
   { name: "/keys", desc: "Show which API keys are set" },
   { name: "/clear", desc: "Start a new conversation" },
   { name: "/help", desc: "Commands and keys" },

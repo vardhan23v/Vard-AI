@@ -433,6 +433,15 @@ export function App(props: AppProps) {
         commit({ kind: "memory", entries, path: store.path, total: store.active().length, query: query || undefined });
         return;
       }
+      case "/mcp": {
+        const list = ctx.client.server.mcp.status(gitRoot(ctx.cwd) ?? ctx.cwd);
+        if (!list.length) return note("No MCP servers. Add them in the app (Integrations) or with `vard mcp add`.");
+        return note(
+          list
+            .map((s) => `${s.state === "connected" ? "●" : "○"} ${s.id.padEnd(18)} ${s.state}${s.state === "connected" ? ` · ${s.toolCount} tools` : ""}${s.error ? ` · ${s.error}` : ""}`)
+            .join("\n") + "\nServers connect when a /task starts. Manage them with `vard mcp`.",
+        );
+      }
       case "/keys":
         return showKeys();
       case "/task":
@@ -485,11 +494,16 @@ export function App(props: AppProps) {
           { key: "e", label: "Edit plan" },
           { key: "n", label: "Reject", tone: "danger" },
         ]
-      : [
-          { key: "a", label: "Allow once", tone: "ok" },
-          { key: "A", label: "Always in this project" },
-          { key: "d", label: "Deny", tone: "danger" },
-        ];
+      : ev.mcp?.destructive
+        ? [
+            { key: "a", label: "Allow once", tone: "ok" },
+            { key: "d", label: "Deny", tone: "danger" },
+          ]
+        : [
+            { key: "a", label: "Allow once", tone: "ok" },
+            { key: "A", label: ev.mcp ? "Always for this tool here" : "Always in this project" },
+            { key: "d", label: "Deny", tone: "danger" },
+          ];
 
   const answerApproval = (m: Extract<Modal, { type: "approval" }>, key: string) => {
     const { taskId, ev } = m;
@@ -840,7 +854,9 @@ export function App(props: AppProps) {
 
       {modal?.type === "approval" ? (
         <ChoiceModal
-          title={modal.ev.kind === "plan" ? "Approve this plan?" : `Allow ${modal.ev.tool}?`}
+          title={
+            modal.ev.kind === "plan" ? "Approve this plan?" : modal.ev.mcp ? `Allow ${modal.ev.mcp.serverName} to run ${modal.ev.mcp.tool}?` : `Allow ${modal.ev.tool}?`
+          }
           options={approvalOptions(modal.ev)}
           selected={selected}
         >
@@ -848,8 +864,10 @@ export function App(props: AppProps) {
             <Text color={C.muted}>The plan is shown above. Approve it, edit it, or say what to change.</Text>
           ) : (
             <Box flexDirection="column">
-              <Text color={C.ink}>{describeToolInput(modal.ev.tool ?? "", modal.ev.input)}</Text>
-              <Text color={C.muted}>{modal.ev.reason}</Text>
+              <Text color={C.ink}>
+                {modal.ev.mcp ? JSON.stringify(modal.ev.input ?? {}).slice(0, 300) : describeToolInput(modal.ev.tool ?? "", modal.ev.input)}
+              </Text>
+              <Text color={modal.ev.mcp?.destructive ? C.danger : C.muted}>{modal.ev.mcp ? `MCP · ${modal.ev.mcp.access}` : modal.ev.reason}</Text>
             </Box>
           )}
         </ChoiceModal>

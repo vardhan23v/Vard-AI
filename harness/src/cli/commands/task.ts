@@ -176,12 +176,25 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       }
     } else {
       const d = describeToolInput(e.tool ?? "", e.input);
-      out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
-      const a = await ctx.prompter.choose(`  ${t.muted("[a] allow once  [A] always in this project  [d] deny")}`, [
-        { key: "a", label: "allow once" },
-        { key: "A", label: "always" },
-        { key: "d", label: "deny" },
-      ]);
+      const m = e.mcp;
+      if (m)
+        out.write(
+          `  ${t.star("?")} ${t.cerulean(`[MCP ${m.serverName}]`)} ${t.bold(m.tool)} ${t.muted(JSON.stringify(e.input ?? {}).slice(0, 160))}\n    ${t.muted(m.access)}\n`,
+        );
+      else out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
+      const a = await ctx.prompter.choose(
+        `  ${t.muted(m?.destructive ? "[a] allow once  [d] deny  (destructive: asks every time)" : "[a] allow once  [A] always in this project  [d] deny")}`,
+        m?.destructive
+          ? [
+              { key: "a", label: "allow once" },
+              { key: "d", label: "deny" },
+            ]
+          : [
+              { key: "a", label: "allow once" },
+              { key: "A", label: "always" },
+              { key: "d", label: "deny" },
+            ],
+      );
       await ctx.client.approve(taskId, e.approvalId, a === "a" ? "allow_once" : a === "A" ? "always" : "deny");
     }
     ctx.spinner.start(label);

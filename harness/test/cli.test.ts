@@ -4,6 +4,7 @@ import path from "node:path";
 import { parseCliArgs, runCli } from "../src/cli/main";
 import { KeyStore, type SecurityRunner } from "../src/cli/keys";
 import { MemoryStore } from "../src/memory";
+import { MemorySecrets } from "../src/mcp";
 import { NonInteractivePrompter, ScriptedPrompter } from "../src/cli/prompt";
 import { TokenPrinter, makeTheme } from "../src/cli/render";
 import { scriptedModel, sh, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
@@ -263,6 +264,35 @@ describe("run", () => {
     expect(await runCli(["run", "anything"], h.opts)).toBe(1);
     expect(h.err.text).toContain("isn't a git repository");
   });
+});
+
+describe("vard mcp", () => {
+  test("add, list, test, tools, permissions and remove a server", async () => {
+    const mock = path.join(import.meta.dir, "fixtures", "mcp", "mock-server.ts");
+    const repo = tmpGitRepo({ "a.txt": "a" });
+    const h = io({ cwd: repo });
+    const secrets = new MemorySecrets();
+    const run = async (...args: string[]) => {
+      const o = io({ cwd: repo });
+      o.opts.env.VARD_HOME = h.home;
+      (o.opts as any).mcpSecrets = secrets;
+      const code = await runCli(["mcp", ...args], o.opts);
+      return { code, out: o.out.text, err: o.err.text };
+    };
+    expect((await run("list")).out).toContain("No MCP servers yet");
+    expect((await run("add", "mock", "--", process.execPath, mock)).out).toContain("Added mock (global)");
+    expect((await run("list")).out).toMatch(/mock\s+not connected/);
+    const t = await run("test", "mock");
+    expect(t.code).toBe(0);
+    expect(t.out).toContain("mock 1.2.3 · protocol 2025-11-25 · 12 tools, 2 resources, 1 prompts");
+    expect((await run("tools", "mock")).out).toContain("delete_all mcp__mock__delete_all (destructive)");
+    expect((await run("prompts", "mock")).out).toContain("review topic");
+    expect((await run("permissions", "allow", "mock/echo")).out).toContain("allow mock/echo");
+    expect((await run("revoke", "mock/")).out).toContain("every call asks");
+    expect((await run("add", "remote", "--url", "http://example.com/mcp")).err).toMatch(/https/);
+    expect((await run("remove", "mock")).out).toContain("Removed mock");
+    expect(fs.readFileSync(path.join(h.home, "mcp.json"), "utf8")).not.toContain("mock-server");
+  }, 30_000);
 });
 
 describe("models and config", () => {

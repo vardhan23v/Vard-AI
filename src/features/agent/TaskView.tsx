@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import {
   AlertTriangle,
   Brain,
+  Plug,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -238,15 +239,31 @@ function PlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
 
 function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   const req = live.pending!;
+  const m = req.mcp;
   return (
     <Card
-      title="Allow this action?"
+      title={m ? `Allow ${m.serverName} to run ${m.tool}?` : "Allow this action?"}
       icon={<ShieldAlert className="size-4 text-primary" />}
       tone="attention"
     >
-      <p className="text-sm">{req.reason}</p>
+      {m ? (
+        <div className="space-y-2 text-sm">
+          <p className="flex flex-wrap items-center gap-2">
+            <McpBadge server={m.serverName} />
+            {m.destructive ? (
+              <span className="rounded-full border border-destructive/40 px-1.5 py-px text-xs text-destructive">destructive</span>
+            ) : m.readOnly ? (
+              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">read-only (unverified)</span>
+            ) : null}
+          </p>
+          <p>{m.access}</p>
+          <p className="text-xs text-muted-foreground">MCP servers are third-party code. Check the arguments before allowing.</p>
+        </div>
+      ) : (
+        <p className="text-sm">{req.reason}</p>
+      )}
       <pre className="mt-3 max-h-48 overflow-auto rounded-md bg-background/60 p-3 font-mono text-xs">
-        {req.tool}: {formatInput(req.input)}
+        {m ? m.tool : req.tool}: {formatInput(req.input)}
       </pre>
       <div className="mt-4 flex flex-wrap gap-2">
         <button
@@ -256,12 +273,14 @@ function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
         >
           Allow once
         </button>
-        <button
-          onClick={() => taskActions.approve(taskId, req.approvalId, "always")}
-          className="min-h-10 rounded-md border border-input px-4 text-sm hover:bg-accent"
-        >
-          Always allow in this project
-        </button>
+        {!m?.destructive && (
+          <button
+            onClick={() => taskActions.approve(taskId, req.approvalId, "always")}
+            className="min-h-10 rounded-md border border-input px-4 text-sm hover:bg-accent"
+          >
+            {m ? "Always allow this tool in this project" : "Always allow in this project"}
+          </button>
+        )}
         <button
           onClick={() => taskActions.approve(taskId, req.approvalId, "deny")}
           className="min-h-10 rounded-md px-4 text-sm text-destructive hover:bg-destructive/10"
@@ -372,7 +391,8 @@ function ToolStep({ item }: { item: Extract<TimelineItem, { kind: "tool" }> }) {
           className={cn("size-3.5 shrink-0 transition-transform", open && "rotate-90")}
         />
         <Icon className="size-4 shrink-0 text-agent-foreground" />
-        <span className="font-mono text-xs">{item.tool}</span>
+        {item.mcp && <McpBadge server={item.mcp.serverName} />}
+        <span className="font-mono text-xs">{item.mcp ? item.mcp.tool : item.tool}</span>
         <span className="flex-1 truncate font-mono text-xs text-muted-foreground">
           {summarize(item.input)}
         </span>
@@ -650,6 +670,14 @@ function SuggestedMemories({
           </>
         ))}
     </Card>
+  );
+}
+
+function McpBadge({ server }: { server: string }) {
+  return (
+    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-agent/50 px-1.5 py-px text-[11px] text-agent-foreground" title="Tool from an MCP server">
+      <Plug className="size-3" aria-hidden /> {server}
+    </span>
   );
 }
 

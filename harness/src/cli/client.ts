@@ -3,6 +3,7 @@
  */
 import type { ApprovalDecision, Event, ProviderConfig } from "../protocol";
 import type { ModelFactory } from "../providers";
+import type { SecretStore } from "../mcp";
 import { Server } from "../server";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
@@ -18,10 +19,12 @@ export class Client {
   readonly server: Server;
   private routes = new Map<string, (e: Event) => void>();
 
-  constructor(opts: { modelFactory?: ModelFactory; traceDir?: string } = {}) {
+  constructor(opts: { modelFactory?: ModelFactory; traceDir?: string; mcpHome?: string; mcpSecrets?: SecretStore } = {}) {
     this.server = new Server({
       modelFactory: opts.modelFactory,
       traceDir: opts.traceDir,
+      mcpHome: opts.mcpHome,
+      mcpSecrets: opts.mcpSecrets,
       write: (e) => (this.routes.get(e.taskId ?? e.id) ?? this.routes.get(e.id))?.(e),
     });
   }

@@ -1,4 +1,4 @@
-import { tool, type ToolSet } from "ai";
+import { jsonSchema, tool, type ToolSet } from "ai";
 import { runCommand } from "./command";
 import { editFile, listDir, readFile, writeFile } from "./fs";
 import { gitDiff, gitStatus } from "./git";
@@ -29,6 +29,11 @@ export const toolByName = (tools: ToolDef[], name: string) => tools.find((t) => 
  */
 export function toSdkTools(tools: ToolDef[]): ToolSet {
   const set: ToolSet = {};
-  for (const t of tools) set[t.name] = tool({ description: t.description, inputSchema: t.inputSchema as any });
+  for (const t of tools)
+    set[t.name] = tool({
+      description: t.description,
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any -- zod or JSON Schema
+      inputSchema: (t.jsonSchema ? jsonSchema(t.jsonSchema as any) : t.inputSchema) as any,
+    });
   return set;
 }
