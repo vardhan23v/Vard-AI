@@ -5,6 +5,12 @@
 <h1 align="center">Vard AI</h1>
 
 <p align="center">
+  <a href="https://github.com/vardhan23v/Vard-AI/releases/latest/download/Vard-AI-macOS-universal.dmg"><img alt="Download for macOS" src="https://img.shields.io/badge/Download-macOS-c2b75d?style=for-the-badge&logo=apple&logoColor=1d274e" /></a>
+  <a href="https://vard-ai.vercel.app"><img alt="Website" src="https://img.shields.io/badge/Website-vard--ai.vercel.app-30437a?style=for-the-badge&logo=vercel&logoColor=white" /></a>
+  <a href="https://github.com/vardhan23v/Vard-AI/releases/latest"><img alt="Latest release" src="https://img.shields.io/github/v/release/vardhan23v/Vard-AI?style=for-the-badge&color=1d274e&label=release" /></a>
+</p>
+
+<p align="center">
   <a href="https://github.com/vardhan23v/Vard-AI/actions/workflows/desktop.yml"><img alt="Desktop build" src="https://img.shields.io/github/actions/workflow/status/vardhan23v/Vard-AI/desktop.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=build" /></a>
   <img alt="macOS 12+" src="https://img.shields.io/badge/macOS-12%2B-1d274e?style=for-the-badge&logo=apple&logoColor=white" />
   <img alt="Universal" src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%2B%20Intel-30437a?style=for-the-badge" />
@@ -64,7 +70,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 
 ## Install
 
-1. Download `Vard AI_<version>_universal.dmg` (Apple Silicon and Intel).
+1. Download **[Vard-AI-macOS-universal.dmg](https://github.com/vardhan23v/Vard-AI/releases/latest/download/Vard-AI-macOS-universal.dmg)** from the [latest release](https://github.com/vardhan23v/Vard-AI/releases/latest) (Apple Silicon and Intel), or from [vard-ai.vercel.app](https://vard-ai.vercel.app).
 2. Open it and drag **Vard AI** to Applications.
 3. The app isn't notarized yet. On first launch, right-click it in Applications and choose **Open**, then **Open** again.
 
@@ -85,7 +91,13 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 
 ## Command line
 
-Install it from **Settings → Command-line tool → Install** (it links `/usr/local/bin/vard` to the binary inside the app). Then, in any folder:
+Install it from **Settings → Command-line tool → Install** (it links `vard` into a folder on your PATH, such as `~/.local/bin`, pointing at the binary inside the app). Or install it on its own:
+
+```bash
+mkdir -p ~/.local/bin && curl -fsSL https://github.com/vardhan23v/Vard-AI/releases/latest/download/vard-macos-universal.gz | gunzip > ~/.local/bin/vard && chmod +x ~/.local/bin/vard
+```
+
+Then, in any folder:
 
 ```bash
 vard                                  # full-screen UI: chat, and /task to run the agent here
@@ -192,6 +204,10 @@ bunx firebase-tools deploy --only firestore
 Builds are **unsigned** (ad-hoc signature) for now. On first launch, right-click the app and choose **Open**. Signing and notarization need an Apple Developer ID; add them in `src-tauri/tauri.conf.json` (`bundle.macOS.signingIdentity`) and the CI workflow.
 
 CI (`.github/workflows/desktop.yml`) typechecks, runs the harness tests and uploads a universal DMG and the standalone `vard` binary as build artifacts. It needs the six variables in `.env.example` as repository secrets.
+
+## Website
+
+The download site lives in [`site/`](site) (static HTML, CSS and JS) and deploys to [vard-ai.vercel.app](https://vard-ai.vercel.app) from `main` via Vercel. Its download buttons point to `releases/latest/download/…`, so publishing a release with the same asset names (`Vard-AI-macOS-universal.dmg`, `vard-macos-universal.gz`) updates them.
 
 ## License
 
