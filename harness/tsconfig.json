@@ -3,8 +3,12 @@
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "bundler",
-    "lib": ["ES2022"],
-    "types": ["bun"],
+    "lib": [
+      "ES2022"
+    ],
+    "types": [
+      "bun"
+    ],
     "strict": true,
     "noEmit": true,
     "skipLibCheck": true,
@@ -12,7 +16,11 @@
     "resolveJsonModule": true,
     "allowImportingTsExtensions": true,
     "verbatimModuleSyntax": false,
-    "noUncheckedIndexedAccess": false
+    "noUncheckedIndexedAccess": false,
+    "jsx": "react-jsx"
   },
-  "include": ["src", "test"]
+  "include": [
+    "src",
+    "test"
+  ]
 }

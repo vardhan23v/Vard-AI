@@ -1,0 +1,7 @@
+{
+  "name": "react-devtools-core",
+  "version": "0.0.0-vard-stub",
+  "description": "Empty stand-in: Ink only uses React DevTools when DEV=true, which vard never sets.",
+  "type": "module",
+  "main": "index.js"
+}

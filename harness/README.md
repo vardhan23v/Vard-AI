@@ -43,4 +43,5 @@ disk and are stripped from traces.
 | `server.ts` | Request router, shared by both modes. |
 | `stdio.ts`, `bin.ts`, `main.ts` | Sidecar loop; the `vard` entry point; a sidecar-only entry for tests. |
 | `catalog.ts` | Providers and models, shared with the app (`src/lib/models.ts`). |
+| `tui/` | The full-screen UI (Ink + React): `app.tsx` (state, chat and task flows, keyboard), `components.tsx`, `markdown.tsx`, `editor.ts` (prompt editing), `keys.ts` (splits raw key chunks). It reads the keyboard with Bun's stdin stream and hands Ink an idle stand-in, because Ink's own stdin handling misses keys under Bun. `stubs/react-devtools-core` keeps Ink's optional devtools import out of the compiled binary. |
 | `cli/` | The CLI: `main.ts` (arguments), `client.ts` (in-process Server), `keys.ts` (env vars, then the app's Keychain items), `render.ts`, `prompt.ts`, `commands/`. |

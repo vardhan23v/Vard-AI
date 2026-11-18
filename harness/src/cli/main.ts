@@ -8,15 +8,16 @@ import { session } from "./commands/session";
 import { runTask } from "./commands/task";
 import { makeCtx, type Ctx } from "./context";
 import type { KeyStore } from "./keys";
-import { NonInteractivePrompter, TtyPrompter, type Prompter } from "./prompt";
+import { NonInteractivePrompter, TtyPrompter, TuiPrompter, type Prompter } from "./prompt";
 import { useColor, type Writer } from "./render";
 import type { ModelFactory } from "../providers";
 
 export const HELP = `vard ${VERSION}: chat and a coding agent in your terminal
 
 Usage
-  vard                      interactive session in this folder (chat + /task)
+  vard                      full-screen session in this folder (chat + /task)
   vard -c                   continue the last session
+  vard --classic            line-by-line session instead of the full-screen one
   vard ask "<question>"     one answer; piped input is added as context
   vard run "<task>"         run the coding agent in this git repo
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
@@ -50,6 +51,7 @@ export type ParsedArgs = {
     worktree?: boolean;
     maxSteps?: number;
     yes?: boolean;
+    classic?: boolean;
   };
 };
 
@@ -68,6 +70,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       "no-worktree": { type: "boolean" },
       "max-steps": { type: "string" },
       yes: { type: "boolean", short: "y" },
+      classic: { type: "boolean" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
     },
@@ -84,6 +87,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     worktree: values["no-worktree"] ? false : undefined,
     maxSteps,
     yes: values.yes,
+    classic: values.classic,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };
@@ -128,6 +132,10 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
         ctx.err.write("The interactive session needs a terminal. Use vard ask or vard run in scripts.\n");
         return 1;
       }
+      if (!p.flags.classic) {
+        const { runTui } = await import("../tui/app");
+        return runTui(ctx, p.flags);
+      }
       return session(ctx, p.flags);
   }
 }
@@ -161,7 +169,11 @@ export async function runCli(argv: string[], io: CliIO = {}): Promise<number> {
   if (!stdinIsTTY && (parsed.command === "ask" || (parsed.command === "keys" && parsed.rest[0] === "set")))
     stdinText = await (io.readStdin ?? (() => Bun.stdin.text()))();
   const interactive = stdinIsTTY && !!stdout.isTTY;
-  const prompter = io.prompter ?? (interactive ? new TtyPrompter() : new NonInteractivePrompter(!!parsed.flags.yes));
+  // The full-screen UI owns the terminal itself; readline must not attach to stdin.
+  const tui = parsed.command === "session" && !parsed.flags.classic;
+  const prompter =
+    io.prompter ??
+    (interactive && !tui ? new TtyPrompter() : tui && interactive ? new TuiPrompter() : new NonInteractivePrompter(!!parsed.flags.yes));
   const ctx = makeCtx({
     out: stdout,
     err: stderr,

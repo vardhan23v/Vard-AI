@@ -132,7 +132,7 @@ export class TtyPrompter implements Prompter {
  * allowed once; without it, anything that needs a person is declined.
  */
 export class NonInteractivePrompter implements Prompter {
-  readonly interactive = false;
+  readonly interactive: boolean = false;
   constructor(private yes: boolean) {}
   async line() {
     return null;
@@ -179,4 +179,13 @@ export class ScriptedPrompter implements Prompter {
   }
   onInterrupt() {}
   close() {}
+}
+
+/** Placeholder for the full-screen UI, which asks its own questions. Reports itself interactive. */
+export class TuiPrompter extends NonInteractivePrompter {
+  override readonly interactive = true;
+  constructor() {
+    super(false);
+  }
+  override onInterrupt() {}
 }
