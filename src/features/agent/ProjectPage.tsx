@@ -8,6 +8,7 @@ import { ModelPicker } from "@/features/chat/ModelPicker";
 import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
+import { SkillPicker } from "@/features/skills/SkillPicker";
 import { send } from "@/lib/agent-client";
 import { MemoryTab } from "./MemoryTab";
 import { providerConfig, useModelChoice } from "@/lib/models";
@@ -282,6 +283,8 @@ function NewTask({ project, path }: { project: Project; path: string }) {
   const [prompt, setPrompt] = useState("");
   const [planFirst, setPlanFirst] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [autoSkills, setAutoSkills] = useState(true);
+  const [pickedSkills, setPickedSkills] = useState<string[]>([]);
 
   const start = async () => {
     const text = prompt.trim();
@@ -307,6 +310,8 @@ function NewTask({ project, path }: { project: Project; path: string }) {
           allowlist: project.command_allowlist,
           verifyCommand: project.verify_command ?? undefined,
           useMemory: true,
+          autoSkills,
+          ...(pickedSkills.length ? { skills: pickedSkills } : {}),
         },
         `task-${task.id}`,
       );
@@ -351,8 +356,17 @@ function NewTask({ project, path }: { project: Project; path: string }) {
         placeholder="Describe a task, e.g. “Add input validation to the signup form and a test for it”"
         className="w-full resize-none rounded-lg border border-border bg-card p-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-input"
       />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <ModelPicker />
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ModelPicker />
+          <SkillPicker
+            projectRoot={path}
+            auto={autoSkills}
+            onAuto={setAutoSkills}
+            picked={pickedSkills}
+            onPicked={setPickedSkills}
+          />
+        </div>
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
           <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" /> Plan
           first

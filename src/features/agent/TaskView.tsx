@@ -17,6 +17,7 @@ import {
   Trash2,
   Wrench,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
@@ -107,6 +108,21 @@ export function TaskView({ task }: { task: AgentTask }) {
             <p className="flex items-center gap-2 text-xs text-muted-foreground">
               <Brain className="size-3.5 text-agent-foreground" aria-hidden />
               Using {live.recall.count} of {live.recall.total} project notes
+            </p>
+          )}
+          {live?.skills && live.skills.length > 0 && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="size-3.5 text-agent-foreground" aria-hidden />
+              Skills:
+              {live.skills.map((s) => (
+                <span
+                  key={s.id}
+                  title={s.reasons.join("; ")}
+                  className="rounded-full border border-border px-2 py-px text-foreground"
+                >
+                  {s.name}
+                </span>
+              ))}
             </p>
           )}
           {live && live.todos.length > 0 && <Todos todos={live.todos} />}
@@ -251,16 +267,29 @@ function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
           <p className="flex flex-wrap items-center gap-2">
             <McpBadge server={m.serverName} />
             {m.destructive ? (
-              <span className="rounded-full border border-destructive/40 px-1.5 py-px text-xs text-destructive">destructive</span>
+              <span className="rounded-full border border-destructive/40 px-1.5 py-px text-xs text-destructive">
+                destructive
+              </span>
             ) : m.readOnly ? (
-              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">read-only (unverified)</span>
+              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">
+                read-only (unverified)
+              </span>
             ) : null}
           </p>
           <p>{m.access}</p>
-          <p className="text-xs text-muted-foreground">MCP servers are third-party code. Check the arguments before allowing.</p>
+          <p className="text-xs text-muted-foreground">
+            MCP servers are third-party code. Check the arguments before allowing.
+          </p>
         </div>
       ) : (
-        <p className="text-sm">{req.reason}</p>
+        <p className="text-sm">
+          {req.reason}
+          {req.noAlways && (
+            <span className="block text-xs text-muted-foreground">
+              This kind of action asks every time.
+            </span>
+          )}
+        </p>
       )}
       <pre className="mt-3 max-h-48 overflow-auto rounded-md bg-background/60 p-3 font-mono text-xs">
         {m ? m.tool : req.tool}: {formatInput(req.input)}
@@ -273,7 +302,7 @@ function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
         >
           Allow once
         </button>
-        {!m?.destructive && (
+        {!m?.destructive && !req.noAlways && (
           <button
             onClick={() => taskActions.approve(taskId, req.approvalId, "always")}
             className="min-h-10 rounded-md border border-input px-4 text-sm hover:bg-accent"
@@ -675,7 +704,10 @@ function SuggestedMemories({
 
 function McpBadge({ server }: { server: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-agent/50 px-1.5 py-px text-[11px] text-agent-foreground" title="Tool from an MCP server">
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-agent/50 px-1.5 py-px text-[11px] text-agent-foreground"
+      title="Tool from an MCP server"
+    >
       <Plug className="size-3" aria-hidden /> {server}
     </span>
   );

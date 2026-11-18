@@ -39,6 +39,8 @@ export type LiveTask = {
   proposals?: Ev<"memory_proposal">["items"];
   /** How much project memory went into the agent's context. */
   recall?: { count: number; total: number };
+  /** Skills chosen for this task. */
+  skills?: Ev<"skills_activated">["skills"];
 };
 
 const tasks = new Map<string, LiveTask>();
@@ -68,7 +70,14 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, timeline };
     }
     case "tool_call":
-      timeline.push({ kind: "tool", callId: e.callId, tool: e.tool, input: e.input, ts: e.ts, mcp: e.mcp });
+      timeline.push({
+        kind: "tool",
+        callId: e.callId,
+        tool: e.tool,
+        input: e.input,
+        ts: e.ts,
+        mcp: e.mcp,
+      });
       return { ...t, timeline };
     case "tool_result": {
       const i = timeline.findIndex((x) => x.kind === "tool" && x.callId === e.callId);
@@ -113,6 +122,8 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, proposals: e.items };
     case "memory_recall":
       return { ...t, recall: { count: e.count, total: e.total } };
+    case "skills_activated":
+      return e.agentId ? t : { ...t, skills: e.skills };
     case "done":
       void updateTask(t.taskId, {
         status: e.status,

@@ -9,12 +9,14 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as SkillsRouteImport } from './routes/skills'
 import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as ChatRouteImport } from './routes/chat'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as SkillsIndexRouteImport } from './routes/skills.index'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations.index'
@@ -22,6 +24,11 @@ import { Route as ChatIndexRouteImport } from './routes/chat.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ChatConversationIdRouteImport } from './routes/chat.$conversationId'
 
+const SkillsRoute = SkillsRouteImport.update({
+  id: '/skills',
+  path: '/skills',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const SettingsRoute = SettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -51,6 +58,11 @@ const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => rootRouteImport,
+} as any)
+const SkillsIndexRoute = SkillsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => SkillsRoute,
 } as any)
 const SettingsIndexRoute = SettingsIndexRouteImport.update({
   id: '/',
@@ -90,12 +102,14 @@ export interface FileRoutesByFullPath {
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
+  '/skills': typeof SkillsRouteWithChildren
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/chat/': typeof ChatIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/skills/': typeof SkillsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -106,6 +120,7 @@ export interface FileRoutesByTo {
   '/integrations': typeof IntegrationsIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/settings': typeof SettingsIndexRoute
+  '/skills': typeof SkillsIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -115,12 +130,14 @@ export interface FileRoutesById {
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
   '/settings': typeof SettingsRouteWithChildren
+  '/skills': typeof SkillsRouteWithChildren
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/chat/': typeof ChatIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
+  '/skills/': typeof SkillsIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -131,12 +148,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/projects'
     | '/settings'
+    | '/skills'
     | '/chat/$conversationId'
     | '/projects/$projectId'
     | '/chat/'
     | '/integrations/'
     | '/projects/'
     | '/settings/'
+    | '/skills/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -147,6 +166,7 @@ export interface FileRouteTypes {
     | '/integrations'
     | '/projects'
     | '/settings'
+    | '/skills'
   id:
     | '__root__'
     | '/'
@@ -155,12 +175,14 @@ export interface FileRouteTypes {
     | '/login'
     | '/projects'
     | '/settings'
+    | '/skills'
     | '/chat/$conversationId'
     | '/projects/$projectId'
     | '/chat/'
     | '/integrations/'
     | '/projects/'
     | '/settings/'
+    | '/skills/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -170,10 +192,18 @@ export interface RootRouteChildren {
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
   SettingsRoute: typeof SettingsRouteWithChildren
+  SkillsRoute: typeof SkillsRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/skills': {
+      id: '/skills'
+      path: '/skills'
+      fullPath: '/skills'
+      preLoaderRoute: typeof SkillsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/settings': {
       id: '/settings'
       path: '/settings'
@@ -215,6 +245,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/skills/': {
+      id: '/skills/'
+      path: '/'
+      fullPath: '/skills/'
+      preLoaderRoute: typeof SkillsIndexRouteImport
+      parentRoute: typeof SkillsRoute
     }
     '/settings/': {
       id: '/settings/'
@@ -311,6 +348,17 @@ const SettingsRouteWithChildren = SettingsRoute._addFileChildren(
   SettingsRouteChildren,
 )
 
+interface SkillsRouteChildren {
+  SkillsIndexRoute: typeof SkillsIndexRoute
+}
+
+const SkillsRouteChildren: SkillsRouteChildren = {
+  SkillsIndexRoute: SkillsIndexRoute,
+}
+
+const SkillsRouteWithChildren =
+  SkillsRoute._addFileChildren(SkillsRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   ChatRoute: ChatRouteWithChildren,
@@ -318,6 +366,7 @@ const rootRouteChildren: RootRouteChildren = {
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,
   SettingsRoute: SettingsRouteWithChildren,
+  SkillsRoute: SkillsRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
