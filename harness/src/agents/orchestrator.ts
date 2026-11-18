@@ -150,6 +150,7 @@ export class Orchestrator {
         tokenBudget: this.tokenBudget,
       },
       integrationBranch: this.d.integration.branch,
+      seq: this.seq,
       startedAt: this.startedAt,
       endedAt: this.endedAt,
     };

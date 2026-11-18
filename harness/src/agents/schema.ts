@@ -263,6 +263,8 @@ export const OrchestrationState = z.object({
   usage: Usage,
   options: z.object({ maxAgents: z.number(), maxSubtasks: z.number(), retries: z.number(), review: z.boolean(), tokenBudget: z.number() }),
   integrationBranch: z.string().optional(),
+  /** The last event `seq` included in this snapshot (later events have higher numbers). */
+  seq: z.number(),
   startedAt: z.number(),
   endedAt: z.number().optional(),
 });

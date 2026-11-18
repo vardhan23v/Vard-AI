@@ -287,3 +287,36 @@ export const skills = {
   validate: (text: string) =>
     ask({ type: "skills.update", change: { op: "validate", text } }, ["skill_validation"], "sk"),
 };
+
+// ---- team runs (multi-agent) ----
+
+export type AgentRoles = Extract<AgentEvent, { type: "agent_roles" }>;
+export type RoleConfig = AgentRoles["roles"][number];
+export type RoleOverride =
+  NonNullable<Extract<AgentRequest, { type: "agents.roles" }>["change"]> extends infer C
+    ? C extends { op: "save"; override: infer O }
+      ? O
+      : never
+    : never;
+
+export const agentRoles = {
+  list: (projectRoot?: string) =>
+    ask({ type: "agents.roles", projectRoot }, ["agent_roles"], "roles"),
+  save: (
+    scope: "global" | "project",
+    role: RoleConfig["id"],
+    override: RoleOverride,
+    projectRoot?: string,
+  ) =>
+    ask(
+      { type: "agents.roles", projectRoot, change: { op: "save", scope, role, override } },
+      ["agent_roles"],
+      "roles",
+    ),
+  reset: (scope: "global" | "project", role: RoleConfig["id"], projectRoot?: string) =>
+    ask(
+      { type: "agents.roles", projectRoot, change: { op: "reset", scope, role } },
+      ["agent_roles"],
+      "roles",
+    ),
+};

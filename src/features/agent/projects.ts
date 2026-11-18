@@ -44,6 +44,8 @@ export type AgentTask = {
   steps: number | null;
   input_tokens: number | null;
   output_tokens: number | null;
+  /** "team" for multi-agent runs (absent on older tasks). */
+  mode?: "single" | "team";
   created_at: string;
   updated_at: string;
 };
@@ -143,6 +145,7 @@ export async function createTask(input: {
   prompt: string;
   provider: string;
   model: string;
+  mode?: "single" | "team";
 }): Promise<AgentTask> {
   const now = nowIso();
   const { project_id, ...rest } = input;

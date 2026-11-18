@@ -15,12 +15,14 @@ import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SkillsIndexRouteImport } from './routes/skills.index'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations.index'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as AgentsIndexRouteImport } from './routes/agents.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ChatConversationIdRouteImport } from './routes/chat.$conversationId'
 
@@ -54,6 +56,11 @@ const ChatRoute = ChatRouteImport.update({
   path: '/chat',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AgentsRoute = AgentsRouteImport.update({
+  id: '/agents',
+  path: '/agents',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -84,6 +91,11 @@ const ChatIndexRoute = ChatIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ChatRoute,
 } as any)
+const AgentsIndexRoute = AgentsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AgentsRoute,
+} as any)
 const ProjectsProjectIdRoute = ProjectsProjectIdRouteImport.update({
   id: '/$projectId',
   path: '/$projectId',
@@ -97,6 +109,7 @@ const ChatConversationIdRoute = ChatConversationIdRouteImport.update({
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/integrations': typeof IntegrationsRouteWithChildren
   '/login': typeof LoginRoute
@@ -105,6 +118,7 @@ export interface FileRoutesByFullPath {
   '/skills': typeof SkillsRouteWithChildren
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/agents/': typeof AgentsIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -116,6 +130,7 @@ export interface FileRoutesByTo {
   '/login': typeof LoginRoute
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/agents': typeof AgentsIndexRoute
   '/chat': typeof ChatIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/projects': typeof ProjectsIndexRoute
@@ -125,6 +140,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/agents': typeof AgentsRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
   '/integrations': typeof IntegrationsRouteWithChildren
   '/login': typeof LoginRoute
@@ -133,6 +149,7 @@ export interface FileRoutesById {
   '/skills': typeof SkillsRouteWithChildren
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
+  '/agents/': typeof AgentsIndexRoute
   '/chat/': typeof ChatIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
@@ -143,6 +160,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/agents'
     | '/chat'
     | '/integrations'
     | '/login'
@@ -151,6 +169,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/chat/$conversationId'
     | '/projects/$projectId'
+    | '/agents/'
     | '/chat/'
     | '/integrations/'
     | '/projects/'
@@ -162,6 +181,7 @@ export interface FileRouteTypes {
     | '/login'
     | '/chat/$conversationId'
     | '/projects/$projectId'
+    | '/agents'
     | '/chat'
     | '/integrations'
     | '/projects'
@@ -170,6 +190,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/agents'
     | '/chat'
     | '/integrations'
     | '/login'
@@ -178,6 +199,7 @@ export interface FileRouteTypes {
     | '/skills'
     | '/chat/$conversationId'
     | '/projects/$projectId'
+    | '/agents/'
     | '/chat/'
     | '/integrations/'
     | '/projects/'
@@ -187,6 +209,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AgentsRoute: typeof AgentsRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
   IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LoginRoute: typeof LoginRoute
@@ -239,6 +262,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/agents': {
+      id: '/agents'
+      path: '/agents'
+      fullPath: '/agents'
+      preLoaderRoute: typeof AgentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -281,6 +311,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRoute
     }
+    '/agents/': {
+      id: '/agents/'
+      path: '/'
+      fullPath: '/agents/'
+      preLoaderRoute: typeof AgentsIndexRouteImport
+      parentRoute: typeof AgentsRoute
+    }
     '/projects/$projectId': {
       id: '/projects/$projectId'
       path: '/$projectId'
@@ -297,6 +334,17 @@ declare module '@tanstack/react-router' {
     }
   }
 }
+
+interface AgentsRouteChildren {
+  AgentsIndexRoute: typeof AgentsIndexRoute
+}
+
+const AgentsRouteChildren: AgentsRouteChildren = {
+  AgentsIndexRoute: AgentsIndexRoute,
+}
+
+const AgentsRouteWithChildren =
+  AgentsRoute._addFileChildren(AgentsRouteChildren)
 
 interface ChatRouteChildren {
   ChatConversationIdRoute: typeof ChatConversationIdRoute
@@ -361,6 +409,7 @@ const SkillsRouteWithChildren =
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AgentsRoute: AgentsRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
   IntegrationsRoute: IntegrationsRouteWithChildren,
   LoginRoute: LoginRoute,

@@ -104,6 +104,11 @@ export function Banner({ item, columns }: { item: Extract<Item, { kind: "banner"
 
 export const COMMANDS: { name: string; args?: string; desc: string }[] = [
   { name: "/task", args: "<what to do>", desc: "Run the coding agent in this repo" },
+  { name: "/team", args: "<what to build>", desc: "Split a task across a team of agents" },
+  { name: "/pause", desc: "Pause the team run (agents stop at their next step)" },
+  { name: "/resume", desc: "Resume the team run" },
+  { name: "/retry", args: "<subtask> [note]", desc: "Retry a failed team subtask" },
+  { name: "/continue", desc: "Finish the team run without failed subtasks" },
   { name: "/model", args: "[id]", desc: "Pick or switch the model" },
   { name: "/sessions", desc: "Resume an earlier conversation" },
   { name: "/memory", args: "[search q|analyze]", desc: "What Vard remembers about this project" },
@@ -307,6 +312,48 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
 }
 
 const FRAMES = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
+
+type TeamAgent = {
+  agentId: string;
+  role: string;
+  status: string;
+  activity?: string;
+  steps: number;
+  maxSteps: number;
+  usage: { totalTokens: number };
+};
+
+const AGENT_MARK: Record<string, [string, string]> = {
+  running: ["●", C.star],
+  created: ["●", C.star],
+  waiting_approval: ["?", C.star],
+  paused: ["‖", C.muted],
+  completed: ["✓", C.sage],
+  failed: ["✗", C.danger],
+  cancelled: ["–", C.muted],
+};
+
+/** One line per agent of a team run: status, role, current activity, steps. */
+export function TeamPanel({ agents }: { agents: TeamAgent[] }) {
+  const shown = agents.filter((a) => !["completed", "cancelled"].includes(a.status) || agents.length <= 6).slice(-8);
+  return (
+    <Box flexDirection="column" paddingLeft={2} marginTop={1}>
+      {shown.map((a) => {
+        const [mark, color] = AGENT_MARK[a.status] ?? ["·", C.muted];
+        return (
+          <Box key={a.agentId}>
+            <Text color={color}>{mark} </Text>
+            <Text bold>{a.agentId.padEnd(22).slice(0, 22)}</Text>
+            <Text color={C.muted}> {String(a.steps).padStart(2)}/{a.maxSteps} </Text>
+            <Text color={C.muted} wrap="truncate-end">
+              {a.status === "running" || a.status === "created" ? (a.activity ?? "starting") : a.status.replace("_", " ")}
+            </Text>
+          </Box>
+        );
+      })}
+    </Box>
+  );
+}
 
 export function Spinner({ label }: { label: string }) {
   const [i, setI] = useState(0);

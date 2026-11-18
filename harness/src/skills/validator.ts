@@ -60,7 +60,8 @@ export function validateSkillText(text: string, opts: { dir?: string; folderName
 
   const r = SkillFrontmatter.safeParse(parsed.data);
   if (!r.success) {
-    for (const i of r.error.issues) errors.push(`${i.path.join(".") || "frontmatter"}: ${i.message}`);
+    for (const i of r.error.issues)
+      errors.push(`${i.path.join(".") || "frontmatter"}: ${/received undefined/.test(i.message) ? "is required" : i.message}`);
     return { body: parsed.body, errors, warnings };
   }
   const fm = r.data;

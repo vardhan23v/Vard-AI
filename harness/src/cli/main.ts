@@ -42,6 +42,8 @@ Options
       --no-worktree         (run) edit files in place instead of on a branch
       --max-steps <n>       (run) step limit
       --no-memory           (run) don't read or learn project memory
+      --team                (run) split the task across a team of agents
+      --max-agents <n>      (run --team) agents at once (1-6, default 3)
       --skill <name>        (run) use this skill (repeatable)
       --no-skills           (run) don't pick skills automatically
       --remember            (run, no terminal) save suggested memories
@@ -77,6 +79,8 @@ export type ParsedArgs = {
     skill?: string[];
     skills?: boolean;
     description?: string;
+    team?: boolean;
+    maxAgents?: number;
   };
 };
 
@@ -105,6 +109,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       name: { type: "string" },
       skill: { type: "string", multiple: true },
       "no-skills": { type: "boolean" },
+      team: { type: "boolean" },
+      "max-agents": { type: "string" },
       description: { type: "string" },
       remember: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -114,6 +120,9 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
   const maxSteps = values["max-steps"] !== undefined ? Number(values["max-steps"]) : undefined;
   if (maxSteps !== undefined && (!Number.isInteger(maxSteps) || maxSteps < 1))
     throw new Error("--max-steps needs a positive whole number");
+  const maxAgents = values["max-agents"] !== undefined ? Number(values["max-agents"]) : undefined;
+  if (maxAgents !== undefined && (!Number.isInteger(maxAgents) || maxAgents < 1 || maxAgents > 6))
+    throw new Error("--max-agents needs a whole number from 1 to 6");
   const flags: ParsedArgs["flags"] = {
     model: values.model,
     provider: values.provider,
@@ -135,6 +144,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     skill: values.skill,
     skills: values["no-skills"] ? false : undefined,
     description: values.description,
+    team: values.team,
+    maxAgents,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };

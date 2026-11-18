@@ -548,7 +548,10 @@ export class Server {
       }
       // A role model on the task's provider can reuse the task's key; others need team.models.
       if (role.model && role.model.provider === req.provider.provider)
-        return { model: this.modelFactory({ ...req.provider, ...role.model }), label: label(role.model) };
+        return {
+          model: this.modelFactory({ ...req.provider, model: role.model.model, ...(role.model.baseURL ? { baseUrl: role.model.baseURL } : {}) }),
+          label: label(role.model),
+        };
       return { model: lo.model, label: label(req.provider) };
     };
     const skillsOn = req.autoSkills !== false;

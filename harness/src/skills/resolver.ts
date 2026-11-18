@@ -3,8 +3,8 @@
  *
  * Score = keyword overlap between the task and the skill's name, tags, triggers and description,
  * plus repository signals (files matching the skill's globs, package dependencies), role affinity
- * and priority. A skill needs some textual or role match to be chosen; repository signals alone
- * only boost. Then: threshold, top-k, a character budget, and `conflicts` are honoured.
+ * and priority. A skill needs a textual match (or to be one the agent's role suggests) to be
+ * chosen; role affinity and repository signals alone only boost. Then: threshold, top-k, a character budget, and `conflicts` are honoured.
  * Explicitly requested skills always come first and must be usable, or resolution fails.
  */
 import fs from "node:fs";
@@ -121,12 +121,14 @@ export function scoreSkill(r: SkillRecord, o: ResolveOptions, promptTokens: Set<
   const descHits = tokens(fm.description).filter((t) => t.length >= 4 && promptTokens.has(t));
   text += Math.min(0.5 * new Set(descHits).size, 3);
 
+  // A role match only boosts skills the task text (or the role's own suggestions) already points to.
   let roleScore = 0;
+  const hinted = !!o.hints?.includes(r.name);
   if (o.role && fm.roles.includes(o.role)) {
-    roleScore += 4;
+    roleScore += 3;
     reasons.push(`suits the ${o.role} role`);
   }
-  if (o.hints?.includes(r.name)) {
+  if (hinted) {
     roleScore += 4;
     reasons.push("suggested by the agent's role");
   }
@@ -145,8 +147,9 @@ export function scoreSkill(r: SkillRecord, o: ResolveOptions, promptTokens: Set<
       reasons.push(`project uses ${d.join(", ")}`);
     }
   }
-  const score = text + roleScore + (text + roleScore > 0 ? repo + fm.priority / 50 : 0);
-  return { score: Math.round(score * 10) / 10, matched: text + roleScore > 0, reasons };
+  const matched = text > 0 || hinted;
+  const score = text + roleScore + (matched ? repo + fm.priority / 50 : 0);
+  return { score: Math.round(score * 10) / 10, matched, reasons };
 }
 
 export function resolveSkills(records: SkillRecord[], o: ResolveOptions): ResolvedSkill[] {

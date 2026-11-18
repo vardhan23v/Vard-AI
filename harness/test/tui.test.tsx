@@ -198,3 +198,22 @@ describe("TUI", () => {
     expect(m.exitCode()).toBe(130);
   });
 });
+
+describe("team panel", () => {
+  test("shows one line per agent with its status and activity", async () => {
+    const { TeamPanel, COMMANDS } = await import("../src/tui/components");
+    const agents = [
+      { agentId: "backend-api", role: "backend", status: "running", activity: "write_file api.txt", steps: 2, maxSteps: 40, usage: { totalTokens: 10 } },
+      { agentId: "frontend-ui", role: "frontend", status: "waiting_approval", steps: 1, maxSteps: 40, usage: { totalTokens: 5 } },
+      { agentId: "planner-1", role: "planner", status: "completed", steps: 3, maxSteps: 14, usage: { totalTokens: 9 } },
+    ];
+    const r = render(<TeamPanel agents={agents} />);
+    const frame = r.lastFrame() ?? "";
+    expect(frame).toContain("backend-api");
+    expect(frame).toContain("write_file api.txt");
+    expect(frame).toContain("waiting approval");
+    expect(frame).toContain("✓ planner-1");
+    r.unmount();
+    expect(COMMANDS.map((c) => c.name)).toEqual(expect.arrayContaining(["/team", "/retry", "/pause", "/resume", "/continue", "/skills"]));
+  });
+});

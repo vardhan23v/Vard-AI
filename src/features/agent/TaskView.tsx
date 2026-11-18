@@ -23,6 +23,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { Markdown } from "@/features/chat/Markdown";
+import { TeamDashboard } from "@/features/agents/TeamDashboard";
 import { DiffView } from "./DiffView";
 import { isRunning, taskActions, useTask, type LiveTask, type TimelineItem } from "./store";
 import { projectPath, type AgentTask } from "./projects";
@@ -72,6 +73,17 @@ export function TaskView({ task }: { task: AgentTask }) {
   const live = useTask(task.id);
   const status = live?.done?.status ?? live?.state ?? task.status;
   const running = isRunning(live);
+  const hasTeam = !!live?.team;
+
+  // After the window reloads, ask the agent for the team run's current state.
+  useEffect(() => {
+    if (
+      task.mode === "team" &&
+      !hasTeam &&
+      !["done", "blocked", "cancelled", "merged", "discarded"].includes(task.status)
+    )
+      void taskActions.sync(task.id).catch(() => {});
+  }, [task.id, task.mode, task.status, hasTeam]);
 
   return (
     <div className="flex h-full flex-col">
@@ -98,8 +110,11 @@ export function TaskView({ task }: { task: AgentTask }) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
           {!live && <OfflineSummary task={task} />}
-          {live?.pending?.kind === "plan" && <PlanApproval taskId={task.id} live={live} />}
-          {live?.plan && live.pending?.kind !== "plan" && (
+          {live?.team && <TeamDashboard task={task} live={live} />}
+          {!live?.team && live?.pending?.kind === "plan" && (
+            <PlanApproval taskId={task.id} live={live} />
+          )}
+          {!live?.team && live?.plan && live.pending?.kind !== "plan" && (
             <Card title="Plan" icon={<CircleDot className="size-4" />}>
               <Markdown text={live.plan} className="text-sm" />
             </Card>
@@ -126,7 +141,9 @@ export function TaskView({ task }: { task: AgentTask }) {
             </p>
           )}
           {live && live.todos.length > 0 && <Todos todos={live.todos} />}
-          {live && live.timeline.length > 0 && <Timeline taskId={task.id} items={live.timeline} />}
+          {!live?.team && live && live.timeline.length > 0 && (
+            <Timeline taskId={task.id} items={live.timeline} />
+          )}
           {live?.pending?.kind === "tool" && <ToolApproval taskId={task.id} live={live} />}
           {live?.done && <Result task={task} live={live} />}
         </div>
@@ -135,7 +152,7 @@ export function TaskView({ task }: { task: AgentTask }) {
   );
 }
 
-function Card({
+export function Card({
   title,
   icon,
   children,
@@ -253,15 +270,27 @@ function PlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   );
 }
 
-function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
+export function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   const req = live.pending!;
   const m = req.mcp;
+  const agent = req.agentId ? live.team?.agents.find((a) => a.agentId === req.agentId) : undefined;
   return (
     <Card
       title={m ? `Allow ${m.serverName} to run ${m.tool}?` : "Allow this action?"}
       icon={<ShieldAlert className="size-4 text-primary" />}
       tone="attention"
     >
+      {(req.agentId || live.approvals.length > 1) && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          {req.agentId && (
+            <>
+              Asked by the <span className="text-foreground">{agent?.role ?? "team"}</span> agent{" "}
+              <code className="text-xs">{req.agentId}</code>.{" "}
+            </>
+          )}
+          {live.approvals.length > 1 && `${live.approvals.length - 1} more waiting after this one.`}
+        </p>
+      )}
       {m ? (
         <div className="space-y-2 text-sm">
           <p className="flex flex-wrap items-center gap-2">
@@ -344,7 +373,7 @@ function Todos({ todos }: { todos: LiveTask["todos"] }) {
   );
 }
 
-function Timeline({ items }: { taskId: string; items: TimelineItem[] }) {
+export function Timeline({ items }: { taskId: string; items: TimelineItem[] }) {
   return (
     <ol className="space-y-2" aria-label="Agent steps">
       {items.map((item, i) => {

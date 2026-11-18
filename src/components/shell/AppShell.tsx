@@ -8,6 +8,7 @@ import {
   Plug,
   Settings,
   Sparkles,
+  Users,
 } from "lucide-react";
 
 import { signOut } from "firebase/auth";
@@ -15,7 +16,7 @@ import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
 type RailItem = {
-  to: "/chat" | "/projects" | "/integrations" | "/skills" | "/settings";
+  to: "/chat" | "/projects" | "/integrations" | "/skills" | "/agents" | "/settings";
   label: string;
   icon: ComponentType<{ className?: string }>;
 };
@@ -24,6 +25,7 @@ const RAIL: RailItem[] = [
   { to: "/chat", label: "Chats", icon: MessagesSquare },
   { to: "/projects", label: "Projects", icon: FolderGit2 },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/agents", label: "Agents", icon: Users },
   { to: "/skills", label: "Skills", icon: Sparkles },
 ];
 

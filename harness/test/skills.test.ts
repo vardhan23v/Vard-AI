@@ -213,9 +213,10 @@ describe("resolver", () => {
     expect(top.record.name).toBe("react-development");
     expect(top.activation.reasons.join(" ")).toContain("project has");
     expect(top.activation.reasons.join(" ")).toContain("project uses react");
-    // A role match alone is enough for role-specific skills.
-    const reviewer = resolveSkills(r.usable(), { prompt: "look at the change set", role: "reviewer" }).map((x) => x.record.name);
+    // A role match boosts a weak textual match; on its own it isn't enough.
+    const reviewer = resolveSkills(r.usable(), { prompt: "look over the findings", role: "reviewer" }).map((x) => x.record.name);
     expect(reviewer).toContain("code-review");
+    expect(resolveSkills(r.usable(), { prompt: "tidy things up", role: "database" }).map((x) => x.record.name)).not.toContain("database-design");
   });
 
   test("top-k, character budget and conflicts", () => {
@@ -245,8 +246,8 @@ describe("resolver", () => {
 
   test("different roles get different skills (context isolation)", () => {
     const r = reg();
-    const fe = resolveSkills(r.usable(), { prompt: "build the login feature", role: "frontend" }).map((x) => x.record.name);
-    const db = resolveSkills(r.usable(), { prompt: "build the login feature", role: "database" }).map((x) => x.record.name);
+    const fe = resolveSkills(r.usable(), { prompt: "build the login feature", role: "frontend", hints: ["react-development", "accessibility"] }).map((x) => x.record.name);
+    const db = resolveSkills(r.usable(), { prompt: "build the login feature", role: "database", hints: ["database-design"] }).map((x) => x.record.name);
     expect(fe).toContain("react-development");
     expect(fe).not.toContain("database-design");
     expect(db).toContain("database-design");
