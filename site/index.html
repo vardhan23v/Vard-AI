@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Vard AI · Chat and a coding agent for your Mac</title>
+  <meta name="description" content="Vard AI is a free Mac app and command-line tool that combine a chat with a coding agent. It plans, edits on its own git branch, asks before risky commands and runs your tests. Bring your own keys: Groq (free), Claude, GPT, Gemini, OpenRouter or Ollama." />
+  <meta name="theme-color" content="#1d274e" media="(prefers-color-scheme: dark)" />
+  <meta name="theme-color" content="#f4f1e4" media="(prefers-color-scheme: light)" />
+  <meta property="og:title" content="Vard AI · Chat and a coding agent for your Mac" />
+  <meta property="og:description" content="A free Mac app and terminal tool: chat, plus an agent that plans, edits on its own branch, runs your tests and lets you merge." />
+  <meta property="og:type" content="website" />
+  <meta name="twitter:card" content="summary" />
+  <link rel="icon" href="icon.svg" type="image/svg+xml" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,650&family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;600&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <a class="skip" href="#main">Skip to content</a>
+
+  <header class="nav">
+    <div class="wrap nav-inner">
+      <a class="brand" href="#top" aria-label="Vard AI home">
+        <img src="icon.svg" alt="" width="28" height="28" />
+        <span>Vard AI</span>
+      </a>
+      <nav aria-label="Main">
+        <ul>
+          <li><a href="#features">Features</a></li>
+          <li><a href="#cli">CLI</a></li>
+          <li><a href="#install">Install</a></li>
+          <li><a href="https://github.com/vardhan23v/Vard-AI">GitHub</a></li>
+        </ul>
+      </nav>
+      <a class="btn btn-small" href="https://github.com/vardhan23v/Vard-AI/releases/latest/download/Vard-AI-macOS-universal.dmg" data-download>Download</a>
+    </div>
+  </header>
+
+  <main id="main">
+    <section class="hero" id="top">
+      <canvas class="stars" aria-hidden="true"></canvas>
+      <div class="wrap hero-inner">
+        <img class="hero-icon" src="icon.svg" alt="" width="112" height="112" />
+        <h1>Chat and a coding agent <br class="wide-only" />for your Mac</h1>
+        <p class="lede">
+          Vard AI is an app and a terminal tool. Ask questions, or point it at a repo: it plans, edits on its own
+          git branch, asks before anything risky, runs your tests, and shows you the diff to merge.
+        </p>
+        <div class="cta">
+          <a class="btn btn-primary" href="https://github.com/vardhan23v/Vard-AI/releases/latest/download/Vard-AI-macOS-universal.dmg" data-download>
+            <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20"><path fill="currentColor" d="M16.4 12.6c0-2.6 2.1-3.8 2.2-3.9-1.2-1.8-3.1-2-3.7-2-1.6-.2-3.1.9-3.9.9-.8 0-2-.9-3.4-.9-1.7 0-3.3 1-4.2 2.6-1.8 3.1-.5 7.7 1.3 10.2.9 1.2 1.9 2.6 3.2 2.6 1.3-.1 1.8-.8 3.3-.8s2 .8 3.4.8c1.4 0 2.3-1.3 3.1-2.5 1-1.4 1.4-2.8 1.4-2.9 0 0-2.7-1-2.7-4.1zM13.9 4.9c.7-.8 1.2-2 1-3.1-1 0-2.2.7-2.9 1.5-.6.7-1.2 1.9-1 3 1.1.1 2.2-.6 2.9-1.4z"/></svg>
+            Download for macOS
+          </a>
+          <a class="btn btn-ghost" href="#cli">Get the CLI</a>
+        </div>
+        <p class="fineprint">
+          <span data-version>v0.1.0</span> · Universal (Apple Silicon + Intel) · macOS 12+ · Free and open source
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="features" aria-labelledby="features-title">
+      <div class="wrap">
+        <h2 id="features-title">One place to ask, plan and ship</h2>
+        <div class="cards">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">✦</div>
+            <h3>Chat</h3>
+            <p>Streaming replies with Markdown, tables and highlighted code. Regenerate, edit and resend, and pick any model you have a key for. Conversations sync across your Macs.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">⚙</div>
+            <h3>Coding agent</h3>
+            <p>Describe a task and approve the plan. The agent works on its own <code>vard/…</code> branch, so your checkout is never touched. Risky commands wait for you. Your tests run before it says it's done, then you merge or discard.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">⚿</div>
+            <h3>Your keys, your Mac</h3>
+            <p>Starts free with a Groq key (GPT-OSS 120B). Also works with Anthropic, OpenAI, Gemini, OpenRouter or local Ollama. Keys live in the macOS Keychain and only go to the provider you chose.</p>
+          </article>
+        </div>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="cli" aria-labelledby="cli-title">
+      <div class="wrap cli-grid">
+        <div class="cli-copy">
+          <p class="eyebrow">Command line</p>
+          <h2 id="cli-title"><code>vard</code> in your terminal</h2>
+          <p>
+            The same chat and coding agent as a full-screen terminal app: streamed replies, steps that tick off as the
+            agent works, pop-ups for approvals and merging, a status bar, and <kbd>/</kbd> commands with autocomplete.
+            It uses the keys you saved in the app.
+          </p>
+
+          <h3>Install</h3>
+          <p>In the app: <strong>Settings → Command-line tool → Install</strong>. Or on its own:</p>
+          <div class="code">
+            <pre><code id="install-cmd">mkdir -p ~/.local/bin && curl -fsSL https://github.com/vardhan23v/Vard-AI/releases/latest/download/vard-macos-universal.gz | gunzip &gt; ~/.local/bin/vard && chmod +x ~/.local/bin/vard</code></pre>
+            <button class="copy" type="button" data-copy="#install-cmd" aria-label="Copy the install command">Copy</button>
+          </div>
+
+          <table class="commands">
+            <caption class="sr-only">vard commands</caption>
+            <tbody>
+              <tr><th scope="row"><code>vard</code></th><td>Full-screen session: chat, and <code>/task</code> to run the agent in this repo</td></tr>
+              <tr><th scope="row"><code>vard ask "…"</code></th><td>One answer. Pipe in context: <code>git diff | vard ask "review"</code></td></tr>
+              <tr><th scope="row"><code>vard run "…"</code></th><td>Agent task with inline approvals, for scripts too</td></tr>
+              <tr><th scope="row"><code>vard keys</code>, <code>vard models</code></th><td>Keys in the shared Keychain; the default model</td></tr>
+              <tr><th scope="row"><code>vard --classic</code></th><td>Plain line-by-line mode</td></tr>
+            </tbody>
+          </table>
+        </div>
+
+        <figure class="terminal" aria-label="The vard terminal app running a task">
+          <div class="term-bar" aria-hidden="true"><i></i><i></i><i></i><span>vard — ~/projects/shop</span></div>
+          <div class="term-body" aria-hidden="true">
+<pre class="logo">██╗   ██╗ █████╗ ██████╗ ██████╗
+██║   ██║██╔══██╗██╔══██╗██╔══██╗
+╚██╗ ██╔╝███████║██████╔╝██║  ██║
+ ╚████╔╝ ██╔══██║██╔══██╗██║  ██║</pre>
+<pre><span class="t-star">›</span> <b>/task add input validation to the signup form</b>
+
+<span class="t-cer">⚙ Task</span> · openai/gpt-oss-120b
+  <span class="t-sage">✓</span> read_file <span class="t-mut">src/signup.ts</span>
+  <span class="t-sage">✓</span> edit_file <span class="t-mut">src/signup.ts</span>
+  <span class="t-sage">✓</span> edit_file <span class="t-mut">src/signup.test.ts</span>
+  <span class="t-cer">▸</span> run_command <span class="t-mut">bun test</span>
+<span class="t-box">╭ Allow run_command? ─────────────────╮
+│ bun test                            │
+│ <span class="t-key">a</span> Allow once  A Always  <span class="t-red">d</span> Deny     │
+╰─────────────────────────────────────╯</span>
+<span class="t-star">✦ vard</span> <span class="t-mut">│ GPT-OSS 120B (groq) │ ⎇ main │ plan on</span>  <span class="t-star">needs you</span></pre>
+          </div>
+          <figcaption class="sr-only">A task in progress: files read and edited, a test command waiting for approval.</figcaption>
+        </figure>
+      </div>
+    </section>
+
+    <section class="section" id="how" aria-labelledby="how-title">
+      <div class="wrap">
+        <h2 id="how-title">Up and running in three steps</h2>
+        <ol class="steps">
+          <li>
+            <span class="step-n" aria-hidden="true">1</span>
+            <h3>Download</h3>
+            <p>Open the DMG and drag Vard AI to Applications. The CLI comes with it.</p>
+          </li>
+          <li>
+            <span class="step-n" aria-hidden="true">2</span>
+            <h3>Add a free key</h3>
+            <p>Create a key at <a href="https://console.groq.com/keys">console.groq.com</a> and paste it in <strong>Settings → API keys</strong>.</p>
+          </li>
+          <li>
+            <span class="step-n" aria-hidden="true">3</span>
+            <h3>Chat or hand off a task</h3>
+            <p>Ask anything, or add a project folder and describe a change. Approve the plan and review the diff.</p>
+          </li>
+        </ol>
+      </div>
+    </section>
+
+    <section class="section section-alt" id="install" aria-labelledby="install-title">
+      <div class="wrap narrow">
+        <h2 id="install-title">Installing</h2>
+        <p>
+          Vard AI isn't notarized by Apple yet, so macOS asks before the first launch. In <strong>Applications</strong>,
+          right-click <strong>Vard AI</strong> and choose <strong>Open</strong>, then <strong>Open</strong> again. You only do this once.
+        </p>
+        <p>If macOS says the app is damaged, clear the download flag and open it again:</p>
+        <div class="code">
+          <pre><code id="xattr-cmd">xattr -dr com.apple.quarantine "/Applications/Vard AI.app"</code></pre>
+          <button class="copy" type="button" data-copy="#xattr-cmd" aria-label="Copy the xattr command">Copy</button>
+        </div>
+        <p>
+          When the app first reads a saved key, macOS asks for Keychain access: enter your password and choose
+          <strong>Always Allow</strong>. Checksums are in <a href="https://github.com/vardhan23v/Vard-AI/releases/latest">the release</a>.
+        </p>
+      </div>
+    </section>
+
+    <section class="section" id="faq" aria-labelledby="faq-title">
+      <div class="wrap narrow">
+        <h2 id="faq-title">Questions</h2>
+        <details>
+          <summary>Is it free?</summary>
+          <p>Yes. The app and CLI are free and open source (MIT). You pay your model provider, if anything: Groq's free tier, local Ollama and OpenRouter's free models cost nothing.</p>
+        </details>
+        <details>
+          <summary>Where do my API keys go?</summary>
+          <p>Into your macOS Keychain. They are added to requests on your Mac and sent only to the provider you picked. Vard AI has no server that sees them.</p>
+        </details>
+        <details>
+          <summary>Can the agent break my project?</summary>
+          <p>Each task runs in its own git worktree on a <code>vard/…</code> branch, so your working copy isn't touched until you merge. Commands that aren't on your allowlist wait for approval, and dangerous ones like <code>sudo</code> or <code>git push</code> are blocked.</p>
+        </details>
+        <details>
+          <summary>Which Macs does it run on?</summary>
+          <p>macOS 12 or later, on Apple Silicon and Intel (one universal download).</p>
+        </details>
+        <details>
+          <summary>Windows or Linux?</summary>
+          <p>Not yet. The app and the CLI are macOS-only for now.</p>
+        </details>
+      </div>
+    </section>
+  </main>
+
+  <footer class="footer">
+    <div class="wrap footer-inner">
+      <span class="brand small"><img src="icon.svg" alt="" width="20" height="20" /> Vard AI</span>
+      <ul>
+        <li><a href="https://github.com/vardhan23v/Vard-AI">GitHub</a></li>
+        <li><a href="https://github.com/vardhan23v/Vard-AI/releases">Releases</a></li>
+        <li><a href="https://github.com/vardhan23v/Vard-AI/blob/main/README.md">Docs</a></li>
+      </ul>
+      <span class="muted">MIT licence</span>
+    </div>
+  </footer>
+
+  <script src="main.js" defer></script>
+</body>
+</html>
