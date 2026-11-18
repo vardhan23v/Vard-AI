@@ -36,6 +36,8 @@ export interface ApprovalRequest {
   plan?: string;
   /** For MCP tools: server, tool and what the call can do. */
   mcp?: McpCallInfo;
+  /** "Always" isn't offered for this call. */
+  noAlways?: boolean;
 }
 
 export interface ApprovalResponse {
@@ -72,6 +74,12 @@ export interface LoopOptions {
   mcpSummary?: () => { name: string; id: string; tools: string[] }[];
   /** Project memory (the user's checkout). `recall` puts relevant entries into the prompt. */
   memory?: { store: MemoryStore; recall: boolean } | null;
+  /** Skills chosen for this task: the "# Skills" prompt section and the skill tools. */
+  skills?: { block: string; tools: ToolDef[] };
+  /** Awaited before every model call; a team run uses it to pause agents between steps. */
+  gate?: () => Promise<void>;
+  /** Text added to the end of the system prompt (a team agent's role and assignment). */
+  extraInstructions?: string;
 }
 
 export interface LoopResult {
@@ -104,7 +112,7 @@ export class AgentLoop {
   private lastVerify?: string;
 
   constructor(private o: LoopOptions) {
-    this.tools = o.tools ?? ALL_TOOLS;
+    this.tools = [...(o.tools ?? ALL_TOOLS), ...(o.skills?.tools ?? [])];
   }
 
   /** Vard's tools plus any MCP tools available right now. */
@@ -248,6 +256,10 @@ export class AgentLoop {
   private async modelStep(tools: ToolDef[], phase: "plan" | "act") {
     const o = this.o;
     this.checkCancel();
+    if (o.gate) {
+      await o.gate();
+      this.checkCancel();
+    }
     if (this.steps >= (o.maxSteps ?? 50)) throw new Blocked(`step limit reached (${o.maxSteps ?? 50})`);
     if (this.usage.totalTokens >= (o.tokenBudget ?? 2_000_000))
       throw new Blocked(`token budget exhausted (${this.usage.totalTokens} tokens)`);
@@ -275,7 +287,9 @@ export class AgentLoop {
       phase,
       repoMap: this.repoMapCache,
       memory: this.memoryCache,
+      skills: o.skills?.block,
       mcp: o.mcpSummary?.(),
+      extra: o.extraInstructions,
     });
     const { messages, compacted } = compactMessages(this.messages, { budgetTokens: o.contextBudget ?? 120_000 });
     if (compacted) this.messages = messages;
@@ -373,7 +387,7 @@ export class AgentLoop {
     if (decision.action === "deny") return { ok: false, output: `blocked by policy: ${decision.reason}` };
     if (decision.action === "ask") {
       const prev = this.state;
-      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}) });
+      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}), ...(def.alwaysAsk ? { noAlways: true } : {}) });
       this.state = prev;
       if (answer.decision === "deny")
         return { ok: false, output: `the user denied this call${answer.reason ? `: ${answer.reason}` : ""}` };

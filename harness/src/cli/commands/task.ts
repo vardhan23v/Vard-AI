@@ -17,6 +17,10 @@ export type TaskFlags = {
   memory?: boolean;
   /** Save suggested memories without asking (for scripts). */
   remember?: boolean;
+  /** Skills picked by name (--skill, repeatable). */
+  skill?: string[];
+  /** false: don't pick skills automatically (--no-skills). */
+  skills?: boolean;
 };
 
 export type TaskOutcome = {
@@ -145,6 +149,11 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       case "memory_proposal":
         proposals.push(...e.items);
         break;
+      case "skills_activated":
+        pause();
+        out.write(t.muted(`Skills: ${e.skills.map((x) => x.name).join(", ")} (~${e.tokens.toLocaleString()} tokens)\n`));
+        ctx.spinner.start(label);
+        break;
       case "approval_request":
         queue = queue.then(() => answer(e)).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
         break;
@@ -182,9 +191,10 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
           `  ${t.star("?")} ${t.cerulean(`[MCP ${m.serverName}]`)} ${t.bold(m.tool)} ${t.muted(JSON.stringify(e.input ?? {}).slice(0, 160))}\n    ${t.muted(m.access)}\n`,
         );
       else out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
+      const once = m?.destructive || e.noAlways;
       const a = await ctx.prompter.choose(
-        `  ${t.muted(m?.destructive ? "[a] allow once  [d] deny  (destructive: asks every time)" : "[a] allow once  [A] always in this project  [d] deny")}`,
-        m?.destructive
+        `  ${t.muted(once ? `[a] allow once  [d] deny  (${m?.destructive ? "destructive" : "this tool"}: asks every time)` : "[a] allow once  [A] always in this project  [d] deny")}`,
+        once
           ? [
               { key: "a", label: "allow once" },
               { key: "d", label: "deny" },
@@ -220,6 +230,8 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         maxSteps: flags.maxSteps,
         useMemory: flags.memory !== false,
         learn: flags.memory !== false,
+        ...(flags.skill?.length ? { skills: flags.skill } : {}),
+        ...(flags.skills === false ? { autoSkills: false } : {}),
       },
       onEvent,
     );

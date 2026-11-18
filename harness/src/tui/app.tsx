@@ -322,6 +322,9 @@ export function App(props: AppProps) {
         case "usage":
           resume();
           break;
+        case "skills_activated":
+          note(`Skills: ${e.skills.map((x) => x.name).join(", ")}`);
+          break;
         case "memory_proposal":
           proposalsRef.current = e.items;
           taskIdRef.current = taskId;
@@ -442,6 +445,16 @@ export function App(props: AppProps) {
             .join("\n") + "\nServers connect when a /task starts. Manage them with `vard mcp`.",
         );
       }
+      case "/skills": {
+        const reg = ctx.client.server.skillRegistry(gitRoot(ctx.cwd) ?? ctx.cwd);
+        const list = reg.all();
+        const mark = (r: (typeof list)[number]) =>
+          r.errors.length ? "invalid" : r.shadowedBy ? `shadowed by ${r.shadowedBy}` : !r.trusted ? "needs trust" : !r.enabled ? "off" : "on";
+        return note(
+          list.map((r) => `${r.usable ? "●" : "○"} ${r.name.padEnd(24)} ${r.source.padEnd(8)} ${mark(r)}`).join("\n") +
+            "\nRelevant skills are picked for each /task. Manage them with `vard skills` or in the app.",
+        );
+      }
       case "/keys":
         return showKeys();
       case "/task":
@@ -494,7 +507,7 @@ export function App(props: AppProps) {
           { key: "e", label: "Edit plan" },
           { key: "n", label: "Reject", tone: "danger" },
         ]
-      : ev.mcp?.destructive
+      : ev.mcp?.destructive || ev.noAlways
         ? [
             { key: "a", label: "Allow once", tone: "ok" },
             { key: "d", label: "Deny", tone: "danger" },

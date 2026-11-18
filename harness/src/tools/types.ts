@@ -53,6 +53,11 @@ export interface ToolDef<I = any> {
   jsonSchema?: Record<string, unknown>;
   /** Set for MCP tools. */
   mcp?: McpToolMeta;
+  /**
+   * Every call asks the user, even when the risk class or an earlier "always" would allow it
+   * (skill scripts). "Always for this project" is refused for such tools.
+   */
+  alwaysAsk?: string;
 }
 
 export class ToolError extends Error {}

@@ -193,7 +193,16 @@ export class Policy {
       }
     }
 
-    // 2. Risk classes.
+    // 2. Tools that always ask (skill scripts): no allowlist, no remembered approval.
+    if (tool.alwaysAsk) {
+      if (tool.risk === "exec") {
+        const c = classifyCommand(String(input.command ?? ""));
+        if (c.action === "deny") return { action: "deny", reason: c.reason! };
+      }
+      return { action: "ask", reason: tool.alwaysAsk };
+    }
+
+    // 3. Risk classes.
     switch (tool.risk) {
       case "mcp":
         return decideMcp(tool, input, (this.rules.mcp ??= {}), { workRoot: this.workRoot, projectRoot: this.projectRoot });
@@ -220,6 +229,7 @@ export class Policy {
 
   /** "Always for this project": remember the approval so the same call does not ask again. */
   remember(tool: ToolDef, input: Record<string, unknown>): boolean {
+    if (tool.alwaysAsk) return false;
     if (tool.risk === "mcp") {
       if (!rememberMcp(tool, input, (this.rules.mcp ??= {}))) return false;
       this.store.save(this.rules);

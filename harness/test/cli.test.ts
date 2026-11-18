@@ -303,3 +303,53 @@ describe("models and config", () => {
     expect(cfg).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5-5" });
   });
 });
+
+describe("vard skills", () => {
+  test("parses --skill (repeatable) and --no-skills", () => {
+    const p = parseCliArgs(["run", "x", "--skill", "react-development", "--skill", "testing-strategy", "--no-skills"]);
+    expect(p.flags.skill).toEqual(["react-development", "testing-strategy"]);
+    expect(p.flags.skills).toBe(false);
+    expect(parseCliArgs(["skills", "list"]).command).toBe("skills");
+  });
+
+  test("list, new, validate, disable, show, import and rm", async () => {
+    const repo = tmpGitRepo();
+    const h = io({ cwd: repo, stdin: "", answers: ["y"] });
+    expect(await runCli(["skills"], h.opts)).toBe(0);
+    expect(h.out.text).toContain("Built-in");
+    expect(h.out.text).toContain("react-development");
+
+    expect(await runCli(["skills", "new", "team-style", "--description", "Our team style"], h.opts)).toBe(0);
+    expect(fs.existsSync(path.join(h.home, "skills", "team-style", "SKILL.md"))).toBe(true);
+    expect(await runCli(["skills", "validate", "team-style"], h.opts)).toBe(0);
+    expect(await runCli(["skills", "disable", "team-style"], h.opts)).toBe(0);
+    h.out.text = "";
+    expect(await runCli(["skills", "show", "team-style"], h.opts)).toBe(0);
+    expect(h.out.text).toContain("disabled");
+    expect(h.out.text).toContain("Our team style");
+
+    const src = tmpDir();
+    fs.mkdirSync(path.join(src, "ext"));
+    fs.writeFileSync(path.join(src, "ext", "SKILL.md"), "---\nname: ext\ndescription: External\n---\nDo it.\n");
+    h.out.text = "";
+    expect(await runCli(["skills", "import", path.join(src, "ext")], h.opts)).toBe(0);
+    expect(h.out.text).toContain("Imported global:ext");
+    expect(h.out.text).toContain("disabled");
+    expect(await runCli(["skills", "rm", "ext"], h.opts)).toBe(0);
+    expect(fs.existsSync(path.join(h.home, "skills", "ext"))).toBe(false);
+
+    expect(await runCli(["skills", "show", "nope"], h.opts)).toBe(1);
+    expect(h.err.text).toContain('No skill "nope"');
+  });
+
+  test("vard run --skill shows the skills in use", async () => {
+    const repo = tmpGitRepo();
+    const h = io({ cwd: repo, stdin: "", turns: [{ text: "Nothing to change." }] });
+    const code = await runCli(["run", "check things", "--no-plan", "--no-worktree", "--no-memory", "--skill", "code-review", "-y"], h.opts);
+    expect(code).toBe(0);
+    expect(h.out.text).toContain("Skills: code-review");
+    const bad = io({ cwd: repo, stdin: "" });
+    expect(await runCli(["run", "x", "--no-plan", "--skill", "missing", "-y"], bad.opts)).not.toBe(0);
+    expect(bad.err.text).toContain("missing");
+  });
+});

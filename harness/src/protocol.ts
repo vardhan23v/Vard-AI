@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
+import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
 import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
 
 export { MemoryCategory, MemoryEntry, MemorySettings };
@@ -71,6 +72,10 @@ export const TaskStartRequest = z.object({
   useMemory: z.boolean().optional(),
   /** After a successful task, propose memory additions (unset means yes). */
   learn: z.boolean().optional(),
+  /** Skills the user picked by name (always used; the task fails if one isn't usable). */
+  skills: z.array(z.string().min(1).max(200)).max(10).optional(),
+  /** Pick relevant skills automatically (unset means yes). */
+  autoSkills: z.boolean().optional(),
 });
 
 export const TaskApproveRequest = z.object({
@@ -169,6 +174,13 @@ export const McpPermissionsRequest = z.object({
 /** Stores a server secret in the Keychain (null clears). The value is never sent back. */
 export const McpSecretRequest = z.object({ ...mcpRef, type: z.literal("mcp.secret"), name: z.string().min(1).max(140), value: z.string().max(20_000).nullable() });
 
+// ---------- skills ----------
+
+const skillsReq = { ...reqBase, projectRoot: z.string().min(1).optional() };
+export const SkillsListRequest = z.object({ ...skillsReq, type: z.literal("skills.list") });
+export const SkillsGetRequest = z.object({ ...skillsReq, type: z.literal("skills.get"), skillId: z.string().min(1).max(200) });
+export const SkillsUpdateRequest = z.object({ ...skillsReq, type: z.literal("skills.update"), change: SkillChange });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -188,6 +200,9 @@ export const Request = z.discriminatedUnion("type", [
   McpGetPromptRequest,
   McpPermissionsRequest,
   McpSecretRequest,
+  SkillsListRequest,
+  SkillsGetRequest,
+  SkillsUpdateRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -199,6 +214,10 @@ const evBase = {
   id: z.string(),
   taskId: z.string().optional(),
   ts: z.number(),
+  /** In a team run: the agent that produced this event. */
+  agentId: z.string().optional(),
+  /** In a team run: per-task sequence number, for dropping duplicates after a reconnect. */
+  seq: z.number().optional(),
 };
 
 export const TaskState = z.enum([
@@ -252,6 +271,8 @@ export const Event = z.discriminatedUnion("type", [
     reason: z.string(),
     /** For MCP tools: server, tool, and what the call can do (destructive ones can't be "always"). */
     mcp: McpCallInfo.optional(),
+    /** "Always for this project" isn't offered (skill scripts ask every time). */
+    noAlways: z.boolean().optional(),
   }),
   z.object({ ...evBase, type: z.literal("plan"), plan: z.string() }),
   z.object({
@@ -382,6 +403,43 @@ export const Event = z.discriminatedUnion("type", [
         autoSaved: z.boolean().optional(),
       }),
     ),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("skills"),
+    projectRoot: z.string().optional(),
+    skills: z.array(SkillSummary),
+    /** Whether this project's skills are trusted (undefined without a project or project skills). */
+    trusted: z.boolean().optional(),
+    globalDir: z.string(),
+    projectDir: z.string().optional(),
+    /** Set after create/save/import/delete. */
+    changed: z.string().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("skill_detail"),
+    skill: SkillSummary,
+    text: z.string(),
+    body: z.string(),
+    usage: z.array(SkillUsage),
+    /** What the agent would see, and its approximate size. */
+    preview: z.object({ text: z.string(), tokens: z.number() }),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("skill_validation"),
+    valid: z.boolean(),
+    errors: z.array(z.string()),
+    warnings: z.array(z.string()),
+    name: z.string().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("skills_activated"),
+    skills: z.array(ActivatedSkill),
+    /** Approximate tokens the skills add to the context. */
+    tokens: z.number(),
   }),
   z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);

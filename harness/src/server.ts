@@ -8,6 +8,8 @@ import { type ModelMessage, streamText } from "ai";
 import { AgentLoop, type ApprovalResponse, type LoopOptions, reflectOnTask } from "./loop";
 import { analyze, applyAuto, MemoryError, MemoryStore } from "./memory";
 import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, validateServerUrl, type SecretStore } from "./mcp";
+import { vardHome } from "./mcp/config";
+import { applySkillChange, previewTokens, projectSignals, renderSkillsBlock, SkillError, SkillRegistry, skillsForTask, type TaskSkills } from "./skills";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
 import { createModel, type ModelFactory } from "./providers";
@@ -31,6 +33,8 @@ export interface ServerDeps {
   mcp?: McpManager;
   mcpHome?: string;
   mcpSecrets?: SecretStore;
+  /** Where global skills and skill state live (defaults to ~/.vard, or $VARD_HOME). */
+  skillsHome?: string;
 }
 
 interface TaskEntry {
@@ -146,6 +150,10 @@ export class Server {
       case "mcp.permissions":
       case "mcp.secret":
         return this.mcpRequest(req);
+      case "skills.list":
+      case "skills.get":
+      case "skills.update":
+        return this.skillsRequest(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -234,10 +242,30 @@ export class Server {
       throw new Error(`project folder not found: ${req.projectRoot}`);
 
     const model = this.modelFactory(req.provider); // fail fast on a bad provider config
+    // Skills: resolve before anything starts, so a bad explicit skill fails the request cleanly.
+    let skills: TaskSkills | undefined;
+    if (req.skills?.length || req.autoSkills !== false) {
+      try {
+        const registry = this.skillRegistry(req.projectRoot);
+        skills = skillsForTask({
+          registry,
+          prompt: req.prompt,
+          explicit: req.skills,
+          auto: req.autoSkills,
+          signals: await projectSignals(req.projectRoot),
+          taskId,
+        });
+      } catch (e) {
+        if (e instanceof SkillError) throw new Error(e.message);
+        if (req.skills?.length) throw e;
+        skills = undefined; // automatic skills must never break a task
+      }
+    }
     const tracer = new Tracer(taskId, this.deps.traceDir);
     const { apiKey: _redacted, ...provider } = req.provider;
     tracer.append({ type: "request", request: { ...req, provider }, ts: Date.now() });
     const emit = this.emitter(req.id, taskId, tracer);
+    if (skills?.activated.length) emit({ type: "skills_activated", skills: skills.activated, tokens: skills.tokens });
 
     const entry: TaskEntry = {
       taskId,
@@ -291,6 +319,7 @@ export class Server {
       retry: this.deps.retry,
       signal: entry.abort.signal,
       memory,
+      ...(skills?.resolved.length ? { skills: { block: skills.block, tools: skills.tools } } : {}),
     };
     // MCP: connect this project's servers (bounded wait; failures stay per server) and offer
     // their tools through the normal tool registry.
@@ -471,6 +500,53 @@ export class Server {
       }
     } catch (e) {
       throw new Error(toMcpError(e, "config").message);
+    }
+  }
+
+  skillRegistry(projectRoot?: string) {
+    return new SkillRegistry({ home: this.deps.skillsHome ?? this.deps.mcpHome ?? vardHome(), projectRoot });
+  }
+
+  /** skills.list / skills.get / skills.update. Answers carry the request id. */
+  private async skillsRequest(req: Extract<Request, { type: `skills.${string}` }>) {
+    const emit = this.emitter(req.id);
+    if (req.projectRoot && (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory()))
+      throw new Error(`project folder not found: ${req.projectRoot}`);
+    const reg = this.skillRegistry(req.projectRoot);
+    const snapshot = (changed?: string) => {
+      const hasProjectSkills = reg.all().some((r) => r.source === "project");
+      emit({
+        type: "skills",
+        projectRoot: req.projectRoot,
+        skills: reg.summaries(),
+        trusted: req.projectRoot && hasProjectSkills ? reg.projectTrusted() : undefined,
+        globalDir: reg.globalDir,
+        projectDir: reg.projectDir,
+        ...(changed ? { changed } : {}),
+      });
+    };
+    try {
+      if (req.type === "skills.list") return snapshot();
+      if (req.type === "skills.get") {
+        const r = reg.find(req.skillId);
+        if (!r) throw new SkillError("not_found", `no skill "${req.skillId}"`);
+        const one = [{ record: r, activation: { id: r.id, name: r.name, source: r.source, version: r.frontmatter?.version ?? "", score: 0, reasons: [], explicit: true } }];
+        const text = r.frontmatter ? renderSkillsBlock(one) : "";
+        return emit({
+          type: "skill_detail",
+          skill: reg.summary(r),
+          text: r.text,
+          body: r.body,
+          usage: reg.usage(r).slice(0, 50),
+          preview: { text, tokens: r.frontmatter ? previewTokens(one) : 0 },
+        });
+      }
+      const res = applySkillChange(reg, req.change);
+      if (res.validation) return emit({ type: "skill_validation", ...res.validation });
+      return snapshot(res.id);
+    } catch (e) {
+      if (e instanceof SkillError) throw new Error(e.message);
+      throw e;
     }
   }
 
