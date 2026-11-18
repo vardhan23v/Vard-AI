@@ -6,7 +6,7 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build src/main.ts --compile --outfile dist/vard-agent"
+    "build": "bun build src/bin.ts --compile --outfile dist/vard"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.99",

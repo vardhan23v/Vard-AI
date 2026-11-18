@@ -38,7 +38,7 @@
       "icons/icon.icns",
       "icons/icon.ico"
     ],
-    "externalBin": ["binaries/vard-agent"],
+    "externalBin": ["binaries/vard"],
     "macOS": {
       "minimumSystemVersion": "12.0",
       "signingIdentity": "-",

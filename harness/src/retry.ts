@@ -31,6 +31,13 @@ export function isRetryable(e: unknown): boolean {
   return err.statusCode != null ? RETRYABLE_STATUS.has(err.statusCode) : err.isRetryable;
 }
 
+/** The provider refused the model's tool call (bad arguments, unknown tool) rather than failing. */
+export function isToolCallRejection(e: unknown): boolean {
+  const err = apiError(e);
+  const text = `${err?.responseBody ?? ""} ${(e as Error)?.message ?? ""}`;
+  return /tool call validation failed|tool_use_failed|failed to call a function|failed_generation/i.test(text);
+}
+
 /** Delay the provider asked for, in ms, if any. */
 export function retryAfterMs(e: unknown, now = Date.now()): number | undefined {
   const h = apiError(e)?.responseHeaders;

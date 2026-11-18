@@ -38,7 +38,7 @@ dist-ssr
 
 # Tauri
 src-tauri/target
-src-tauri/binaries/vard-agent-*
+src-tauri/binaries/vard-*
 
 # Built installers
 release/

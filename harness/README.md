@@ -1,14 +1,18 @@
-# vard-agent harness
+# Vard AI harness
 
-The coding-agent sidecar for Vard AI. A self-contained Bun/TypeScript package compiled to a single
-binary (`dist/vard-agent`) that the Tauri shell spawns and talks to over JSON lines on stdio.
+The coding agent behind Vard AI. A self-contained Bun/TypeScript package compiled to one binary,
+`vard`, with two modes:
+
+- `vard agent --stdio`: the sidecar the Tauri shell spawns and talks to over JSON lines on stdio.
+- anything else: the `vard` command-line tool (`src/cli/`), which runs the same `Server` in-process.
 
 ```bash
 bun install
 bun test          # unit + mock-model end-to-end tests
 bun run typecheck
-bun run build     # -> dist/vard-agent
-printf '{"id":"1","type":"ping"}\n' | ./dist/vard-agent
+bun run build     # -> dist/vard
+printf '{"id":"1","type":"ping"}\n' | ./dist/vard agent --stdio
+./dist/vard --help
 ```
 
 ## Protocol (`src/protocol.ts`)
@@ -35,5 +39,8 @@ disk and are stripped from traces.
 | `context.ts` | Builds the system prompt from the rules, VARD.md/AGENTS.md, the repo map and the todos. Compacts old tool results when over budget. |
 | `worktree.ts` | Creates branch `vard/<task>` at `<project>/.vard/worktrees/<task>`, and handles diff, merge and discard. |
 | `trace.ts` | Writes every event to `~/.vard/traces/<task>.jsonl` (override with `VARD_TRACE_DIR`). |
-| `providers.ts` | Supports anthropic, openai, google, ollama and openai-compatible. |
-| `server.ts` / `main.ts` | Request router and stdio entry. |
+| `providers.ts` | Supports anthropic, openai, google, groq, ollama and openai-compatible (OpenRouter). |
+| `server.ts` | Request router, shared by both modes. |
+| `stdio.ts`, `bin.ts`, `main.ts` | Sidecar loop; the `vard` entry point; a sidecar-only entry for tests. |
+| `catalog.ts` | Providers and models, shared with the app (`src/lib/models.ts`). |
+| `cli/` | The CLI: `main.ts` (arguments), `client.ts` (in-process Server), `keys.ts` (env vars, then the app's Keychain items), `render.ts`, `prompt.ts`, `commands/`. |

@@ -8,6 +8,7 @@
   <a href="https://github.com/vardhan23v/Vard-AI/actions/workflows/desktop.yml"><img alt="Desktop build" src="https://img.shields.io/github/actions/workflow/status/vardhan23v/Vard-AI/desktop.yml?branch=main&style=for-the-badge&logo=githubactions&logoColor=white&label=build" /></a>
   <img alt="macOS 12+" src="https://img.shields.io/badge/macOS-12%2B-1d274e?style=for-the-badge&logo=apple&logoColor=white" />
   <img alt="Universal" src="https://img.shields.io/badge/Universal-Apple%20Silicon%20%2B%20Intel-30437a?style=for-the-badge" />
+  <img alt="CLI" src="https://img.shields.io/badge/CLI-vard-c2b75d?style=for-the-badge&logo=gnubash&logoColor=1d274e" />
   <a href="LICENSE"><img alt="MIT license" src="https://img.shields.io/badge/License-MIT-c2b75d?style=for-the-badge" /></a>
 </p>
 
@@ -25,13 +26,14 @@
   <img alt="Anthropic" src="https://img.shields.io/badge/Anthropic-Claude-191919?style=for-the-badge&logo=anthropic&logoColor=white" />
   <img alt="OpenAI" src="https://img.shields.io/badge/OpenAI-GPT-412991?style=for-the-badge" />
   <img alt="Google Gemini" src="https://img.shields.io/badge/Google-Gemini-8E75B2?style=for-the-badge&logo=googlegemini&logoColor=white" />
-  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-free%20models-6566F1?style=for-the-badge&logo=openrouter&logoColor=white" />
+  <img alt="Groq" src="https://img.shields.io/badge/Groq-free%20tier-F55036?style=for-the-badge" />
+  <img alt="OpenRouter" src="https://img.shields.io/badge/OpenRouter-models-6566F1?style=for-the-badge&logo=openrouter&logoColor=white" />
   <img alt="Ollama" src="https://img.shields.io/badge/Ollama-local-000000?style=for-the-badge&logo=ollama&logoColor=white" />
 </p>
 
 A macOS desktop app that combines a ChatGPT-style **chat** with a Verdent-style **coding agent**. You point the agent at a git project. It plans the work, edits files and runs commands in an isolated worktree, asks before anything risky, and shows you the diff to merge.
 
-Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You bring your own API keys for Anthropic, OpenAI, Gemini, OpenRouter or local Ollama.
+Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You bring your own API keys for Groq (free tier), Anthropic, OpenAI, Gemini, OpenRouter or local Ollama.
 
 ## Features
 
@@ -51,6 +53,10 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Optional verify command (for example `bun test`) that runs after edits; failures go back to the agent
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
 
+**Command line (`vard`)**
+- The same chat and coding agent in any terminal, with approvals inline
+- Uses the API keys you saved in the app
+
 **App**
 - Sign in with Google or email
 - API keys stored in the macOS Keychain
@@ -65,7 +71,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 ## Getting started
 
 1. Sign in with Google or email.
-2. Open **Settings → API keys** and add a key for at least one provider. OpenRouter's `:free` models work without paying. If they refuse requests, allow them under openrouter.ai → Settings → Privacy.
+2. Open **Settings → API keys** and add a key for at least one provider. The default model, GPT-OSS 120B on Groq, works with a free key from [console.groq.com/keys](https://console.groq.com/keys).
 3. **Chats:** start typing.
 4. **Projects:** click **Add project folder**, pick a git repository, describe a task and press ⌘↵.
 
@@ -77,15 +83,38 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 | Enter / Shift+Enter | Send / new line |
 | Esc | Stop a streaming reply |
 
+## Command line
+
+Install it from **Settings → Command-line tool → Install** (it links `/usr/local/bin/vard` to the binary inside the app). Then, in any folder:
+
+```bash
+vard                                  # interactive: chat, and /task to run the agent here
+vard ask "what does this regex do?"   # one answer
+git diff | vard ask "review this"     # piped input is added as context
+vard run "add input validation to the signup form" --verify "bun test"
+```
+
+| Command | What it does |
+|---|---|
+| `vard` | Interactive session. Type to chat; `/task <what to do>` runs the agent in this repo; `/model`, `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/clear`, `/help`. `vard -c` continues the last one. |
+| `vard ask "…"` | One streamed answer |
+| `vard run "…"` | Agent task on its own branch: approve the plan and risky commands, then merge, view, discard or keep the diff. Flags: `--no-plan`, `--verify "<cmd>"`, `--no-worktree`, `--max-steps <n>`, `--yes` (scripts). Exit code 0 done, 1 stopped, 2 cancelled. |
+| `vard keys [list\|set\|remove] <provider>` | Keys in the Keychain the app also uses |
+| `vard models [use <id>]` | List models or set the default |
+
+Keys come from `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY` if set, otherwise from the Keychain. A key saved by an older build of the app may be readable only by the app; save it again with `pbpaste | vard keys set <provider>` to share it. Chat history is in `~/.vard/sessions`, task traces in `~/.vard/traces`.
+
 ## Architecture
 
 ```
 Tauri shell (Rust, src-tauri/)
  ├─ window, folder picker, macOS Keychain for API keys
- ├─ spawns + supervises the `vard-agent` sidecar
+ ├─ spawns + supervises the sidecar: `vard agent --stdio`
  └─ WebView: React SPA (src/)  ⇄  sidecar via JSON-lines over stdio
-Sidecar `vard-agent` (TypeScript, harness/, compiled with `bun build --compile`)
- ├─ providers: Vercel AI SDK (Anthropic, OpenAI, Google, OpenAI-compatible, Ollama)
+`vard` (TypeScript, harness/, compiled with `bun build --compile`)
+ ├─ `agent --stdio`: the app's sidecar
+ ├─ otherwise: the command-line tool (harness/src/cli/), same harness in-process
+ ├─ providers: Vercel AI SDK (Groq, Anthropic, OpenAI, Google, OpenRouter, Ollama)
  ├─ chat runner (streaming) + agent harness (loop, tools, policy, worktrees, traces)
  └─ local tools: files, search, edit, shell commands, git
 Firebase: sign-in (email + Google) and Firestore sync of chats, projects and task summaries
@@ -121,10 +150,11 @@ export PATH="$(brew --prefix rustup)/bin:$PATH"
 |---|---|
 | `bun run dev` | Web UI only, at http://localhost:1420 (no agent; replies need the desktop app) |
 | `bun run desktop:dev` | Full desktop app in development |
-| `bun run build:agent` | Compile `harness/` to `src-tauri/binaries/vard-agent-<triple>` |
+| `bun run build:agent` | Compile `harness/` to `src-tauri/binaries/vard-<triple>` (sidecar and CLI) |
 | `bun run desktop:build` | Universal (Apple Silicon + Intel) `.dmg` |
 | `bun run typecheck` | Typecheck the app |
-| `cd harness && bun test` | Harness unit and loop tests |
+| `cd harness && bun test` | Harness, loop and CLI tests |
+| `bun harness/src/bin.ts` | Run the CLI from source |
 
 The DMG ends up in `src-tauri/target/universal-apple-darwin/release/bundle/dmg/`.
 
@@ -150,8 +180,8 @@ bunx firebase-tools deploy --only firestore
 |---|---|
 | "No … API key saved" | Add the key in **Settings → API keys**. Keys saved by other tools aren't readable by the app. |
 | macOS asks for Keychain access | Enter your password and choose **Always Allow**. Unsigned development builds can ask again after a rebuild. |
-| OpenRouter 404 or "guardrail restrictions" | Your OpenRouter privacy settings block that model. Allow it, or choose another model. |
-| OpenRouter 429 (rate-limited) | Free models are shared. The agent waits and retries; a paid model or your own provider key avoids it. |
+| OpenRouter 404, "guardrail restrictions" or "ZDR violation" | Your OpenRouter privacy settings block that model. Allow it, or use Groq. |
+| 429 (rate-limited) | Free tiers have per-minute limits. The agent waits and retries. |
 | "Sign-in isn't set up" | Enable Authentication and its Email and Google providers in the Firebase console. |
 | Google says "access blocked" | Add your account as a test user on the OAuth consent screen, or publish the app. |
 
@@ -159,7 +189,7 @@ bunx firebase-tools deploy --only firestore
 
 Builds are **unsigned** (ad-hoc signature) for now. On first launch, right-click the app and choose **Open**. Signing and notarization need an Apple Developer ID; add them in `src-tauri/tauri.conf.json` (`bundle.macOS.signingIdentity`) and the CI workflow.
 
-CI (`.github/workflows/desktop.yml`) typechecks, runs the harness tests and uploads a universal DMG as a build artifact. It needs the six variables in `.env.example` as repository secrets.
+CI (`.github/workflows/desktop.yml`) typechecks, runs the harness tests and uploads a universal DMG and the standalone `vard` binary as build artifacts. It needs the six variables in `.env.example` as repository secrets.
 
 ## License
 

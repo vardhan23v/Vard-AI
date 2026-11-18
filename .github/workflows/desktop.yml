@@ -48,3 +48,8 @@ jobs:
           name: vard-ai-dmg
           path: src-tauri/target/universal-apple-darwin/release/bundle/dmg/*.dmg
           if-no-files-found: error
+      - uses: actions/upload-artifact@v4
+        with:
+          name: vard-cli-universal
+          path: src-tauri/binaries/vard-universal-apple-darwin
+          if-no-files-found: error

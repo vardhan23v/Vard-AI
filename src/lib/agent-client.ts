@@ -10,7 +10,7 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Event as AgentEvent, Request as AgentRequest } from "../../harness/src/protocol";
 
 export type { AgentEvent, AgentRequest };
-export type ProviderId = "anthropic" | "openai" | "google" | "ollama" | "openai-compatible";
+export type ProviderId = "anthropic" | "openai" | "google" | "ollama" | "openai-compatible" | "groq";
 
 /** Distributive Omit, so each request variant keeps its own fields. */
 type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
@@ -80,3 +80,12 @@ export const keys = {
 };
 
 export const restartAgent = () => invoke<void>("agent_restart");
+
+/** The `vard` command-line tool (a link in /usr/local/bin to the binary inside the app). */
+export type CliStatus = { link: string; bundled: string; installed: boolean; conflict: string | null };
+
+export const cli = {
+  status: () => invoke<CliStatus>("cli_status"),
+  install: () => invoke<CliStatus>("install_cli"),
+  uninstall: () => invoke<CliStatus>("uninstall_cli"),
+};

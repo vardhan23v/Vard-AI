@@ -25,6 +25,8 @@ export const createModel: ModelFactory = (cfg) => {
     case "openai-compatible":
       if (!cfg.baseUrl) throw new Error("openai-compatible provider needs baseUrl");
       return createOpenAI({ apiKey: cfg.apiKey ?? "none", baseURL: cfg.baseUrl }).chat(cfg.model);
+    case "groq":
+      return createOpenAI({ apiKey: needKey(cfg), baseURL: cfg.baseUrl ?? "https://api.groq.com/openai/v1" }).chat(cfg.model);
     case "google":
       return createGoogleGenerativeAI({ apiKey: needKey(cfg), baseURL: cfg.baseUrl })(cfg.model);
     case "ollama":
