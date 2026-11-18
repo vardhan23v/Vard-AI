@@ -5,7 +5,8 @@
  */
 import fs from "node:fs";
 import { type ModelMessage, streamText } from "ai";
-import { AgentLoop, type ApprovalResponse } from "./loop";
+import { AgentLoop, type ApprovalResponse, type LoopOptions, reflectOnTask } from "./loop";
+import { MemoryStore } from "./memory";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
 import { createModel, type ModelFactory } from "./providers";
@@ -97,6 +98,25 @@ export class Server {
         if (!t.worktree) throw new Error(`task ${req.taskId} has no worktree`);
         const { diff, stat } = await worktreeDiff(t.worktree);
         return this.emitter(req.id, t.taskId, t.tracer)({ type: "diff", diff, stat });
+      }
+      case "memory.get":
+      case "memory.set":
+      case "memory.add":
+      case "memory.rebuild": {
+        if (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory())
+          throw new Error(`project folder not found: ${req.projectRoot}`);
+        const store = new MemoryStore(req.projectRoot);
+        if (req.type === "memory.set") store.write(req.text);
+        else if (req.type === "memory.add") {
+          store.ensure();
+          store.add(req.items);
+        } else if (req.type === "memory.rebuild") store.rebuildOverview();
+        return this.emitter(req.id)({
+          type: "memory",
+          path: store.path,
+          text: store.read(),
+          entries: store.entries().length,
+        });
       }
       case "task.merge":
       case "task.discard": {
@@ -222,7 +242,9 @@ export class Server {
       store: this.deps.rulesStoreFor?.(req.projectRoot) ?? new FileRulesStore(req.projectRoot),
     });
 
-    const loop = new AgentLoop({
+    // Memory belongs to the user's checkout, not the task's worktree.
+    const memory = req.useMemory === false ? null : new MemoryStore(policy.projectRoot);
+    const loopOptions: LoopOptions = {
       taskId,
       prompt: req.prompt,
       model,
@@ -237,12 +259,19 @@ export class Server {
       verifyCommand: req.verifyCommand,
       retry: this.deps.retry,
       signal: entry.abort.signal,
-    });
+      memory,
+    };
+    const loop = new AgentLoop(loopOptions);
 
     entry.done = (async () => {
       const r = await loop.run();
       let diffStat: string | undefined;
       if (entry.worktree) diffStat = await worktreeDiff(entry.worktree).then((d) => d.stat, () => undefined);
+      if (r.status === "done" && memory && req.learn !== false) {
+        const items = await reflectOnTask(loop, loopOptions, { summary: r.summary, diffStat });
+        if (items.length) emit({ type: "memory_proposal", items: items.map((it, i) => ({ ...it, id: `${taskId}-m${i}` })) });
+        r.usage = loop.usage;
+      }
       entry.running = false;
       entry.approvals.clear();
       emit({

@@ -81,6 +81,34 @@ export const keys = {
 
 export const restartAgent = () => invoke<void>("agent_restart");
 
+// ---- project memory (<project>/.vard/memory.md, managed by the agent) ----
+
+export type MemorySnapshot = Extract<AgentEvent, { type: "memory" }>;
+export type MemoryItem = { section: "overview" | "conventions" | "decisions" | "issues"; text: string };
+
+function memoryRequest(request: WithoutId<Extract<AgentRequest, { type: `memory.${string}` }>>): Promise<MemorySnapshot> {
+  return new Promise((resolve, reject) => {
+    const id = newId("mem");
+    const off = onAgentEvent((e) => {
+      if (e.id !== id) return;
+      off();
+      if (e.type === "memory") resolve(e);
+      else if (e.type === "error") reject(new Error(e.message));
+    });
+    send(request, id).catch((err) => {
+      off();
+      reject(err);
+    });
+  });
+}
+
+export const memory = {
+  get: (projectRoot: string) => memoryRequest({ type: "memory.get", projectRoot }),
+  set: (projectRoot: string, text: string) => memoryRequest({ type: "memory.set", projectRoot, text }),
+  add: (projectRoot: string, items: MemoryItem[]) => memoryRequest({ type: "memory.add", projectRoot, items }),
+  rebuild: (projectRoot: string) => memoryRequest({ type: "memory.rebuild", projectRoot }),
+};
+
 /** The `vard` command-line tool (a link in /usr/local/bin to the binary inside the app). */
 export type CliStatus = { link: string; bundled: string; installed: boolean; conflict: string | null };
 

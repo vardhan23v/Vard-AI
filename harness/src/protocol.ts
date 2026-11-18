@@ -63,6 +63,10 @@ export const TaskStartRequest = z.object({
   /** Extra per-project command allowlist entries on top of the persisted ones. */
   allowlist: z.array(z.string()).optional(),
   verifyCommand: z.string().optional(),
+  /** Read the project's memory into the prompt (unset means yes). */
+  useMemory: z.boolean().optional(),
+  /** After a successful task, propose memory additions (unset means yes). */
+  learn: z.boolean().optional(),
 });
 
 export const TaskApproveRequest = z.object({
@@ -88,6 +92,17 @@ export const TaskDiffRequest = z.object({ ...reqBase, type: z.literal("task.diff
 export const TaskMergeRequest = z.object({ ...reqBase, type: z.literal("task.merge"), taskId: z.string().min(1) });
 export const TaskDiscardRequest = z.object({ ...reqBase, type: z.literal("task.discard"), taskId: z.string().min(1) });
 
+// ---------- project memory (<project>/.vard/memory.md) ----------
+
+export const MemorySection = z.enum(["overview", "conventions", "decisions", "issues"]);
+export const MemoryItem = z.object({ section: MemorySection, text: z.string().min(1).max(500) });
+export type MemoryItem = z.infer<typeof MemoryItem>;
+const memReq = { ...reqBase, projectRoot: z.string().min(1) };
+export const MemoryGetRequest = z.object({ ...memReq, type: z.literal("memory.get") });
+export const MemorySetRequest = z.object({ ...memReq, type: z.literal("memory.set"), text: z.string().max(200_000) });
+export const MemoryAddRequest = z.object({ ...memReq, type: z.literal("memory.add"), items: z.array(MemoryItem).max(50) });
+export const MemoryRebuildRequest = z.object({ ...memReq, type: z.literal("memory.rebuild") });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -97,6 +112,10 @@ export const Request = z.discriminatedUnion("type", [
   TaskDiffRequest,
   TaskMergeRequest,
   TaskDiscardRequest,
+  MemoryGetRequest,
+  MemorySetRequest,
+  MemoryAddRequest,
+  MemoryRebuildRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -197,6 +216,20 @@ export const Event = z.discriminatedUnion("type", [
     steps: z.number().optional(),
     usage: Usage.optional(),
     diffStat: z.string().optional(),
+  }),
+  /** The project's memory file (answer to memory.* requests). */
+  z.object({
+    ...evBase,
+    type: z.literal("memory"),
+    path: z.string(),
+    text: z.string(),
+    entries: z.number(),
+  }),
+  /** Suggested additions after a successful task. Saved only when the user approves (memory.add). */
+  z.object({
+    ...evBase,
+    type: z.literal("memory_proposal"),
+    items: z.array(MemoryItem.extend({ id: z.string() })),
   }),
   z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);

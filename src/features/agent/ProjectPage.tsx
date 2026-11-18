@@ -1,20 +1,23 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, FolderSearch, Play, Settings2 } from "lucide-react";
+import { AlertCircle, Brain, FolderSearch, Loader2, Pencil, Play, RefreshCw, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ModelPicker } from "@/features/chat/ModelPicker";
 import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { send } from "@/lib/agent-client";
+import { memory, send } from "@/lib/agent-client";
+import { Markdown } from "@/features/chat/Markdown";
 import { providerConfig, useModelChoice } from "@/lib/models";
 import { cn } from "@/lib/utils";
 import {
   createTask,
   pickFolder,
+  projectLearns,
   projectPath,
+  setProjectLearns,
   projectsQuery,
   setProjectPath,
   tasksQuery,
@@ -128,6 +131,7 @@ function TaskRow({ projectId, id, prompt, status, active }: { projectId: string;
 function ProjectHeader({ project, path }: { project: Project; path: string }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [memOpen, setMemOpen] = useState(false);
   const [verify, setVerify] = useState(project.verify_command ?? "");
   const [allow, setAllow] = useState(project.command_allowlist.join("\n"));
 
@@ -150,15 +154,30 @@ function ProjectHeader({ project, path }: { project: Project; path: string }) {
             {path}
           </p>
         </div>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-label="Project settings"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Settings2 className="size-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={() => setMemOpen((v) => !v)}
+            aria-expanded={memOpen}
+            aria-label="Project memory"
+            title="Project memory"
+            className={cn(
+              "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground",
+              memOpen && "bg-accent text-foreground",
+            )}
+          >
+            <Brain className="size-4" />
+          </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label="Project settings"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Settings2 className="size-4" />
+          </button>
+        </div>
       </div>
+      {memOpen && <MemoryPanel project={project} path={path} />}
       {open && (
         <form
           className="mt-3 space-y-3"
@@ -201,6 +220,124 @@ function ProjectHeader({ project, path }: { project: Project; path: string }) {
   );
 }
 
+/** What Vard remembers about this project (.vard/memory.md in the project folder). */
+function MemoryPanel({ project, path }: { project: Project; path: string }) {
+  const qc = useQueryClient();
+  const key = ["memory", path];
+  const q = useQuery({ queryKey: key, queryFn: () => memory.get(path), retry: false });
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState("");
+  const [busy, setBusy] = useState(false);
+  const [learn, setLearn] = useState(() => projectLearns(project.id));
+
+  const run = async (fn: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      await qc.invalidateQueries({ queryKey: key });
+      toast.success(done);
+    } catch (e) {
+      toast.error("Memory", { description: String(e) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const shown = (q.data?.text ?? "").replace(/<!--[\s\S]*?-->/g, "").replace(/^# Project memory\s*/, "").trim();
+
+  return (
+    <section aria-label="Project memory" className="mt-3 space-y-3 rounded-lg border border-border bg-card p-3">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <div>
+          <h2 className="text-sm font-medium">Project memory</h2>
+          <p className="text-xs text-muted-foreground">
+            {q.data ? `${q.data.entries} notes · ` : ""}Vard reads this before every task here. It stays on this Mac.
+          </p>
+        </div>
+        <div className="flex items-center gap-1">
+          {!editing && (
+            <button
+              onClick={() => {
+                setDraft(q.data?.text ?? "");
+                setEditing(true);
+              }}
+              disabled={!q.data}
+              className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-accent disabled:opacity-50"
+            >
+              <Pencil className="size-3.5" /> Edit
+            </button>
+          )}
+          <button
+            onClick={() => void run(() => memory.rebuild(path), "Project overview rebuilt")}
+            disabled={busy}
+            title="Scan the project again and replace the Project overview"
+            className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-2 text-xs hover:bg-accent disabled:opacity-50"
+          >
+            <RefreshCw className="size-3.5" /> Rebuild overview
+          </button>
+        </div>
+      </div>
+
+      {q.isLoading ? (
+        <p className="flex items-center gap-2 text-sm text-muted-foreground">
+          <Loader2 className="size-4 animate-spin" /> Loading…
+        </p>
+      ) : q.error ? (
+        <p className="text-sm text-destructive">{String(q.error)}</p>
+      ) : editing ? (
+        <form
+          className="space-y-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            void run(() => memory.set(path, draft), "Memory saved").then(() => setEditing(false));
+          }}
+        >
+          <label htmlFor="memory-text" className="sr-only">
+            Project memory (Markdown)
+          </label>
+          <textarea
+            id="memory-text"
+            rows={14}
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            className="w-full rounded-md border border-input bg-background p-2 font-mono text-xs outline-none focus:border-primary"
+          />
+          <div className="flex gap-2">
+            <button type="submit" disabled={busy} className="min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+              Save
+            </button>
+            <button type="button" onClick={() => setEditing(false)} className="min-h-9 rounded-md px-3 text-sm hover:bg-accent">
+              Cancel
+            </button>
+          </div>
+        </form>
+      ) : shown ? (
+        <div className="max-h-72 overflow-y-auto rounded-md bg-background p-3">
+          <Markdown text={shown} className="text-sm" />
+        </div>
+      ) : (
+        <p className="text-sm text-muted-foreground">
+          Nothing yet. Vard scans the project on its first task, and you can save what it learns after each one.
+        </p>
+      )}
+
+      <label className="flex min-h-9 items-center justify-between gap-3 text-sm">
+        <span>
+          Suggest memories after tasks
+          <span className="block text-xs text-muted-foreground">You choose what's saved; nothing is kept automatically.</span>
+        </span>
+        <Switch
+          checked={learn}
+          onCheckedChange={(v) => {
+            setLearn(v);
+            setProjectLearns(project.id, v);
+          }}
+        />
+      </label>
+    </section>
+  );
+}
+
 function NewTask({ project, path }: { project: Project; path: string }) {
   const qc = useQueryClient();
   const navigate = useNavigate();
@@ -227,6 +364,8 @@ function NewTask({ project, path }: { project: Project; path: string }) {
           useWorktree: true,
           allowlist: project.command_allowlist,
           verifyCommand: project.verify_command ?? undefined,
+          useMemory: true,
+          learn: projectLearns(project.id),
         },
         `task-${task.id}`,
       );

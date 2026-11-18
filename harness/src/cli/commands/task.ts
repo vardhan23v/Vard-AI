@@ -1,7 +1,9 @@
 /** `vard run "…"` and `/task`: an agent task with inline approvals, then merge/discard/keep. */
+import type { MemoryItem } from "../../memory";
 import type { Event } from "../../protocol";
 import { newId } from "../client";
 import { chooseModel, providerWithKey, type Ctx } from "../context";
+import { offerMemories } from "./memory";
 import { colorDiff, describeToolInput, explainError, indent, TokenPrinter } from "../render";
 
 export type TaskFlags = {
@@ -11,6 +13,10 @@ export type TaskFlags = {
   verify?: string;
   worktree?: boolean;
   maxSteps?: number;
+  /** false: don't read or learn project memory. */
+  memory?: boolean;
+  /** Save suggested memories without asking (for scripts). */
+  remember?: boolean;
 };
 
 export type TaskOutcome = {
@@ -18,6 +24,8 @@ export type TaskOutcome = {
   taskId: string;
   /** Set while the task's worktree is still around (kept, not merged or discarded). */
   kept?: { branch: string; path: string };
+  /** Memories the agent suggested (the caller decides whether to save them). */
+  proposals?: MemoryItem[];
 };
 
 const STATE_LABEL: Record<string, string> = {
@@ -54,6 +62,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
   let streamed = "";
   const already = (text: string) => !!text.trim() && streamed.trim() === text.trim();
   let worktree: { branch: string; path: string } | undefined;
+  const proposals: MemoryItem[] = [];
   // Approvals are answered one at a time, in order.
   let queue = Promise.resolve();
 
@@ -133,6 +142,9 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
           out.write(t.muted(`Working on branch ${e.branch}\n`));
         }
         break;
+      case "memory_proposal":
+        proposals.push(...e.items.map(({ section, text }) => ({ section, text })));
+        break;
       case "approval_request":
         queue = queue.then(() => answer(e)).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
         break;
@@ -193,6 +205,8 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         useWorktree,
         verifyCommand: flags.verify,
         maxSteps: flags.maxSteps,
+        useMemory: flags.memory !== false,
+        learn: flags.memory !== false,
       },
       onEvent,
     );
@@ -210,15 +224,16 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
   if (done.usage) out.write(t.muted(`${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens\n`));
   const code = done.status === "done" ? 0 : done.status === "blocked" ? 1 : 2;
 
-  if (!worktree) return { code, taskId };
-  if (!done.diffStat?.trim()) {
+  let kept: { branch: string; path: string } | undefined;
+  if (worktree && !done.diffStat?.trim()) {
     await ctx.client.discard(taskId).catch(() => {});
     out.write(t.muted("No file changes; removed the task's branch.\n"));
-    return { code, taskId };
+  } else if (worktree) {
+    out.write(`\n${t.bold("Changes")}\n${indent(done.diffStat!.trim())}\n`);
+    kept = await reviewChanges(ctx, taskId, worktree);
   }
-  out.write(`\n${t.bold("Changes")}\n${indent(done.diffStat.trim())}\n`);
-  const kept = await reviewChanges(ctx, taskId, worktree);
-  return { code, taskId, kept };
+  await offerMemories(ctx, proposals, { remember: flags.remember });
+  return { code, taskId, kept, proposals };
 }
 
 /** Merge / discard / view / keep loop. Returns the worktree if it was kept. */

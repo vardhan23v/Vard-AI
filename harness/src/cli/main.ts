@@ -3,6 +3,7 @@ import { parseArgs } from "node:util";
 import { VERSION } from "../server";
 import { ask } from "./commands/ask";
 import { keysCommand } from "./commands/keys";
+import { memoryCommand } from "./commands/memory";
 import { modelsCommand } from "./commands/models";
 import { session } from "./commands/session";
 import { runTask } from "./commands/task";
@@ -20,6 +21,8 @@ Usage
   vard --classic            line-by-line session instead of the full-screen one
   vard ask "<question>"     one answer; piped input is added as context
   vard run "<task>"         run the coding agent in this git repo
+  vard memory [show|edit|rebuild|clear|path]
+                            what Vard remembers about this project
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
                                             pbpaste | vard keys set openrouter)
   vard models [use <id>]
@@ -31,6 +34,8 @@ Options
       --verify "<cmd>"      (run) check command after edits, e.g. "bun test"
       --no-worktree         (run) edit files in place instead of on a branch
       --max-steps <n>       (run) step limit
+      --no-memory           (run) don't read or learn project memory
+      --remember            (run, no terminal) save suggested memories
   -y, --yes                 (run, no terminal) approve the plan and commands
   -h, --help                this help
   -v, --version             version
@@ -40,7 +45,7 @@ or the macOS Keychain shared with the Vard AI app.
 `;
 
 export type ParsedArgs = {
-  command: "session" | "ask" | "run" | "keys" | "models" | "help" | "version";
+  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "help" | "version";
   rest: string[];
   flags: {
     model?: string;
@@ -52,6 +57,8 @@ export type ParsedArgs = {
     maxSteps?: number;
     yes?: boolean;
     classic?: boolean;
+    memory?: boolean;
+    remember?: boolean;
   };
 };
 
@@ -71,6 +78,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       "max-steps": { type: "string" },
       yes: { type: "boolean", short: "y" },
       classic: { type: "boolean" },
+      "no-memory": { type: "boolean" },
+      remember: { type: "boolean" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
     },
@@ -88,12 +97,15 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     maxSteps,
     yes: values.yes,
     classic: values.classic,
+    memory: values["no-memory"] ? false : undefined,
+    remember: values.remember,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };
   const [first, ...rest] = positionals;
   if (first === undefined) return { command: "session", rest: [], flags };
-  if (first === "ask" || first === "run" || first === "keys" || first === "models") return { command: first, rest, flags };
+  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory")
+    return { command: first, rest, flags };
   if (first === "help") return { command: "help", rest: [], flags };
   throw new Error(`Unknown command "${first}". To ask a question, use: vard ask "${positionals.join(" ")}"`);
 }
@@ -109,6 +121,8 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
       return 0;
     case "keys":
       return keysCommand(ctx, p.rest);
+    case "memory":
+      return memoryCommand(ctx, p.rest);
     case "models":
       return modelsCommand(ctx, p.rest, p.flags);
     case "ask": {

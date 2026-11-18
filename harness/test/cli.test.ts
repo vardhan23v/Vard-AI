@@ -3,9 +3,9 @@ import fs from "node:fs";
 import path from "node:path";
 import { parseCliArgs, runCli } from "../src/cli/main";
 import { KeyStore, type SecurityRunner } from "../src/cli/keys";
-import { ScriptedPrompter } from "../src/cli/prompt";
+import { NonInteractivePrompter, ScriptedPrompter } from "../src/cli/prompt";
 import { TokenPrinter, makeTheme } from "../src/cli/render";
-import { scriptedModel, sh, tmpDir, tmpGitRepo, type Turn } from "./helpers";
+import { scriptedModel, sh, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
 
 class Buf {
   text = "";
@@ -209,6 +209,50 @@ describe("run", () => {
     h.opts.modelFactory = () => flaky;
     expect(await runCli(["run", "fix it", "--no-plan"], h.opts)).toBe(0);
     expect(fs.readFileSync(path.join(repo, "hello.txt"), "utf8")).toBe("hello vard\n");
+  });
+
+  test("offers the agent's suggested memories after the task and saves the chosen ones", async () => {
+    const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
+    const h = io({ cwd: repo, answers: ["m", "c", "y", "n"] });
+    h.opts.modelFactory = () =>
+      withReflection(
+        scriptedModel([
+          { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+          { text: "Done." },
+        ]),
+        '[{"section":"conventions","text":"Greetings live in hello.txt"},{"section":"decisions","text":"Keep greetings lowercase always"}]',
+      );
+    expect(await runCli(["run", "fix it", "--no-plan"], h.opts)).toBe(0);
+    expect(h.out.text).toContain("Remember for next time?");
+    const mem = fs.readFileSync(path.join(repo, ".vard", "memory.md"), "utf8");
+    expect(mem).toContain("Greetings live in hello.txt");
+    expect(mem).not.toContain("lowercase");
+    // memory command shows it
+    const show = io({ cwd: repo });
+    expect(await runCli(["memory"], show.opts)).toBe(0);
+    expect(show.out.text).toContain("Greetings live in hello.txt");
+  });
+
+  test("scripts save suggestions only with --remember", async () => {
+    const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
+    const make = () =>
+      withReflection(
+        scriptedModel([
+          { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+          { text: "Done." },
+        ]),
+        '[{"section":"conventions","text":"Greetings live in hello.txt"}]',
+      );
+    const h = io({ cwd: repo });
+    h.opts.prompter = new NonInteractivePrompter(true) as any;
+    h.opts.modelFactory = make;
+    await runCli(["run", "fix it", "--no-plan", "--yes"], h.opts);
+    expect(fs.readFileSync(path.join(repo, ".vard", "memory.md"), "utf8")).not.toContain("hello.txt");
+    const h2 = io({ cwd: repo });
+    h2.opts.prompter = new NonInteractivePrompter(true) as any;
+    h2.opts.modelFactory = make;
+    await runCli(["run", "fix it again", "--no-plan", "--yes", "--remember"], h2.opts);
+    expect(fs.readFileSync(path.join(repo, ".vard", "memory.md"), "utf8")).toContain("Greetings live in hello.txt");
   });
 
   test("outside a git repo it explains instead of editing in place", async () => {

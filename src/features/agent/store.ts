@@ -26,6 +26,8 @@ export type LiveTask = {
   diff?: { diff: string; stat: string };
   done?: Ev<"done">;
   usage?: Ev<"usage">["total"];
+  /** Memories the agent suggested after finishing. */
+  proposals?: Ev<"memory_proposal">["items"];
 };
 
 const tasks = new Map<string, LiveTask>();
@@ -82,6 +84,8 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, worktree: { path: e.path ?? t.worktree?.path, branch: e.branch ?? t.worktree?.branch, action: e.action } };
     case "diff":
       return { ...t, diff: { diff: e.diff, stat: e.stat } };
+    case "memory_proposal":
+      return { ...t, proposals: e.items };
     case "done":
       void updateTask(t.taskId, {
         status: e.status,

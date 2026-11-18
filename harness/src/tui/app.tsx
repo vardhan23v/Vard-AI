@@ -25,6 +25,8 @@ import {
   StatusBar,
 } from "./components";
 import * as E from "./editor";
+import type { MemoryItem } from "../memory";
+import { itemLabel, memoryFor } from "../cli/commands/memory";
 import { type KeyFlags, splitKeys } from "./keys";
 import { Markdown } from "./markdown";
 import { C } from "./theme";
@@ -35,7 +37,8 @@ type Approval = Extract<Event, { type: "approval_request" }>;
 type Modal =
   | { type: "approval"; taskId: string; ev: Approval }
   | { type: "merge"; taskId: string; branch: string; path: string }
-  | { type: "picker"; kind: "model" | "session"; filter: string };
+  | { type: "picker"; kind: "model" | "session"; filter: string }
+  | { type: "memory"; items: MemoryItem[]; checked: boolean[] };
 type InputMode = { kind: "normal" } | { kind: "planEdit" | "reject"; taskId: string; ev: Approval };
 
 const STATE_LABEL: Record<string, string> = {
@@ -66,6 +69,7 @@ export function App(props: AppProps) {
   const { ctx } = props;
   const { exit } = useApp();
   const { stdout } = useStdout();
+  const [columns, setColumns] = useState(() => stdout.columns || 100);
 
   const idRef = useRef(0);
   const [choice, setChoiceState] = useState<ModelChoice>(() => chooseModel(ctx, props));
@@ -102,6 +106,8 @@ export function App(props: AppProps) {
   const [tokens, setTokens] = useState(0);
   const [branch, setBranch] = useState(() => gitBranch(ctx.cwd));
   const [kept, setKept] = useState<{ taskId: string; branch: string; path: string } | null>(null);
+  const [memCount, setMemCount] = useState(() => memoryFor(ctx.cwd).entries().length);
+  const proposalsRef = useRef<MemoryItem[]>([]);
   const [modal, setModal] = useState<Modal | null>(null);
   const [selected, setSelected] = useState(0);
   const [mode, setMode] = useState<InputMode>({ kind: "normal" });
@@ -150,6 +156,25 @@ export function App(props: AppProps) {
     setItems(keep);
     setEpoch((e) => e + 1);
   };
+
+  // Ink can't erase lines the terminal re-wrapped on resize, so redraw everything once the
+  // window settles: clear the screen and reprint the transcript at the new width.
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | null = null;
+    const onResize = () => {
+      if (timer) clearTimeout(timer);
+      timer = setTimeout(() => {
+        setColumns(stdout.columns || 100);
+        stdout.write("\x1b[2J\x1b[3J\x1b[H");
+        setEpoch((n) => n + 1);
+      }, 120);
+    };
+    stdout.on("resize", onResize);
+    return () => {
+      stdout.off("resize", onResize);
+      if (timer) clearTimeout(timer);
+    };
+  }, [stdout]);
 
   const quit = (code = 0) => {
     cancelRef.current?.();
@@ -296,6 +321,9 @@ export function App(props: AppProps) {
         case "usage":
           resume();
           break;
+        case "memory_proposal":
+          proposalsRef.current = e.items.map(({ section, text }) => ({ section, text }));
+          break;
         case "approval_request":
           flushText(streamedPlan);
           approvals.current.push({ taskId, ev: e });
@@ -315,7 +343,7 @@ export function App(props: AppProps) {
     let done;
     try {
       done = await ctx.client.startTask(
-        { taskId, projectRoot: root, prompt, provider, planFirst, useWorktree: true },
+        { taskId, projectRoot: root, prompt, provider, planFirst, useWorktree: true, useMemory: true, learn: true },
         onEvent,
       );
     } catch (e) {
@@ -336,11 +364,14 @@ export function App(props: AppProps) {
     else note("Task cancelled.");
     setBusy(null);
     setBranch(gitBranch(ctx.cwd));
+    setMemCount(memoryFor(ctx.cwd).entries().length);
 
-    if (!worktree) return;
-    if (!done.diffStat?.trim()) {
-      await ctx.client.discard(taskId).catch(() => {});
-      note("No file changes; removed the task's branch.");
+    if (!worktree || !done.diffStat?.trim()) {
+      if (worktree) {
+        await ctx.client.discard(taskId).catch(() => {});
+        note("No file changes; removed the task's branch.");
+      }
+      offerMemories();
       return;
     }
     note(`Changes:\n${done.diffStat.trim()}`, "star");
@@ -385,6 +416,19 @@ export function App(props: AppProps) {
       case "/plan":
         if (arg === "on" || arg === "off") setPlanFirst(arg === "on");
         return note(`Plan first: ${arg === "on" || arg === "off" ? arg : planFirst ? "on" : "off"}`);
+      case "/memory": {
+        const store = memoryFor(ctx.cwd);
+        if (arg === "rebuild") {
+          store.rebuildOverview();
+          setMemCount(store.entries().length);
+          return note(`✓ Rebuilt the project overview (${store.path})`, "ok");
+        }
+        const text = store.read();
+        if (!text.trim())
+          return note("No memory for this project yet. It starts with your first /task, or run /memory rebuild.");
+        commit({ kind: "memory", text, path: store.path, count: store.entries().length });
+        return;
+      }
       case "/keys":
         return showKeys();
       case "/task":
@@ -471,6 +515,26 @@ export function App(props: AppProps) {
     { key: "k", label: "Keep for later" },
   ];
 
+  /** After a task: the agent's suggested memories, as a checklist. Nothing is saved without Enter. */
+  const offerMemories = () => {
+    const items = proposalsRef.current;
+    proposalsRef.current = [];
+    if (!items.length) return;
+    setSelected(0);
+    setModal({ type: "memory", items, checked: items.map(() => true) });
+  };
+
+  const saveMemories = (m: Extract<Modal, { type: "memory" }>) => {
+    setModal(null);
+    const chosen = m.items.filter((_, i) => m.checked[i]);
+    if (!chosen.length) return note("Nothing saved to memory.");
+    const store = memoryFor(ctx.cwd);
+    store.ensure();
+    const added = store.add(chosen);
+    setMemCount(store.entries().length);
+    note(`✓ Remembered ${added.length} ${added.length === 1 ? "note" : "notes"} for this project (/memory to see them)`, "ok");
+  };
+
   const answerMerge = async (m: Extract<Modal, { type: "merge" }>, key: string) => {
     try {
       if (key === "v") return commit({ kind: "diff", diff: (await ctx.client.diff(m.taskId)).diff });
@@ -486,6 +550,7 @@ export function App(props: AppProps) {
         note(`Kept on ${m.branch}. Use /diff, /merge or /discard later.`);
       }
       setBranch(gitBranch(ctx.cwd));
+      offerMemories();
     } catch (e) {
       note((e as Error).message, "error");
     }
@@ -576,6 +641,26 @@ export function App(props: AppProps) {
       if (key.escape && modal.type === "merge") return pick("k");
       const exact = opts.find((o) => o.key === input) ?? opts.find((o) => o.key.toLowerCase() === input.toLowerCase());
       if (exact) pick(exact.key);
+      return;
+    }
+    if (modal?.type === "memory") {
+      const n = modal.items.length;
+      if (key.escape) {
+        setModal(null);
+        return note("Nothing saved to memory.");
+      }
+      if (key.upArrow) return setSelected((s) => (s + n - 1) % n);
+      if (key.downArrow || key.tab) return setSelected((s) => (s + 1) % n);
+      if (input === " ") {
+        const checked = [...modal.checked];
+        checked[selected] = !checked[selected];
+        return setModal({ ...modal, checked });
+      }
+      if (input === "a") {
+        const all = modal.checked.every(Boolean);
+        return setModal({ ...modal, checked: modal.checked.map(() => !all) });
+      }
+      if (key.return) return saveMemories(modal);
       return;
     }
     if (modal?.type === "picker") {
@@ -720,7 +805,7 @@ export function App(props: AppProps) {
   return (
     <Box flexDirection="column">
       <Static key={epoch} items={items}>
-        {(item) => <ItemView key={item.id} item={item} />}
+        {(item) => <ItemView key={item.id} item={item} columns={columns} />}
       </Static>
 
       {live ? (
@@ -754,6 +839,22 @@ export function App(props: AppProps) {
       ) : null}
       {modal?.type === "merge" ? (
         <ChoiceModal title={`Merge ${modal.branch}?`} options={mergeOptions} selected={selected} hint="Press a key, or ←→ and Enter · Esc keeps it" />
+      ) : null}
+      {modal?.type === "memory" ? (
+        <Box flexDirection="column" borderStyle="round" borderColor={C.star} paddingX={1} marginTop={1}>
+          <Text bold color={C.star}>
+            Remember for next time?
+          </Text>
+          <Text color={C.muted}>Vard suggests saving these notes to this project's memory.</Text>
+          {modal.items.map((it, i) => (
+            <Text key={i} wrap="wrap">
+              <Text color={i === selected ? C.star : C.line}>{i === selected ? "❯ " : "  "}</Text>
+              <Text color={modal.checked[i] ? C.sage : C.muted}>{modal.checked[i] ? "[x] " : "[ ] "}</Text>
+              <Text color={C.ink}>{itemLabel(it)}</Text>
+            </Text>
+          ))}
+          <Text color={C.muted}>Space toggles · a all/none · Enter saves the checked notes · Esc skips</Text>
+        </Box>
       ) : null}
       {modal?.type === "picker" ? (
         <Picker
@@ -799,9 +900,13 @@ export function App(props: AppProps) {
         tokens={tokens}
         state={state}
         kept={kept?.branch ?? null}
+        memory={memCount}
       />
       <Text color={hint ? C.star : C.muted}>
-        {hint ?? "Enter send · Ctrl+J new line · / commands · ↑ history · Esc stop · Ctrl+C twice quit"}
+        {hint ??
+          (columns >= 92
+            ? "Enter send · Ctrl+J new line · / commands · ↑ history · Esc stop · Ctrl+C twice quit"
+            : "Enter send · / commands · Esc stop · Ctrl+C×2 quit")}
       </Text>
     </Box>
   );

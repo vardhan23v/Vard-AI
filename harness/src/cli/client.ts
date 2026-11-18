@@ -67,6 +67,8 @@ export class Client {
       useWorktree: boolean;
       verifyCommand?: string;
       maxSteps?: number;
+      useMemory?: boolean;
+      learn?: boolean;
     },
     onEvent: (e: Event) => void,
   ): Promise<DoneEvent> {

@@ -75,6 +75,26 @@ export function setProjectPath(id: string, path: string) {
   }
 }
 
+// ---- "learn from tasks" (project memory suggestions), per project on this Mac ----
+const LEARN_KEY = "vard:project-learn";
+
+export function projectLearns(id: string): boolean {
+  try {
+    return (JSON.parse(localStorage.getItem(LEARN_KEY) ?? "{}") as Record<string, boolean>)[id] !== false;
+  } catch {
+    return true;
+  }
+}
+
+export function setProjectLearns(id: string, on: boolean) {
+  try {
+    const all = JSON.parse(localStorage.getItem(LEARN_KEY) ?? "{}");
+    localStorage.setItem(LEARN_KEY, JSON.stringify({ ...all, [id]: on }));
+  } catch {
+    // Not persisted; the default (on) applies next launch.
+  }
+}
+
 export async function pickFolder(): Promise<string | null> {
   const dir = await open({ directory: true, multiple: false, title: "Choose a project folder" });
   return typeof dir === "string" ? dir : null;

@@ -10,7 +10,7 @@ import { App, type KeySource } from "../src/tui/app";
 import * as E from "../src/tui/editor";
 import { splitKeys } from "../src/tui/keys";
 import { parseBlocks } from "../src/tui/markdown";
-import { scriptedModel, tmpDir, tmpGitRepo, type Turn } from "./helpers";
+import { scriptedModel, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
 
 const strip = (s: string) => s.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, "");
 const tick = (ms = 30) => new Promise((r) => setTimeout(r, ms));
@@ -25,7 +25,7 @@ async function until(get: () => string, needle: string | RegExp, ms = 5000) {
   throw new Error(`timed out waiting for ${needle}\n--- screen ---\n${get().slice(-3000)}`);
 }
 
-function mount(opts: { turns?: Turn[]; cwd?: string } = {}) {
+function mount(opts: { turns?: Turn[]; cwd?: string; reflect?: string } = {}) {
   const home = tmpDir("vard-tui-home-");
   const env = { VARD_HOME: home, GROQ_API_KEY: "gsk_test" };
   const ctx = makeCtx({
@@ -37,7 +37,7 @@ function mount(opts: { turns?: Turn[]; cwd?: string } = {}) {
     cwd: opts.cwd ?? home,
     env,
     keys: new KeyStore(env, () => ({ code: 44, stdout: "", stderr: "" }), "darwin"),
-    modelFactory: () => scriptedModel(opts.turns ?? []),
+    modelFactory: () => withReflection(scriptedModel(opts.turns ?? []), opts.reflect ?? "[]"),
   });
   let push: (c: string) => void = () => {};
   const keys: KeySource = (fn) => {
@@ -160,6 +160,31 @@ describe("TUI", () => {
     await m.type("m");
     await until(m.screen, "Merged vard/");
     expect(fs.readFileSync(path.join(repo, "hello.txt"), "utf8")).toBe("hello vard\n");
+    m.r.unmount();
+  });
+
+  test("after a task, the memory checklist saves the checked notes; /memory shows them", async () => {
+    const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
+    const m = mount({ cwd: repo, reflect: '[{"section":"conventions","text":"Greetings live in hello.txt"},{"section":"issues","text":"Do not touch the old greeting file"}]', turns: [
+      { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+      { text: "Done." },
+    ] });
+    await until(m.screen, "Message vard");
+    await m.type("/plan off\r");
+    await m.type("/task fix the greeting\r");
+    await until(m.screen, /Merge vard\/tui-/);
+    await m.type("k");
+    await until(m.screen, "Remember for next time?");
+    await m.type("\x1b[B"); // down to the second note
+    await m.type(" "); // uncheck it
+    await m.type("\r");
+    await until(m.screen, "Remembered 1 note");
+    const mem = fs.readFileSync(path.join(repo, ".vard", "memory.md"), "utf8");
+    expect(mem).toContain("Greetings live in hello.txt");
+    expect(mem).not.toContain("old greeting");
+    await m.type("/memory\r");
+    await until(m.screen, "Project memory · ");
+    await until(m.screen, /memory \d+/);
     m.r.unmount();
   });
 

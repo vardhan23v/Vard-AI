@@ -58,6 +58,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - **Approvals:** risky commands wait for *Allow once*, *Always allow in this project* or *Deny*
 - Optional verify command (for example `bun test`) that runs after edits; failures go back to the agent
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
+- **Project memory:** Vard remembers each project's stack, conventions, decisions and past fixes, and uses them on every task. After a task it suggests new notes; you pick what's saved
 
 **Command line (`vard`)**
 - A full-screen terminal UI: Starry Night banner, streamed Markdown replies, tool steps that tick off, pop-ups for approvals and merging, a status bar (model · branch · tokens), slash-command autocomplete and a model/session picker
@@ -117,6 +118,20 @@ vard run "add input validation to the signup form" --verify "bun test"
 In the full-screen UI: **Enter** sends, **Ctrl+J** adds a line, **Tab** completes a `/command`, **↑/↓** walk history, **Esc** stops a reply or task (typing a new message while a reply streams interrupts and redirects it), and **Ctrl+C** twice quits.
 
 Keys come from `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY` if set, otherwise from the Keychain. A key saved by an older build of the app may be readable only by the app; save it again with `pbpaste | vard keys set <provider>` to share it. Chat history is in `~/.vard/sessions`, task traces in `~/.vard/traces`.
+
+## Project memory
+
+Each project has a memory file at `<project>/.vard/memory.md`. It's plain Markdown you can edit, and it stays on your Mac (`.vard/` is git-ignored).
+
+- **Project overview:** written the first time Vard works in a project, from a quick scan with no model call: stack, package manager, scripts, test command, frameworks, folders.
+- **Conventions, Decisions, Known issues and fixes:** after a task finishes, the agent suggests a few durable facts it learned. You choose which to keep (a checklist in the app and the TUI, a prompt in `vard run`). Nothing is saved automatically.
+- **Recall:** before each task, Vard adds the overview and the notes most related to the request to the agent's context.
+
+| Where | How |
+|---|---|
+| App | Project page → the brain icon: view, edit, rebuild the overview, turn suggestions on or off |
+| TUI | `/memory`, `/memory rebuild`; the "Remember for next time?" checklist after a task |
+| CLI | `vard memory [show\|edit\|rebuild\|clear\|path]`; `vard run --no-memory`; `vard run --remember` saves suggestions in scripts |
 
 ## Architecture
 

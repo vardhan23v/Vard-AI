@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import {
   AlertTriangle,
+  Brain,
   Check,
   CheckCircle2,
   ChevronRight,
@@ -22,7 +23,8 @@ import { toast } from "sonner";
 import { Markdown } from "@/features/chat/Markdown";
 import { DiffView } from "./DiffView";
 import { isRunning, taskActions, useTask, type LiveTask, type TimelineItem } from "./store";
-import type { AgentTask } from "./projects";
+import { projectPath, type AgentTask } from "./projects";
+import { memory } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 
 export const STATUS_LABEL: Record<string, string> = {
@@ -384,7 +386,77 @@ function Result({ task, live }: { task: AgentTask; live: LiveTask }) {
           )}
         </Card>
       )}
+
+      {live.proposals?.length ? <SuggestedMemories task={task} items={live.proposals} /> : null}
     </>
+  );
+}
+
+const SECTION_LABEL: Record<string, string> = { conventions: "Convention", decisions: "Decision", issues: "Known issue", overview: "Overview" };
+
+/** The agent's suggested memories. Nothing is saved until the user picks and saves them. */
+function SuggestedMemories({ task, items }: { task: AgentTask; items: NonNullable<LiveTask["proposals"]> }) {
+  const [checked, setChecked] = useState(() => items.map(() => true));
+  const [state, setState] = useState<"open" | "saving" | "saved" | "dismissed">("open");
+  const root = projectPath(task.project_id);
+
+  if (state === "dismissed") return null;
+  const save = async () => {
+    if (!root) return toast.error("Pick this project's folder again to save memories.");
+    setState("saving");
+    try {
+      const snap = await memory.add(
+        root,
+        items.filter((_, i) => checked[i]).map(({ section, text }) => ({ section, text })),
+      );
+      setState("saved");
+      toast.success("Saved to project memory", { description: `${snap.entries} notes for this project` });
+    } catch (e) {
+      setState("open");
+      toast.error("Couldn't save memories", { description: String(e) });
+    }
+  };
+
+  return (
+    <Card title="Remember for next time?" icon={<Brain className="size-4 text-agent-foreground" />}>
+      {state === "saved" ? (
+        <p className="text-sm">Saved. Vard will use these notes in this project's next tasks.</p>
+      ) : (
+        <>
+          <p className="mb-3 text-sm text-muted-foreground">Vard suggests remembering these. Uncheck anything that's wrong.</p>
+          <ul className="space-y-2">
+            {items.map((it, i) => (
+              <li key={it.id}>
+                <label className="flex min-h-10 cursor-pointer items-start gap-3 rounded-md px-2 py-1.5 hover:bg-accent">
+                  <input
+                    type="checkbox"
+                    checked={checked[i]}
+                    onChange={() => setChecked((c) => c.map((v, j) => (j === i ? !v : v)))}
+                    className="mt-1 size-4 accent-[var(--primary)]"
+                  />
+                  <span className="text-sm">
+                    <span className="text-xs text-muted-foreground">{SECTION_LABEL[it.section] ?? it.section} · </span>
+                    {it.text}
+                  </span>
+                </label>
+              </li>
+            ))}
+          </ul>
+          <div className="mt-4 flex flex-wrap gap-2">
+            <button
+              onClick={() => void save()}
+              disabled={state === "saving" || !checked.some(Boolean)}
+              className="inline-flex min-h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            >
+              {state === "saving" ? <Loader2 className="size-4 animate-spin" /> : <Check className="size-4" />} Save selected
+            </button>
+            <button onClick={() => setState("dismissed")} className="min-h-10 rounded-md px-4 text-sm hover:bg-accent">
+              Dismiss
+            </button>
+          </div>
+        </>
+      )}
+    </Card>
   );
 }
 

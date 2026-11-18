@@ -80,3 +80,14 @@ export function toolCtx(root: string): ToolContext {
   };
   return ctx;
 }
+
+/** Gives a scripted model a fixed reply for non-streaming calls (the post-task reflection). */
+export function withReflection<T extends object>(model: T, reply: string): T {
+  (model as any).doGenerate = async () => ({
+    content: [{ type: "text", text: reply }],
+    finishReason: { unified: "stop", raw: undefined },
+    usage: usage(10, 5),
+    warnings: [],
+  });
+  return model;
+}
