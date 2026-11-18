@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, FolderSearch, Play, Settings2 } from "lucide-react";
+import { AlertCircle, Brain, FolderSearch, Play, Settings2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { ModelPicker } from "@/features/chat/ModelPicker";
@@ -9,6 +9,7 @@ import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { send } from "@/lib/agent-client";
+import { MemoryTab } from "./MemoryTab";
 import { providerConfig, useModelChoice } from "@/lib/models";
 import { cn } from "@/lib/utils";
 import {
@@ -29,14 +30,25 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
   const project = projects?.find((p) => p.id === projectId);
   const tasks = useQuery(tasksQuery(projectId));
   const [path, setPath] = useState(() => projectPath(projectId));
+  const [showMemory, setShowMemory] = useState(false);
 
   useEffect(() => {
     startTaskStore();
     setPath(projectPath(projectId));
+    setShowMemory(false);
   }, [projectId]);
 
-  if (isLoading) return <div className="p-6"><Skeleton className="h-8 w-60" /></div>;
-  if (!project) return <p className="p-6 text-sm text-muted-foreground">This project no longer exists.</p>;
+  // Opening a task leaves the memory view.
+  useEffect(() => setShowMemory(false), [taskId]);
+
+  if (isLoading)
+    return (
+      <div className="p-6">
+        <Skeleton className="h-8 w-60" />
+      </div>
+    );
+  if (!project)
+    return <p className="p-6 text-sm text-muted-foreground">This project no longer exists.</p>;
 
   if (!path) {
     return (
@@ -66,10 +78,17 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
   return (
     <div className="flex h-full">
       <div className="flex w-80 shrink-0 flex-col border-r border-border">
-        <ProjectHeader project={project} path={path} />
+        <ProjectHeader
+          project={project}
+          path={path}
+          memoryOpen={showMemory}
+          onToggleMemory={() => setShowMemory((v) => !v)}
+        />
         <NewTask project={project} path={path} />
         <div className="flex-1 overflow-y-auto px-2 pb-3">
-          <h2 className="px-2 pt-3 pb-1 font-sans text-xs font-medium text-muted-foreground">Tasks</h2>
+          <h2 className="px-2 pt-3 pb-1 font-sans text-xs font-medium text-muted-foreground">
+            Tasks
+          </h2>
           {tasks.isLoading && <Skeleton className="mx-2 h-12" />}
           {tasks.error && (
             <p className="flex items-center gap-2 px-2 text-sm text-muted-foreground">
@@ -77,23 +96,35 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
             </p>
           )}
           {tasks.data?.length === 0 && (
-            <p className="px-2 text-sm text-muted-foreground">No tasks yet. Describe one above; several can run at once.</p>
+            <p className="px-2 text-sm text-muted-foreground">
+              No tasks yet. Describe one above; several can run at once.
+            </p>
           )}
           <ul className="space-y-1">
             {tasks.data?.map((t) => (
-              <TaskRow key={t.id} projectId={projectId} id={t.id} prompt={t.prompt} status={t.status} active={t.id === taskId} />
+              <TaskRow
+                key={t.id}
+                projectId={projectId}
+                id={t.id}
+                prompt={t.prompt}
+                status={t.status}
+                active={t.id === taskId}
+              />
             ))}
           </ul>
         </div>
       </div>
       <div className="relative min-w-0 flex-1">
-        {selected ? (
+        {showMemory ? (
+          <MemoryTab path={path} />
+        ) : selected ? (
           <TaskView key={selected.id} task={selected} />
         ) : (
           <div className="relative flex h-full items-center justify-center px-6">
             <StarField seed={11} />
             <p className="relative max-w-sm text-center text-sm text-muted-foreground">
-              Each task runs in its own git worktree, so tasks can run side by side without touching your working copy. You review the diff before anything is merged.
+              Each task runs in its own git worktree, so tasks can run side by side without touching
+              your working copy. You review the diff before anything is merged.
             </p>
           </div>
         )}
@@ -102,9 +133,22 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
   );
 }
 
-function TaskRow({ projectId, id, prompt, status, active }: { projectId: string; id: string; prompt: string; status: string; active: boolean }) {
+function TaskRow({
+  projectId,
+  id,
+  prompt,
+  status,
+  active,
+}: {
+  projectId: string;
+  id: string;
+  prompt: string;
+  status: string;
+  active: boolean;
+}) {
   const live = useTask(id);
-  const current = live?.worktree?.action === "merged" ? "merged" : (live?.done?.status ?? live?.state ?? status);
+  const current =
+    live?.worktree?.action === "merged" ? "merged" : (live?.done?.status ?? live?.state ?? status);
   const needsYou = !!live?.pending;
   return (
     <li>
@@ -125,7 +169,17 @@ function TaskRow({ projectId, id, prompt, status, active }: { projectId: string;
   );
 }
 
-function ProjectHeader({ project, path }: { project: Project; path: string }) {
+function ProjectHeader({
+  project,
+  path,
+  memoryOpen,
+  onToggleMemory,
+}: {
+  project: Project;
+  path: string;
+  memoryOpen: boolean;
+  onToggleMemory: () => void;
+}) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [verify, setVerify] = useState(project.verify_command ?? "");
@@ -134,7 +188,10 @@ function ProjectHeader({ project, path }: { project: Project; path: string }) {
   const save = async () => {
     await updateProject(project.id, {
       verify_command: verify.trim() || null,
-      command_allowlist: allow.split("\n").map((s) => s.trim()).filter(Boolean),
+      command_allowlist: allow
+        .split("\n")
+        .map((s) => s.trim())
+        .filter(Boolean),
     });
     await qc.invalidateQueries({ queryKey: ["projects"] });
     setOpen(false);
@@ -150,14 +207,28 @@ function ProjectHeader({ project, path }: { project: Project; path: string }) {
             {path}
           </p>
         </div>
-        <button
-          onClick={() => setOpen((v) => !v)}
-          aria-expanded={open}
-          aria-label="Project settings"
-          className="inline-flex size-9 shrink-0 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
-        >
-          <Settings2 className="size-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          <button
+            onClick={onToggleMemory}
+            aria-pressed={memoryOpen}
+            aria-label="Project memory"
+            title="Project memory"
+            className={cn(
+              "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground",
+              memoryOpen && "bg-accent text-foreground",
+            )}
+          >
+            <Brain className="size-4" />
+          </button>
+          <button
+            onClick={() => setOpen((v) => !v)}
+            aria-expanded={open}
+            aria-label="Project settings"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <Settings2 className="size-4" />
+          </button>
+        </div>
       </div>
       {open && (
         <form
@@ -192,7 +263,10 @@ function ProjectHeader({ project, path }: { project: Project; path: string }) {
               className="mt-1 w-full rounded-md border border-input bg-background p-2 font-mono text-sm outline-none focus:border-primary"
             />
           </div>
-          <button type="submit" className="min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground">
+          <button
+            type="submit"
+            className="min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+          >
             Save
           </button>
         </form>
@@ -214,7 +288,12 @@ function NewTask({ project, path }: { project: Project; path: string }) {
     if (!text) return;
     setBusy(true);
     try {
-      const task = await createTask({ project_id: project.id, prompt: text, provider: choice.provider, model: choice.model });
+      const task = await createTask({
+        project_id: project.id,
+        prompt: text,
+        provider: choice.provider,
+        model: choice.model,
+      });
       startTaskStore();
       await send(
         {
@@ -227,14 +306,21 @@ function NewTask({ project, path }: { project: Project; path: string }) {
           useWorktree: true,
           allowlist: project.command_allowlist,
           verifyCommand: project.verify_command ?? undefined,
+          useMemory: true,
         },
         `task-${task.id}`,
       );
       setPrompt("");
       await qc.invalidateQueries({ queryKey: ["tasks", project.id] });
-      await navigate({ to: "/projects/$projectId", params: { projectId: project.id }, search: { task: task.id } });
+      await navigate({
+        to: "/projects/$projectId",
+        params: { projectId: project.id },
+        search: { task: task.id },
+      });
     } catch (err) {
-      toast.error("Task not started", { description: err instanceof Error ? err.message : String(err) });
+      toast.error("Task not started", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     } finally {
       setBusy(false);
     }
@@ -268,7 +354,8 @@ function NewTask({ project, path }: { project: Project; path: string }) {
       <div className="mt-2 flex items-center justify-between gap-2">
         <ModelPicker />
         <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" /> Plan first
+          <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" /> Plan
+          first
         </label>
       </div>
       <button

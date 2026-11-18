@@ -122,6 +122,15 @@ describe("run_command / git / todo", () => {
     expect(out).toContain("timed out");
   });
 
+  test("a timeout also stops the command's child processes", async () => {
+    // The shell can't exec `sleep` here (it still has to run `echo`), so sleep is a child.
+    const start = Date.now();
+    const out = await runCommand.execute({ command: "sleep 5; echo finished-anyway", timeoutSec: 1 }, toolCtx(tmpDir()));
+    expect(out).toContain("timed out");
+    expect(out).not.toContain("finished-anyway");
+    expect(Date.now() - start).toBeLessThan(3500);
+  });
+
   test("git_status and git_diff", async () => {
     const repo = tmpGitRepo();
     fs.writeFileSync(path.join(repo, "hello.txt"), "changed\n");

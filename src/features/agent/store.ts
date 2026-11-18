@@ -10,7 +10,14 @@ type Ev<T extends AgentEvent["type"]> = Extract<AgentEvent, { type: T }>;
 
 export type TimelineItem =
   | { kind: "text"; text: string; ts: number }
-  | { kind: "tool"; callId: string; tool: string; input: unknown; result?: { ok: boolean; output: string }; ts: number }
+  | {
+      kind: "tool";
+      callId: string;
+      tool: string;
+      input: unknown;
+      result?: { ok: boolean; output: string };
+      ts: number;
+    }
   | { kind: "approval"; event: Ev<"approval_request">; decision?: string }
   | { kind: "verify"; event: Ev<"verify"> }
   | { kind: "error"; message: string; ts: number };
@@ -26,6 +33,10 @@ export type LiveTask = {
   diff?: { diff: string; stat: string };
   done?: Ev<"done">;
   usage?: Ev<"usage">["total"];
+  /** Memories the agent suggested (or saved automatically) after finishing. */
+  proposals?: Ev<"memory_proposal">["items"];
+  /** How much project memory went into the agent's context. */
+  recall?: { count: number; total: number };
 };
 
 const tasks = new Map<string, LiveTask>();
@@ -49,7 +60,8 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, state: e.state };
     case "token": {
       const last = timeline[timeline.length - 1];
-      if (last?.kind === "text") timeline[timeline.length - 1] = { ...last, text: last.text + e.text };
+      if (last?.kind === "text")
+        timeline[timeline.length - 1] = { ...last, text: last.text + e.text };
       else timeline.push({ kind: "text", text: e.text, ts: e.ts });
       return { ...t, timeline };
     }
@@ -58,7 +70,11 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, timeline };
     case "tool_result": {
       const i = timeline.findIndex((x) => x.kind === "tool" && x.callId === e.callId);
-      if (i >= 0) timeline[i] = { ...(timeline[i] as Extract<TimelineItem, { kind: "tool" }>), result: { ok: e.ok, output: e.output } };
+      if (i >= 0)
+        timeline[i] = {
+          ...(timeline[i] as Extract<TimelineItem, { kind: "tool" }>),
+          result: { ok: e.ok, output: e.output },
+        };
       return { ...t, timeline };
     }
     case "approval_request":
@@ -70,7 +86,9 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
     case "todos":
       return { ...t, todos: e.todos };
     case "verify": {
-      const i = timeline.findIndex((x) => x.kind === "verify" && x.event.status === "running" && x.event.command === e.command);
+      const i = timeline.findIndex(
+        (x) => x.kind === "verify" && x.event.status === "running" && x.event.command === e.command,
+      );
       if (i >= 0 && e.status !== "running") timeline[i] = { kind: "verify", event: e };
       else timeline.push({ kind: "verify", event: e });
       return { ...t, timeline };
@@ -79,9 +97,20 @@ function apply(t: LiveTask, e: AgentEvent): LiveTask {
       return { ...t, usage: e.total };
     case "worktree":
       if (e.action !== "created") void updateTask(t.taskId, { status: e.action });
-      return { ...t, worktree: { path: e.path ?? t.worktree?.path, branch: e.branch ?? t.worktree?.branch, action: e.action } };
+      return {
+        ...t,
+        worktree: {
+          path: e.path ?? t.worktree?.path,
+          branch: e.branch ?? t.worktree?.branch,
+          action: e.action,
+        },
+      };
     case "diff":
       return { ...t, diff: { diff: e.diff, stat: e.stat } };
+    case "memory_proposal":
+      return { ...t, proposals: e.items };
+    case "memory_recall":
+      return { ...t, recall: { count: e.count, total: e.total } };
     case "done":
       void updateTask(t.taskId, {
         status: e.status,
@@ -127,7 +156,12 @@ export function isRunning(t?: LiveTask) {
 
 // ---- actions ----
 export const taskActions = {
-  approve(taskId: string, approvalId: string, decision: "allow_once" | "always" | "deny", extra?: { reason?: string; plan?: string }) {
+  approve(
+    taskId: string,
+    approvalId: string,
+    decision: "allow_once" | "always" | "deny",
+    extra?: { reason?: string; plan?: string },
+  ) {
     const t = get(taskId);
     tasks.set(taskId, {
       ...t,

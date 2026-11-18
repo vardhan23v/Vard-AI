@@ -16,8 +16,9 @@
  *
  * Tools are passed to the SDK without `execute`, so the harness — not the SDK — owns execution.
  */
-import { type LanguageModel, type ModelMessage, streamText } from "ai";
+import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 import { buildSystemPrompt, compactMessages, repoMap } from "./context";
+import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall, reflectPrompt } from "./memory";
 import { Policy } from "./policy";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
 import { ALL_TOOLS, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
@@ -62,6 +63,8 @@ export interface LoopOptions {
   /** Backoff for rate limits / transient provider errors. */
   retry?: RetryOptions;
   signal?: AbortSignal;
+  /** Project memory (the user's checkout). `recall` puts relevant entries into the prompt. */
+  memory?: { store: MemoryStore; recall: boolean } | null;
 }
 
 export interface LoopResult {
@@ -88,6 +91,10 @@ export class AgentLoop {
   private tools: ToolDef[];
   private approvalSeq = 0;
   private repoMapCache?: string;
+  private memoryCache?: string;
+  /** One line per tool call, for reflection. */
+  private toolLog: string[] = [];
+  private lastVerify?: string;
 
   constructor(private o: LoopOptions) {
     this.tools = o.tools ?? ALL_TOOLS;
@@ -163,6 +170,24 @@ export class AgentLoop {
     }
   }
 
+  toolLines() {
+    return [...this.toolLog];
+  }
+
+  verifyLine() {
+    return this.lastVerify;
+  }
+
+  addUsage(u: { inputTokens?: number; outputTokens?: number; totalTokens?: number }) {
+    const i = u.inputTokens ?? 0;
+    const out = u.outputTokens ?? 0;
+    this.usage = {
+      inputTokens: this.usage.inputTokens + i,
+      outputTokens: this.usage.outputTokens + out,
+      totalTokens: this.usage.totalTokens + (u.totalTokens ?? i + out),
+    };
+  }
+
   private result(status: LoopResult["status"], summary: string, reason?: string): LoopResult {
     return { status, summary, reason, steps: this.steps, usage: this.usage, todos: this.todos, messages: this.messages };
   }
@@ -216,11 +241,27 @@ export class AgentLoop {
     this.steps++;
 
     this.repoMapCache ??= await repoMap(o.workRoot);
+    if (this.memoryCache === undefined) {
+      this.memoryCache = "";
+      if (o.memory) {
+        try {
+          ensureAnalyzed(o.memory.store);
+          if (o.memory.recall) {
+            const r = recall(o.memory.store, o.prompt);
+            this.memoryCache = r.text;
+            o.emit({ type: "memory_recall", count: r.ids.length, total: r.total, chars: r.chars, ids: r.ids });
+          }
+        } catch {
+          // Memory must never break a task.
+        }
+      }
+    }
     const instructions = await buildSystemPrompt({
       workRoot: o.workRoot,
       todos: this.todos,
       phase,
       repoMap: this.repoMapCache,
+      memory: this.memoryCache,
     });
     const { messages, compacted } = compactMessages(this.messages, { budgetTokens: o.contextBudget ?? 120_000 });
     if (compacted) this.messages = messages;
@@ -285,6 +326,8 @@ export class AgentLoop {
       this.checkCancel();
       const { ok, output } = await this.executeCall(call);
       this.o.emit({ type: "tool_result", callId: call.toolCallId, tool: call.toolName, ok, output });
+      const arg = JSON.stringify(call.input ?? {}).slice(0, 160);
+      this.toolLog.push(`${ok ? "ok " : "ERR"} ${call.toolName} ${arg}${ok ? "" : ` -> ${output.split("\n")[0].slice(0, 160)}`}`);
       parts.push({
         type: "tool-result",
         toolCallId: call.toolCallId,
@@ -370,7 +413,42 @@ export class AgentLoop {
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);
     this.o.emit({ type: "verify", status: ok ? "passed" : "failed", command, output });
+    this.lastVerify = `\`${command}\` ${ok ? "passed" : "failed"}`;
     return { ok, output };
+  }
+}
+
+export interface ReflectInput {
+  summary: string;
+  diffStat?: string;
+}
+
+/**
+ * After a successful task, ask the model which durable facts are worth remembering. Returns
+ * proposals only; the caller shows them to the user, and nothing is saved here. Never throws.
+ */
+export async function reflectOnTask(loop: AgentLoop, o: LoopOptions, input: ReflectInput): Promise<Proposal[]> {
+  if (!o.memory || o.signal?.aborted) return [];
+  try {
+    const existing = o.memory.store.active();
+    const prompt = reflectPrompt({
+      prompt: o.prompt,
+      summary: input.summary,
+      tools: loop.toolLines(),
+      diffStat: input.diffStat,
+      verify: loop.verifyLine(),
+      existing,
+    });
+    const r = await withRetry(
+      () => generateText({ model: o.model, prompt, abortSignal: o.signal, maxRetries: 0 }),
+      { ...(o.retry ?? DEFAULT_RETRY), maxAttempts: 3 },
+      () => {},
+      o.signal,
+    );
+    loop.addUsage(r.usage);
+    return parseProposals(r.text, existing, `${o.taskId}-m`);
+  } catch {
+    return [];
   }
 }
 

@@ -8,7 +8,9 @@ on:
 
 jobs:
   check:
-    runs-on: macos-latest
+    # Typecheck and harness tests don't need macOS; Linux runners start quickly.
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
     steps:
       - uses: actions/checkout@v4
       - uses: oven-sh/setup-bun@v2

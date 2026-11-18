@@ -2,7 +2,8 @@
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 import { colorDiffLines } from "./diff";
-import { Markdown } from "./markdown";
+import { Inline, Markdown } from "./markdown";
+import { CATEGORIES, type MemoryEntry } from "../memory";
 import { C } from "./theme";
 
 export type Item =
@@ -16,6 +17,7 @@ export type Item =
   | { id: number; kind: "verify"; status: "running" | "passed" | "failed"; command: string; output?: string }
   | { id: number; kind: "notice"; text: string; tone?: "muted" | "error" | "ok" | "star" }
   | { id: number; kind: "diff"; diff: string }
+  | { id: number; kind: "memory"; entries: MemoryEntry[]; path: string; total: number; query?: string }
   | { id: number; kind: "help" };
 
 const LOGO = [
@@ -27,36 +29,74 @@ const LOGO = [
   "   ╚═╝   ╚═╝  ╚═╝╚═╝  ╚═╝╚═════╝ ",
 ];
 
-export function Banner({ item }: { item: Extract<Item, { kind: "banner" }> }) {
+const LOGO_WIDTH = Math.max(...LOGO.map((l) => [...l].length));
+
+/** Shortens a path from the left so it fits, e.g. "…/projects/shop". */
+export function fitPath(p: string, max: number) {
+  if (p.length <= max) return p;
+  return "…" + p.slice(p.length - Math.max(4, max - 1));
+}
+
+/**
+ * The welcome banner adapts to the window: logo beside the title when there's room (≥ 86
+ * columns), logo above it in medium windows, and no logo in narrow ones. Nothing ever wraps
+ * mid-logo.
+ */
+export function Banner({ item, columns }: { item: Extract<Item, { kind: "banner" }>; columns: number }) {
+  const showLogo = columns >= LOGO_WIDTH + 4;
+  const sideBySide = columns >= LOGO_WIDTH + 3 + 44 + 2;
+  const title = (
+    <Box flexDirection="column" justifyContent="center" flexShrink={1}>
+      <Text color={C.star}>✦ ·  ✧   ·  ✦</Text>
+      <Text bold color={C.ink}>
+        Vard AI <Text color={C.muted}>v{item.version}</Text>
+      </Text>
+      <Text color={C.ink2} wrap="truncate-end">
+        Chat and a coding agent in your terminal
+      </Text>
+      <Text color={C.muted} wrap="truncate-end">
+        {item.model} <Text color={C.line}>·</Text> {item.provider}
+      </Text>
+    </Box>
+  );
+  const logo = (
+    <Box flexDirection="column" flexShrink={0} width={LOGO_WIDTH}>
+      {LOGO.map((l, i) => (
+        <Text key={i} color={i < 3 ? C.star : C.cerulean} wrap="truncate-end">
+          {l}
+        </Text>
+      ))}
+    </Box>
+  );
+  const inner = Math.max(10, columns - 4);
   return (
-    <Box flexDirection="column" marginBottom={1}>
-      <Box>
-        <Box flexDirection="column" marginRight={3}>
-          {LOGO.map((l, i) => (
-            <Text key={i} color={i < 3 ? C.star : C.cerulean}>
-              {l}
-            </Text>
-          ))}
+    <Box flexDirection="column" marginBottom={1} width={columns}>
+      {sideBySide ? (
+        <Box>
+          <Box marginRight={3}>{logo}</Box>
+          {title}
         </Box>
-        <Box flexDirection="column" justifyContent="center">
-          <Text color={C.star}>✦ ·  ✧   ·  ✦</Text>
-          <Text bold color={C.ink}>
-            Vard AI <Text color={C.muted}>v{item.version}</Text>
-          </Text>
-          <Text color={C.ink2}>Chat and a coding agent in your terminal</Text>
-          <Text color={C.muted}>
-            {item.model} <Text color={C.line}>·</Text> {item.provider}
-          </Text>
+      ) : (
+        <Box flexDirection="column">
+          {showLogo ? <Box marginBottom={1}>{logo}</Box> : null}
+          {title}
         </Box>
-      </Box>
+      )}
       <Box borderStyle="round" borderColor={C.line} paddingX={1} marginTop={1} flexDirection="column">
-        <Text color={C.muted}>
-          <Text color={C.ink}>{item.cwd}</Text>
+        <Text color={C.ink} wrap="truncate-end">
+          {fitPath(item.cwd, inner)}
         </Text>
-        <Text color={C.muted}>
-          Type to chat · <Text color={C.star}>/task</Text> to change this repo ·{" "}
-          <Text color={C.star}>/help</Text> for commands · <Text color={C.star}>Esc</Text> stops
-        </Text>
+        {columns >= 76 ? (
+          <Text color={C.muted}>
+            Type to chat · <Text color={C.star}>/task</Text> to change this repo ·{" "}
+            <Text color={C.star}>/help</Text> for commands · <Text color={C.star}>Esc</Text> stops
+          </Text>
+        ) : (
+          <Text color={C.muted}>
+            Chat · <Text color={C.star}>/task</Text> · <Text color={C.star}>/help</Text> ·{" "}
+            <Text color={C.star}>Esc</Text> stops
+          </Text>
+        )}
       </Box>
     </Box>
   );
@@ -66,6 +106,7 @@ export const COMMANDS: { name: string; args?: string; desc: string }[] = [
   { name: "/task", args: "<what to do>", desc: "Run the coding agent in this repo" },
   { name: "/model", args: "[id]", desc: "Pick or switch the model" },
   { name: "/sessions", desc: "Resume an earlier conversation" },
+  { name: "/memory", args: "[search q|analyze]", desc: "What Vard remembers about this project" },
   { name: "/plan", args: "on|off", desc: "Ask for a plan before the agent edits" },
   { name: "/diff", desc: "Show the kept task's changes" },
   { name: "/merge", desc: "Merge the kept task into your branch" },
@@ -105,10 +146,10 @@ const Gutter = ({ mark, color }: { mark: string; color: string }) => (
   </Box>
 );
 
-export function ItemView({ item }: { item: Item }) {
+export function ItemView({ item, columns = 100 }: { item: Item; columns?: number }) {
   switch (item.kind) {
     case "banner":
-      return <Banner item={item} />;
+      return <Banner item={item} columns={columns} />;
     case "help":
       return <Help />;
     case "user":
@@ -208,6 +249,48 @@ export function ItemView({ item }: { item: Item }) {
         </Box>
       );
     }
+    case "memory":
+      return (
+        <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor={C.cerulean} paddingX={1}>
+          <Text bold color={C.cerulean}>
+            Project memory{" "}
+            <Text color={C.muted}>
+              · {item.query ? `${item.entries.length} of ${item.total} match "${item.query}"` : `${item.total} notes`}
+            </Text>
+          </Text>
+          {CATEGORIES.map((c) => {
+            const rows = item.entries.filter((e) => e.category === c.id);
+            if (!rows.length) return null;
+            return (
+              <Box key={c.id} flexDirection="column" marginTop={1}>
+                <Text bold color={C.ink}>
+                  {c.title}
+                </Text>
+                {rows.map((e) => (
+                  <Box key={e.id}>
+                    <Box width={2} flexShrink={0}>
+                      <Text color={e.status === "verified" ? C.sage : C.star}>{e.status === "verified" ? "✓" : "?"}</Text>
+                    </Box>
+                    <Box flexShrink={1}>
+                      <Text color={C.ink}>
+                        <Inline text={e.text} color={C.ink} />
+                        <Text color={C.muted}>{`  ${e.id.slice(2, 8)}`}</Text>
+                      </Text>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            );
+          })}
+          <Text color={C.muted}>
+            {"\n"}✓ verified · ? inferred (unconfirmed) · manage with <Text color={C.star}>vard memory</Text> (list, edit, rm,
+            verify) · /memory analyze · /memory search …
+          </Text>
+          <Text color={C.muted} wrap="truncate-start">
+            {item.path}
+          </Text>
+        </Box>
+      );
     case "diff":
       return (
         <Box flexDirection="column" borderStyle="round" borderColor={C.line} paddingX={1}>
@@ -245,6 +328,7 @@ export function StatusBar(p: {
   tokens: number;
   state: string;
   kept: string | null;
+  memory?: number;
 }) {
   const sep = <Text color={C.line}> │ </Text>;
   return (
@@ -266,6 +350,12 @@ export function StatusBar(p: {
           <>
             {sep}
             <Text color={C.star}>kept {p.kept}</Text>
+          </>
+        ) : null}
+        {p.memory ? (
+          <>
+            {sep}
+            <Text color={C.muted}>memory {p.memory}</Text>
           </>
         ) : null}
       </Text>

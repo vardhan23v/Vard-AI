@@ -6,6 +6,7 @@ import type { ChatTurn } from "../client";
 import { chooseModel, providerName, type Ctx } from "../context";
 import { colorDiff } from "../render";
 import { streamReply } from "./ask";
+import { memoryCommand } from "./memory";
 import { reviewChanges, runTask } from "./task";
 import { VERSION } from "../../server";
 
@@ -73,6 +74,7 @@ const HELP = `
   /diff                show the last kept task's changes
   /merge, /discard     merge or drop the last kept task
   /model [id]          show or switch the model (vard models lists them)
+  /memory              what Vard remembers about this project
   /plan on|off         ask for a plan before the agent edits
   /clear               start a new conversation
   /help, /exit         this help, quit (or Ctrl+D)
@@ -115,6 +117,9 @@ export async function session(ctx: Ctx, opts: { continue?: boolean; model?: stri
           return 0;
         case "/help":
           ctx.out.write(HELP);
+          break;
+        case "/memory":
+          await memoryCommand(ctx, rest.length ? rest : ["list"]);
           break;
         case "/clear":
           s = newSession(ctx);

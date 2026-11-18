@@ -19,6 +19,7 @@ import {
   writeBatch,
 } from "firebase/firestore";
 import { db, nowIso, requireUid } from "@/lib/firebase";
+import { memory } from "@/lib/agent-client";
 
 export type Project = {
   id: string;
@@ -94,7 +95,9 @@ export const tasksQuery = (projectId: string) =>
   queryOptions({
     queryKey: ["tasks", projectId],
     queryFn: async () => {
-      const snap = await getDocs(query(tasksCol(projectId), orderBy("created_at", "desc"), limit(100)));
+      const snap = await getDocs(
+        query(tasksCol(projectId), orderBy("created_at", "desc"), limit(100)),
+      );
       return snap.docs.map((d) => {
         taskProject.set(d.id, projectId);
         return { id: d.id, project_id: projectId, ...d.data() } as AgentTask;
@@ -106,13 +109,24 @@ export const tasksQuery = (projectId: string) =>
 export async function createProject(path: string): Promise<Project> {
   const name = path.split("/").filter(Boolean).pop() ?? path;
   const now = nowIso();
-  const data = { name, verify_command: null, command_allowlist: [], created_at: now, updated_at: now };
+  const data = {
+    name,
+    verify_command: null,
+    command_allowlist: [],
+    created_at: now,
+    updated_at: now,
+  };
   const ref = await addDoc(projectsCol(), data);
   setProjectPath(ref.id, path);
+  // Let Vard understand the project right away (runs locally in the agent; failures are harmless).
+  void memory.update(path, { op: "analyze" }).catch(() => {});
   return { id: ref.id, ...data };
 }
 
-export async function updateProject(id: string, patch: Partial<Pick<Project, "name" | "verify_command" | "command_allowlist">>) {
+export async function updateProject(
+  id: string,
+  patch: Partial<Pick<Project, "name" | "verify_command" | "command_allowlist">>,
+) {
   await updateDoc(projectDoc(id), { ...patch, updated_at: nowIso() });
 }
 
@@ -124,7 +138,12 @@ export async function deleteProject(id: string) {
   await deleteDoc(projectDoc(id));
 }
 
-export async function createTask(input: { project_id: string; prompt: string; provider: string; model: string }): Promise<AgentTask> {
+export async function createTask(input: {
+  project_id: string;
+  prompt: string;
+  provider: string;
+  model: string;
+}): Promise<AgentTask> {
   const now = nowIso();
   const { project_id, ...rest } = input;
   const data = {

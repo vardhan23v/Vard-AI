@@ -87,6 +87,8 @@ export interface SystemPromptInput {
   phase?: "plan" | "act";
   extra?: string;
   repoMap?: string;
+  /** Recalled project memory (memory/recall.ts), if any. */
+  memory?: string;
 }
 
 export async function buildSystemPrompt(input: SystemPromptInput): Promise<string> {
@@ -100,6 +102,10 @@ export async function buildSystemPrompt(input: SystemPromptInput): Promise<strin
   }
   const docs = readProjectDocs(input.workRoot);
   if (docs) sections.push(`# Project instructions\n${docs}`);
+  if (input.memory)
+    sections.push(
+      `# Project memory\nWhat earlier tasks and the user taught you about this project. Facts marked "(inferred, unconfirmed)" may be wrong: check them before relying on them; the rest are verified.\n\n${input.memory}`,
+    );
   sections.push(`# Repository map\n${input.repoMap ?? (await repoMap(input.workRoot))}`);
   sections.push(`# Todo list\n${renderTodos(input.todos)}`);
   if (input.extra) sections.push(input.extra);

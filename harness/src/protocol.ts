@@ -6,6 +6,9 @@
  * also carry the `taskId` so the UI can route them to the right task view.
  */
 import { z } from "zod";
+import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
+
+export { MemoryCategory, MemoryEntry, MemorySettings };
 
 // ---------- shared ----------
 
@@ -63,6 +66,10 @@ export const TaskStartRequest = z.object({
   /** Extra per-project command allowlist entries on top of the persisted ones. */
   allowlist: z.array(z.string()).optional(),
   verifyCommand: z.string().optional(),
+  /** Read the project's memory into the prompt (unset means yes). */
+  useMemory: z.boolean().optional(),
+  /** After a successful task, propose memory additions (unset means yes). */
+  learn: z.boolean().optional(),
 });
 
 export const TaskApproveRequest = z.object({
@@ -88,6 +95,31 @@ export const TaskDiffRequest = z.object({ ...reqBase, type: z.literal("task.diff
 export const TaskMergeRequest = z.object({ ...reqBase, type: z.literal("task.merge"), taskId: z.string().min(1) });
 export const TaskDiscardRequest = z.object({ ...reqBase, type: z.literal("task.discard"), taskId: z.string().min(1) });
 
+// ---------- project memory (<project>/.vard/memory.json) ----------
+
+const memReq = { ...reqBase, projectRoot: z.string().min(1) };
+const entryId = z.string().min(1).max(64);
+const memText = z.string().min(1).max(600);
+export const MemoryChange = z.discriminatedUnion("op", [
+  z.object({ op: z.literal("add"), category: MemoryCategory, text: memText }),
+  z.object({ op: z.literal("edit"), entryId, text: memText.optional(), category: MemoryCategory.optional() }),
+  z.object({ op: z.literal("delete"), entryId }),
+  z.object({ op: z.literal("verify"), entryId }),
+  z.object({ op: z.literal("clear") }),
+  z.object({ op: z.literal("analyze") }),
+  z.object({ op: z.literal("settings"), settings: MemorySettings.partial() }),
+  /** Save approved proposals (verified). `replaces` turns the old entry into history. */
+  z.object({
+    op: z.literal("accept"),
+    items: z
+      .array(z.object({ category: MemoryCategory, text: memText, replaces: entryId.optional(), taskId: z.string().optional() }))
+      .max(20),
+  }),
+]);
+export type MemoryChange = z.infer<typeof MemoryChange>;
+export const MemoryGetRequest = z.object({ ...memReq, type: z.literal("memory.get") });
+export const MemoryUpdateRequest = z.object({ ...memReq, type: z.literal("memory.update"), change: MemoryChange });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -97,6 +129,8 @@ export const Request = z.discriminatedUnion("type", [
   TaskDiffRequest,
   TaskMergeRequest,
   TaskDiscardRequest,
+  MemoryGetRequest,
+  MemoryUpdateRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -197,6 +231,46 @@ export const Event = z.discriminatedUnion("type", [
     steps: z.number().optional(),
     usage: Usage.optional(),
     diffStat: z.string().optional(),
+  }),
+  /** A project's memory (answer to memory.get / memory.update). Includes history entries. */
+  z.object({
+    ...evBase,
+    type: z.literal("memory"),
+    path: z.string(),
+    settings: MemorySettings,
+    analyzedAt: z.string().optional(),
+    entries: z.array(MemoryEntry),
+    /** For "accept"/"add": how many were saved and which were already known. */
+    saved: z.number().optional(),
+    duplicates: z.array(z.string()).optional(),
+  }),
+  /** Which memory entries went into the agent's context for this task. */
+  z.object({
+    ...evBase,
+    type: z.literal("memory_recall"),
+    count: z.number(),
+    total: z.number(),
+    chars: z.number(),
+    ids: z.array(z.string()),
+  }),
+  /**
+   * Notes the agent suggests after a successful task. In "ask" mode they are saved only when the
+   * user accepts them (memory.update accept); in "auto" mode some arrive already saved (autoSaved,
+   * as inferred entries; `id` is then the entry id, so the UI can undo by deleting it).
+   */
+  z.object({
+    ...evBase,
+    type: z.literal("memory_proposal"),
+    items: z.array(
+      z.object({
+        id: z.string(),
+        category: MemoryCategory,
+        text: z.string(),
+        replaces: z.string().optional(),
+        replacesText: z.string().optional(),
+        autoSaved: z.boolean().optional(),
+      }),
+    ),
   }),
   z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);

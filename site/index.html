@@ -56,7 +56,7 @@
           <a class="btn btn-ghost" href="#cli">Get the CLI</a>
         </div>
         <p class="fineprint">
-          <span data-version>v0.1.0</span> · Universal (Apple Silicon + Intel) · macOS 12+ · Free and open source
+          <span data-version>v0.2.0</span> · Universal (Apple Silicon + Intel) · macOS 12+ · Free and open source
         </p>
       </div>
     </section>
@@ -73,7 +73,7 @@
           <article class="card">
             <div class="card-icon" aria-hidden="true">⚙</div>
             <h3>Coding agent</h3>
-            <p>Describe a task and approve the plan. The agent works on its own <code>vard/…</code> branch, so your checkout is never touched. Risky commands wait for you. Your tests run before it says it's done, then you merge or discard.</p>
+            <p>Describe a task and approve the plan. The agent works on its own <code>vard/…</code> branch, so your checkout is never touched. Risky commands wait for you. Your tests run before it says it's done, then you merge or discard. It remembers each project's conventions and past fixes for next time.</p>
           </article>
           <article class="card">
             <div class="card-icon" aria-hidden="true">⚿</div>
@@ -195,6 +195,10 @@
         <details>
           <summary>Can the agent break my project?</summary>
           <p>Each task runs in its own git worktree on a <code>vard/…</code> branch, so your working copy isn't touched until you merge. Commands that aren't on your allowlist wait for approval, and dangerous ones like <code>sudo</code> or <code>git push</code> are blocked.</p>
+        </details>
+        <details>
+          <summary>Does it remember my project?</summary>
+          <p>Yes. Vard analyzes each project and keeps a local memory (<code>.vard/memory.json</code>) of its commands, conventions, architecture, decisions and solved bugs. Before every task it gives the agent the relevant notes. After a task it suggests new ones and you choose what's saved. Each note shows whether it's verified or only inferred, and you can search, edit or delete it. Secrets and <code>.env</code> files are never stored.</p>
         </details>
         <details>
           <summary>Which Macs does it run on?</summary>

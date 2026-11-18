@@ -40,6 +40,32 @@ export function isInside(child: string, parent: string): boolean {
   return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
 }
 
+/** Child processes of `pid`, deepest first (via pgrep, on macOS and Linux). */
+function descendants(pid: number, depth = 0): number[] {
+  if (depth > 8) return [];
+  const r = Bun.spawnSync(["pgrep", "-P", String(pid)], { stdout: "pipe", stderr: "ignore" });
+  const kids = r.stdout
+    .toString()
+    .split("\n")
+    .map((s) => Number(s.trim()))
+    .filter((n) => Number.isInteger(n) && n > 0);
+  return kids.flatMap((k) => [...descendants(k, depth + 1), k]);
+}
+
+/**
+ * Kills a process and everything it started. Killing only the shell would leave its children
+ * (a dev server, `sleep`, a test runner) running and holding the output pipes open.
+ */
+export function killTree(pid: number) {
+  for (const p of [...descendants(pid), pid]) {
+    try {
+      process.kill(p, "SIGKILL");
+    } catch {
+      // Already gone.
+    }
+  }
+}
+
 export async function run(
   cmd: string[],
   opts: { cwd: string; timeoutMs?: number; signal?: AbortSignal; env?: Record<string, string | undefined> },
@@ -55,10 +81,10 @@ export async function run(
   const timer = opts.timeoutMs
     ? setTimeout(() => {
         timedOut = true;
-        proc.kill("SIGKILL");
+        killTree(proc.pid);
       }, opts.timeoutMs)
     : undefined;
-  const onAbort = () => proc.kill("SIGKILL");
+  const onAbort = () => killTree(proc.pid);
   opts.signal?.addEventListener("abort", onAbort, { once: true });
   try {
     const [stdout, stderr, code] = await Promise.all([
