@@ -198,7 +198,7 @@
         </details>
         <details>
           <summary>Does it remember my project?</summary>
-          <p>Yes. Each project gets a memory file (<code>.vard/memory.md</code>) with its stack, conventions, decisions and past fixes, which the agent reads before every task. After a task, Vard suggests what to remember and you choose what's saved. It's plain Markdown on your Mac, so you can edit it.</p>
+          <p>Yes. Vard analyzes each project and keeps a local memory (<code>.vard/memory.json</code>) of its commands, conventions, architecture, decisions and solved bugs. Before every task it gives the agent the relevant notes. After a task it suggests new ones and you choose what's saved. Each note shows whether it's verified or only inferred, and you can search, edit or delete it. Secrets and <code>.env</code> files are never stored.</p>
         </details>
         <details>
           <summary>Which Macs does it run on?</summary>

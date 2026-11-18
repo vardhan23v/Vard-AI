@@ -119,7 +119,7 @@ export async function session(ctx: Ctx, opts: { continue?: boolean; model?: stri
           ctx.out.write(HELP);
           break;
         case "/memory":
-          await memoryCommand(ctx, rest.length ? rest : ["show"]);
+          await memoryCommand(ctx, rest.length ? rest : ["list"]);
           break;
         case "/clear":
           s = newSession(ctx);

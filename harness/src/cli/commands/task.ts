@@ -1,5 +1,5 @@
 /** `vard run "…"` and `/task`: an agent task with inline approvals, then merge/discard/keep. */
-import type { MemoryItem } from "../../memory";
+import type { Proposal } from "../../memory";
 import type { Event } from "../../protocol";
 import { newId } from "../client";
 import { chooseModel, providerWithKey, type Ctx } from "../context";
@@ -24,8 +24,8 @@ export type TaskOutcome = {
   taskId: string;
   /** Set while the task's worktree is still around (kept, not merged or discarded). */
   kept?: { branch: string; path: string };
-  /** Memories the agent suggested (the caller decides whether to save them). */
-  proposals?: MemoryItem[];
+  /** Memories the agent suggested (or saved automatically). */
+  proposals?: Proposal[];
 };
 
 const STATE_LABEL: Record<string, string> = {
@@ -62,7 +62,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
   let streamed = "";
   const already = (text: string) => !!text.trim() && streamed.trim() === text.trim();
   let worktree: { branch: string; path: string } | undefined;
-  const proposals: MemoryItem[] = [];
+  const proposals: Proposal[] = [];
   // Approvals are answered one at a time, in order.
   let queue = Promise.resolve();
 
@@ -143,7 +143,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         }
         break;
       case "memory_proposal":
-        proposals.push(...e.items.map(({ section, text }) => ({ section, text })));
+        proposals.push(...e.items);
         break;
       case "approval_request":
         queue = queue.then(() => answer(e)).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
@@ -232,7 +232,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
     out.write(`\n${t.bold("Changes")}\n${indent(done.diffStat!.trim())}\n`);
     kept = await reviewChanges(ctx, taskId, worktree);
   }
-  await offerMemories(ctx, proposals, { remember: flags.remember });
+  await offerMemories(ctx, proposals, { remember: flags.remember, taskId });
   return { code, taskId, kept, proposals };
 }
 

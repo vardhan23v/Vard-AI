@@ -21,7 +21,7 @@ Usage
   vard --classic            line-by-line session instead of the full-screen one
   vard ask "<question>"     one answer; piped input is added as context
   vard run "<task>"         run the coding agent in this git repo
-  vard memory [show|edit|rebuild|clear|path]
+  vard memory [list|search|show|add|edit|rm|verify|analyze|clear|config]
                             what Vard remembers about this project
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
                                             pbpaste | vard keys set openrouter)
@@ -59,6 +59,8 @@ export type ParsedArgs = {
     classic?: boolean;
     memory?: boolean;
     remember?: boolean;
+    category?: string;
+    search?: string;
   };
 };
 
@@ -79,6 +81,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       yes: { type: "boolean", short: "y" },
       classic: { type: "boolean" },
       "no-memory": { type: "boolean" },
+      category: { type: "string" },
+      search: { type: "string" },
       remember: { type: "boolean" },
       help: { type: "boolean", short: "h" },
       version: { type: "boolean", short: "v" },
@@ -99,6 +103,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     classic: values.classic,
     memory: values["no-memory"] ? false : undefined,
     remember: values.remember,
+    category: values.category,
+    search: values.search,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };
@@ -122,7 +128,7 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
     case "keys":
       return keysCommand(ctx, p.rest);
     case "memory":
-      return memoryCommand(ctx, p.rest);
+      return memoryCommand(ctx, p.rest, p.flags);
     case "models":
       return modelsCommand(ctx, p.rest, p.flags);
     case "ask": {

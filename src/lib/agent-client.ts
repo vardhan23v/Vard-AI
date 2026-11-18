@@ -10,7 +10,13 @@ import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 import type { Event as AgentEvent, Request as AgentRequest } from "../../harness/src/protocol";
 
 export type { AgentEvent, AgentRequest };
-export type ProviderId = "anthropic" | "openai" | "google" | "ollama" | "openai-compatible" | "groq";
+export type ProviderId =
+  | "anthropic"
+  | "openai"
+  | "google"
+  | "ollama"
+  | "openai-compatible"
+  | "groq";
 
 /** Distributive Omit, so each request variant keeps its own fields. */
 type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
@@ -18,7 +24,8 @@ type WithoutId<T> = T extends unknown ? Omit<T, "id"> : never;
 export const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
 
 let seq = 0;
-export const newId = (prefix = "r") => `${prefix}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
+export const newId = (prefix = "r") =>
+  `${prefix}-${Date.now().toString(36)}-${(seq++).toString(36)}`;
 
 type Handler = (event: AgentEvent) => void;
 const handlers = new Set<Handler>();
@@ -81,12 +88,31 @@ export const keys = {
 
 export const restartAgent = () => invoke<void>("agent_restart");
 
-// ---- project memory (<project>/.vard/memory.md, managed by the agent) ----
+/** The `vard` command-line tool (a link in /usr/local/bin to the binary inside the app). */
+export type CliStatus = {
+  link: string;
+  bundled: string;
+  installed: boolean;
+  conflict: string | null;
+};
+
+export const cli = {
+  status: () => invoke<CliStatus>("cli_status"),
+  install: () => invoke<CliStatus>("install_cli"),
+  uninstall: () => invoke<CliStatus>("uninstall_cli"),
+};
+
+// ---- project memory (<project>/.vard/memory.json, managed by the agent) ----
 
 export type MemorySnapshot = Extract<AgentEvent, { type: "memory" }>;
-export type MemoryItem = { section: "overview" | "conventions" | "decisions" | "issues"; text: string };
+export type MemoryEntry = MemorySnapshot["entries"][number];
+export type MemorySettings = MemorySnapshot["settings"];
+export type MemoryCategory = MemoryEntry["category"];
+export type MemoryChange = Extract<AgentRequest, { type: "memory.update" }>["change"];
 
-function memoryRequest(request: WithoutId<Extract<AgentRequest, { type: `memory.${string}` }>>): Promise<MemorySnapshot> {
+function memoryRequest(
+  request: WithoutId<Extract<AgentRequest, { type: "memory.get" | "memory.update" }>>,
+): Promise<MemorySnapshot> {
   return new Promise((resolve, reject) => {
     const id = newId("mem");
     const off = onAgentEvent((e) => {
@@ -104,16 +130,18 @@ function memoryRequest(request: WithoutId<Extract<AgentRequest, { type: `memory.
 
 export const memory = {
   get: (projectRoot: string) => memoryRequest({ type: "memory.get", projectRoot }),
-  set: (projectRoot: string, text: string) => memoryRequest({ type: "memory.set", projectRoot, text }),
-  add: (projectRoot: string, items: MemoryItem[]) => memoryRequest({ type: "memory.add", projectRoot, items }),
-  rebuild: (projectRoot: string) => memoryRequest({ type: "memory.rebuild", projectRoot }),
+  update: (projectRoot: string, change: MemoryChange) =>
+    memoryRequest({ type: "memory.update", projectRoot, change }),
 };
 
-/** The `vard` command-line tool (a link in /usr/local/bin to the binary inside the app). */
-export type CliStatus = { link: string; bundled: string; installed: boolean; conflict: string | null };
-
-export const cli = {
-  status: () => invoke<CliStatus>("cli_status"),
-  install: () => invoke<CliStatus>("install_cli"),
-  uninstall: () => invoke<CliStatus>("uninstall_cli"),
-};
+export const MEMORY_CATEGORIES: { id: MemoryCategory; title: string }[] = [
+  { id: "overview", title: "Project overview" },
+  { id: "architecture", title: "Architecture and important files" },
+  { id: "commands", title: "Commands" },
+  { id: "conventions", title: "Conventions" },
+  { id: "preferences", title: "Your preferences" },
+  { id: "decisions", title: "Decisions" },
+  { id: "fixes", title: "Solved bugs" },
+  { id: "issues", title: "Known issues and limitations" },
+  { id: "details", title: "Implementation details" },
+];

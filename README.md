@@ -58,7 +58,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - **Approvals:** risky commands wait for *Allow once*, *Always allow in this project* or *Deny*
 - Optional verify command (for example `bun test`) that runs after edits; failures go back to the agent
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
-- **Project memory:** Vard remembers each project's stack, conventions, decisions and past fixes, and uses them on every task. After a task it suggests new notes; you pick what's saved
+- **Project memory:** Vard analyzes each project, remembers its stack, commands, conventions, decisions and past fixes, and uses the relevant ones on every task. After a task it suggests new notes; you choose what's saved
 
 **Command line (`vard`)**
 - A full-screen terminal UI: Starry Night banner, streamed Markdown replies, tool steps that tick off, pop-ups for approvals and merging, a status bar (model · branch · tokens), slash-command autocomplete and a model/session picker
@@ -121,17 +121,24 @@ Keys come from `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENA
 
 ## Project memory
 
-Each project has a memory file at `<project>/.vard/memory.md`. It's plain Markdown you can edit, and it stays on your Mac (`.vard/` is git-ignored).
+Vard learns each project and reuses that knowledge on every task, so the agent doesn't rediscover the same things.
 
-- **Project overview:** written the first time Vard works in a project, from a quick scan with no model call: stack, package manager, scripts, test command, frameworks, folders.
-- **Conventions, Decisions, Known issues and fixes:** after a task finishes, the agent suggests a few durable facts it learned. You choose which to keep (a checklist in the app and the TUI, a prompt in `vard run`). Nothing is saved automatically.
-- **Recall:** before each task, Vard adds the overview and the notes most related to the request to the agent's context.
+**What it knows.** Small facts in categories: project overview, architecture and important files, commands, conventions, your preferences, decisions, solved bugs, known issues and implementation details. Each note records whether it's **verified** (from the project analysis, or confirmed by you) or **inferred** (learned by the agent and not confirmed yet), where it came from, and when it was last updated.
+
+**How it flows:** add a project → analysis → before a task, recall → plan → your approval → work → verify → learn.
+
+- **Analysis** happens when you add a project (or on the first task, or *Re-analyze*). It reads only git-tracked files and small, known config and doc files, with no model call. It covers stack, package manager, scripts and test commands, frameworks, entry points, folders, configs, CI and the README.
+- **Recall:** before each task, the notes most related to the request (plus the overview) go into the agent's context, within a size you control. Inferred notes are labelled as unconfirmed.
+- **Learning:** after a successful task, the agent proposes durable facts. It skips task-specific narration, duplicates and anything that looks like a secret. A note that contradicts an older one becomes an update, and the old note is kept as history.
+- **Updates after tasks:** *Ask me* (default: you choose what's saved, as verified), *Automatic* (saved as inferred, and it never overwrites a verified note), or *Off*.
+
+**Privacy and safety.** Memory is a local JSON file, `<project>/.vard/memory.json` (`.vard/` is git-ignored). Analysis respects `.gitignore` and your excluded paths, and never reads `.env` files, keys, certificates or credential files. Notes that look like API keys, tokens, passwords or private keys are refused, whether you type them or the agent proposes them.
 
 | Where | How |
 |---|---|
-| App | Project page → the brain icon: view, edit, rebuild the overview, turn suggestions on or off |
-| TUI | `/memory`, `/memory rebuild`; the "Remember for next time?" checklist after a task |
-| CLI | `vard memory [show\|edit\|rebuild\|clear\|path]`; `vard run --no-memory`; `vard run --remember` saves suggestions in scripts |
+| App | Project page → brain icon: search, filter, edit, verify, delete, add notes, re-analyze, clear, replaced-notes history, and settings (on/off, use in tasks, updates after tasks, context size, excluded paths). A finished task shows "Using N project notes" and the suggested notes |
+| TUI | `/memory`, `/memory search <q>`, `/memory analyze`; a "Remember for next time?" checklist after tasks; `memory N` in the status bar |
+| CLI | `vard memory list [--category c] [--search q]`, `search`, `show`, `add <category> <text>`, `edit <id>`, `rm <id>`, `verify <id>`, `analyze`, `clear`, `config [key value]`, `path`; `vard run --no-memory` and `--remember` |
 
 ## Architecture
 

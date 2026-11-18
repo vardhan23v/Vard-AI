@@ -25,7 +25,7 @@ import {
   StatusBar,
 } from "./components";
 import * as E from "./editor";
-import type { MemoryItem } from "../memory";
+import { analyze as analyzeMemory, type Proposal } from "../memory";
 import { itemLabel, memoryFor } from "../cli/commands/memory";
 import { type KeyFlags, splitKeys } from "./keys";
 import { Markdown } from "./markdown";
@@ -38,7 +38,7 @@ type Modal =
   | { type: "approval"; taskId: string; ev: Approval }
   | { type: "merge"; taskId: string; branch: string; path: string }
   | { type: "picker"; kind: "model" | "session"; filter: string }
-  | { type: "memory"; items: MemoryItem[]; checked: boolean[] };
+  | { type: "memory"; items: Proposal[]; checked: boolean[] };
 type InputMode = { kind: "normal" } | { kind: "planEdit" | "reject"; taskId: string; ev: Approval };
 
 const STATE_LABEL: Record<string, string> = {
@@ -106,8 +106,9 @@ export function App(props: AppProps) {
   const [tokens, setTokens] = useState(0);
   const [branch, setBranch] = useState(() => gitBranch(ctx.cwd));
   const [kept, setKept] = useState<{ taskId: string; branch: string; path: string } | null>(null);
-  const [memCount, setMemCount] = useState(() => memoryFor(ctx.cwd).entries().length);
-  const proposalsRef = useRef<MemoryItem[]>([]);
+  const [memCount, setMemCount] = useState(() => memoryFor(ctx.cwd).active().length);
+  const proposalsRef = useRef<Proposal[]>([]);
+  const taskIdRef = useRef<string | undefined>(undefined);
   const [modal, setModal] = useState<Modal | null>(null);
   const [selected, setSelected] = useState(0);
   const [mode, setMode] = useState<InputMode>({ kind: "normal" });
@@ -322,7 +323,8 @@ export function App(props: AppProps) {
           resume();
           break;
         case "memory_proposal":
-          proposalsRef.current = e.items.map(({ section, text }) => ({ section, text }));
+          proposalsRef.current = e.items;
+          taskIdRef.current = taskId;
           break;
         case "approval_request":
           flushText(streamedPlan);
@@ -364,7 +366,7 @@ export function App(props: AppProps) {
     else note("Task cancelled.");
     setBusy(null);
     setBranch(gitBranch(ctx.cwd));
-    setMemCount(memoryFor(ctx.cwd).entries().length);
+    setMemCount(memoryFor(ctx.cwd).active().length);
 
     if (!worktree || !done.diffStat?.trim()) {
       if (worktree) {
@@ -418,15 +420,17 @@ export function App(props: AppProps) {
         return note(`Plan first: ${arg === "on" || arg === "off" ? arg : planFirst ? "on" : "off"}`);
       case "/memory": {
         const store = memoryFor(ctx.cwd);
-        if (arg === "rebuild") {
-          store.rebuildOverview();
-          setMemCount(store.entries().length);
-          return note(`✓ Rebuilt the project overview (${store.path})`, "ok");
+        if (arg === "analyze" || arg === "rebuild") {
+          analyzeMemory(store);
+          setMemCount(store.active().length);
+          return note(`✓ Analyzed the project; your own notes are kept (${store.path})`, "ok");
         }
-        const text = store.read();
-        if (!text.trim())
-          return note("No memory for this project yet. It starts with your first /task, or run /memory rebuild.");
-        commit({ kind: "memory", text, path: store.path, count: store.entries().length });
+        const query = arg.startsWith("search") ? arg.slice(6).trim() : arg;
+        const entries = store.list({ query: query || undefined });
+        if (!store.exists())
+          return note("No memory for this project yet. It starts with your first /task, or run /memory analyze.");
+        if (!entries.length) return note(`No notes match "${query}".`);
+        commit({ kind: "memory", entries, path: store.path, total: store.active().length, query: query || undefined });
         return;
       }
       case "/keys":
@@ -517,8 +521,14 @@ export function App(props: AppProps) {
 
   /** After a task: the agent's suggested memories, as a checklist. Nothing is saved without Enter. */
   const offerMemories = () => {
-    const items = proposalsRef.current;
+    const all = proposalsRef.current;
     proposalsRef.current = [];
+    const auto = all.filter((p) => p.autoSaved);
+    if (auto.length) {
+      note(`Added to project memory (inferred, check with /memory):\n${auto.map((p) => "  • " + itemLabel(p)).join("\n")}`, "star");
+      setMemCount(memoryFor(ctx.cwd).active().length);
+    }
+    const items = all.filter((p) => !p.autoSaved);
     if (!items.length) return;
     setSelected(0);
     setModal({ type: "memory", items, checked: items.map(() => true) });
@@ -529,10 +539,17 @@ export function App(props: AppProps) {
     const chosen = m.items.filter((_, i) => m.checked[i]);
     if (!chosen.length) return note("Nothing saved to memory.");
     const store = memoryFor(ctx.cwd);
-    store.ensure();
-    const added = store.add(chosen);
-    setMemCount(store.entries().length);
-    note(`✓ Remembered ${added.length} ${added.length === 1 ? "note" : "notes"} for this project (/memory to see them)`, "ok");
+    let added = 0;
+    for (const p of chosen) {
+      try {
+        const r = store.add({ category: p.category, text: p.text, status: "verified", source: "task", taskId: taskIdRef.current, replaces: p.replaces });
+        if (r.entry) added++;
+      } catch (e) {
+        note((e as Error).message, "error");
+      }
+    }
+    setMemCount(store.active().length);
+    note(`✓ Remembered ${added} ${added === 1 ? "note" : "notes"} for this project (/memory to see them)`, "ok");
   };
 
   const answerMerge = async (m: Extract<Modal, { type: "merge" }>, key: string) => {
@@ -851,6 +868,7 @@ export function App(props: AppProps) {
               <Text color={i === selected ? C.star : C.line}>{i === selected ? "❯ " : "  "}</Text>
               <Text color={modal.checked[i] ? C.sage : C.muted}>{modal.checked[i] ? "[x] " : "[ ] "}</Text>
               <Text color={C.ink}>{itemLabel(it)}</Text>
+              {it.replacesText ? <Text color={C.muted}>{`\n      updates: ${it.replacesText}`}</Text> : null}
             </Text>
           ))}
           <Text color={C.muted}>Space toggles · a all/none · Enter saves the checked notes · Esc skips</Text>

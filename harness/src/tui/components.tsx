@@ -2,7 +2,8 @@
 import { Box, Text } from "ink";
 import React, { useEffect, useState } from "react";
 import { colorDiffLines } from "./diff";
-import { Markdown } from "./markdown";
+import { Inline, Markdown } from "./markdown";
+import { CATEGORIES, type MemoryEntry } from "../memory";
 import { C } from "./theme";
 
 export type Item =
@@ -16,7 +17,7 @@ export type Item =
   | { id: number; kind: "verify"; status: "running" | "passed" | "failed"; command: string; output?: string }
   | { id: number; kind: "notice"; text: string; tone?: "muted" | "error" | "ok" | "star" }
   | { id: number; kind: "diff"; diff: string }
-  | { id: number; kind: "memory"; text: string; path: string; count: number }
+  | { id: number; kind: "memory"; entries: MemoryEntry[]; path: string; total: number; query?: string }
   | { id: number; kind: "help" };
 
 const LOGO = [
@@ -105,7 +106,7 @@ export const COMMANDS: { name: string; args?: string; desc: string }[] = [
   { name: "/task", args: "<what to do>", desc: "Run the coding agent in this repo" },
   { name: "/model", args: "[id]", desc: "Pick or switch the model" },
   { name: "/sessions", desc: "Resume an earlier conversation" },
-  { name: "/memory", args: "[rebuild]", desc: "What Vard remembers about this project" },
+  { name: "/memory", args: "[search q|analyze]", desc: "What Vard remembers about this project" },
   { name: "/plan", args: "on|off", desc: "Ask for a plan before the agent edits" },
   { name: "/diff", desc: "Show the kept task's changes" },
   { name: "/merge", desc: "Merge the kept task into your branch" },
@@ -252,11 +253,41 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
       return (
         <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor={C.cerulean} paddingX={1}>
           <Text bold color={C.cerulean}>
-            Project memory <Text color={C.muted}>· {item.count} notes</Text>
+            Project memory{" "}
+            <Text color={C.muted}>
+              · {item.query ? `${item.entries.length} of ${item.total} match "${item.query}"` : `${item.total} notes`}
+            </Text>
           </Text>
-          <Markdown text={item.text.replace(/<!--[\s\S]*?-->/g, "").replace(/^# Project memory\s*/, "")} />
+          {CATEGORIES.map((c) => {
+            const rows = item.entries.filter((e) => e.category === c.id);
+            if (!rows.length) return null;
+            return (
+              <Box key={c.id} flexDirection="column" marginTop={1}>
+                <Text bold color={C.ink}>
+                  {c.title}
+                </Text>
+                {rows.map((e) => (
+                  <Box key={e.id}>
+                    <Box width={2} flexShrink={0}>
+                      <Text color={e.status === "verified" ? C.sage : C.star}>{e.status === "verified" ? "✓" : "?"}</Text>
+                    </Box>
+                    <Box flexShrink={1}>
+                      <Text color={C.ink}>
+                        <Inline text={e.text} color={C.ink} />
+                        <Text color={C.muted}>{`  ${e.id.slice(2, 8)}`}</Text>
+                      </Text>
+                    </Box>
+                  </Box>
+                ))}
+              </Box>
+            );
+          })}
           <Text color={C.muted}>
-            {item.path} · edit with <Text color={C.star}>vard memory edit</Text> · /memory rebuild refreshes the overview
+            {"\n"}✓ verified · ? inferred (unconfirmed) · manage with <Text color={C.star}>vard memory</Text> (list, edit, rm,
+            verify) · /memory analyze · /memory search …
+          </Text>
+          <Text color={C.muted} wrap="truncate-start">
+            {item.path}
           </Text>
         </Box>
       );

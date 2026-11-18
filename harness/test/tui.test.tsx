@@ -4,6 +4,7 @@ import path from "node:path";
 import React from "react";
 import { render } from "ink-testing-library";
 import { makeCtx } from "../src/cli/context";
+import { MemoryStore } from "../src/memory";
 import { KeyStore } from "../src/cli/keys";
 import { NonInteractivePrompter } from "../src/cli/prompt";
 import { App, type KeySource } from "../src/tui/app";
@@ -165,7 +166,7 @@ describe("TUI", () => {
 
   test("after a task, the memory checklist saves the checked notes; /memory shows them", async () => {
     const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
-    const m = mount({ cwd: repo, reflect: '[{"section":"conventions","text":"Greetings live in hello.txt"},{"section":"issues","text":"Do not touch the old greeting file"}]', turns: [
+    const m = mount({ cwd: repo, reflect: '[{"category":"architecture","text":"Greetings live in hello.txt"},{"category":"issues","text":"Do not touch the old greeting file"}]', turns: [
       { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
       { text: "Done." },
     ] });
@@ -179,11 +180,11 @@ describe("TUI", () => {
     await m.type(" "); // uncheck it
     await m.type("\r");
     await until(m.screen, "Remembered 1 note");
-    const mem = fs.readFileSync(path.join(repo, ".vard", "memory.md"), "utf8");
+    const mem = new MemoryStore(repo).active().map((e) => e.text).join("\n");
     expect(mem).toContain("Greetings live in hello.txt");
     expect(mem).not.toContain("old greeting");
     await m.type("/memory\r");
-    await until(m.screen, "Project memory · ");
+    await until(m.screen, /Project memory · \d+ notes/);
     await until(m.screen, /memory \d+/);
     m.r.unmount();
   });

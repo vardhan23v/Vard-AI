@@ -18,7 +18,7 @@
  */
 import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 import { buildSystemPrompt, compactMessages, repoMap } from "./context";
-import { type MemoryItem, type MemoryStore, parseProposals, recall, reflectPrompt } from "./memory";
+import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall, reflectPrompt } from "./memory";
 import { Policy } from "./policy";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
 import { ALL_TOOLS, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
@@ -63,8 +63,8 @@ export interface LoopOptions {
   /** Backoff for rate limits / transient provider errors. */
   retry?: RetryOptions;
   signal?: AbortSignal;
-  /** Project memory: recalled into the prompt; reflect() proposes additions. */
-  memory?: MemoryStore | null;
+  /** Project memory (the user's checkout). `recall` puts relevant entries into the prompt. */
+  memory?: { store: MemoryStore; recall: boolean } | null;
 }
 
 export interface LoopResult {
@@ -242,11 +242,18 @@ export class AgentLoop {
 
     this.repoMapCache ??= await repoMap(o.workRoot);
     if (this.memoryCache === undefined) {
-      try {
-        o.memory?.ensure();
-        this.memoryCache = o.memory ? recall(o.memory, o.prompt) : "";
-      } catch {
-        this.memoryCache = "";
+      this.memoryCache = "";
+      if (o.memory) {
+        try {
+          ensureAnalyzed(o.memory.store);
+          if (o.memory.recall) {
+            const r = recall(o.memory.store, o.prompt);
+            this.memoryCache = r.text;
+            o.emit({ type: "memory_recall", count: r.ids.length, total: r.total, chars: r.chars, ids: r.ids });
+          }
+        } catch {
+          // Memory must never break a task.
+        }
       }
     }
     const instructions = await buildSystemPrompt({
@@ -420,16 +427,17 @@ export interface ReflectInput {
  * After a successful task, ask the model which durable facts are worth remembering. Returns
  * proposals only; the caller shows them to the user, and nothing is saved here. Never throws.
  */
-export async function reflectOnTask(loop: AgentLoop, o: LoopOptions, input: ReflectInput): Promise<MemoryItem[]> {
+export async function reflectOnTask(loop: AgentLoop, o: LoopOptions, input: ReflectInput): Promise<Proposal[]> {
   if (!o.memory || o.signal?.aborted) return [];
   try {
+    const existing = o.memory.store.active();
     const prompt = reflectPrompt({
       prompt: o.prompt,
       summary: input.summary,
       tools: loop.toolLines(),
       diffStat: input.diffStat,
       verify: loop.verifyLine(),
-      memory: recall(o.memory, o.prompt, 4000),
+      existing,
     });
     const r = await withRetry(
       () => generateText({ model: o.model, prompt, abortSignal: o.signal, maxRetries: 0 }),
@@ -438,7 +446,7 @@ export async function reflectOnTask(loop: AgentLoop, o: LoopOptions, input: Refl
       o.signal,
     );
     loop.addUsage(r.usage);
-    return parseProposals(r.text);
+    return parseProposals(r.text, existing, `${o.taskId}-m`);
   } catch {
     return [];
   }

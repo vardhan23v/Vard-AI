@@ -6,7 +6,7 @@
 import fs from "node:fs";
 import { type ModelMessage, streamText } from "ai";
 import { AgentLoop, type ApprovalResponse, type LoopOptions, reflectOnTask } from "./loop";
-import { MemoryStore } from "./memory";
+import { analyze, applyAuto, MemoryError, MemoryStore } from "./memory";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
 import { createModel, type ModelFactory } from "./providers";
@@ -100,24 +100,8 @@ export class Server {
         return this.emitter(req.id, t.taskId, t.tracer)({ type: "diff", diff, stat });
       }
       case "memory.get":
-      case "memory.set":
-      case "memory.add":
-      case "memory.rebuild": {
-        if (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory())
-          throw new Error(`project folder not found: ${req.projectRoot}`);
-        const store = new MemoryStore(req.projectRoot);
-        if (req.type === "memory.set") store.write(req.text);
-        else if (req.type === "memory.add") {
-          store.ensure();
-          store.add(req.items);
-        } else if (req.type === "memory.rebuild") store.rebuildOverview();
-        return this.emitter(req.id)({
-          type: "memory",
-          path: store.path,
-          text: store.read(),
-          entries: store.entries().length,
-        });
-      }
+      case "memory.update":
+        return this.memory(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -243,7 +227,10 @@ export class Server {
     });
 
     // Memory belongs to the user's checkout, not the task's worktree.
-    const memory = req.useMemory === false ? null : new MemoryStore(policy.projectRoot);
+    const store = new MemoryStore(policy.projectRoot);
+    const memSettings = req.useMemory === false ? null : store.settings();
+    const memory = memSettings?.enabled ? { store, recall: memSettings.recall } : null;
+    const learn = !!memory && req.learn !== false && memSettings!.autoUpdate !== "off";
     const loopOptions: LoopOptions = {
       taskId,
       prompt: req.prompt,
@@ -267,9 +254,10 @@ export class Server {
       const r = await loop.run();
       let diffStat: string | undefined;
       if (entry.worktree) diffStat = await worktreeDiff(entry.worktree).then((d) => d.stat, () => undefined);
-      if (r.status === "done" && memory && req.learn !== false) {
-        const items = await reflectOnTask(loop, loopOptions, { summary: r.summary, diffStat });
-        if (items.length) emit({ type: "memory_proposal", items: items.map((it, i) => ({ ...it, id: `${taskId}-m${i}` })) });
+      if (r.status === "done" && learn) {
+        let items = await reflectOnTask(loop, loopOptions, { summary: r.summary, diffStat });
+        if (items.length && memSettings!.autoUpdate === "auto") items = applyAuto(store, items, taskId);
+        if (items.length) emit({ type: "memory_proposal", items });
         r.usage = loop.usage;
       }
       entry.running = false;
@@ -284,6 +272,67 @@ export class Server {
         diffStat,
       });
     })();
+  }
+
+  /** memory.get / memory.update: read or change a project's memory, answered with a snapshot. */
+  private memory(req: Extract<Request, { type: "memory.get" | "memory.update" }>) {
+    if (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory())
+      throw new Error(`project folder not found: ${req.projectRoot}`);
+    const store = new MemoryStore(req.projectRoot);
+    let saved: number | undefined;
+    const duplicates: string[] = [];
+    try {
+      if (req.type === "memory.update") {
+        const c = req.change;
+        switch (c.op) {
+          case "add": {
+            const r = store.add({ category: c.category, text: c.text, status: "verified", source: "user" });
+            saved = r.entry ? 1 : 0;
+            if (r.duplicateOf) duplicates.push(r.duplicateOf.text);
+            break;
+          }
+          case "edit":
+            store.update(c.entryId, { text: c.text, category: c.category, status: "verified" });
+            break;
+          case "delete":
+            store.remove(c.entryId);
+            break;
+          case "verify":
+            store.verify(c.entryId);
+            break;
+          case "clear":
+            store.clear();
+            break;
+          case "analyze":
+            analyze(store);
+            break;
+          case "settings":
+            store.setSettings(c.settings);
+            break;
+          case "accept":
+            saved = 0;
+            for (const it of c.items) {
+              const r = store.add({ category: it.category, text: it.text, status: "verified", source: "task", taskId: it.taskId, replaces: it.replaces });
+              if (r.entry) saved++;
+              else if (r.duplicateOf) duplicates.push(r.duplicateOf.text);
+            }
+            break;
+        }
+      }
+    } catch (e) {
+      if (e instanceof MemoryError) throw new Error(e.message);
+      throw e;
+    }
+    const data = store.load();
+    this.emitter(req.id)({
+      type: "memory",
+      path: store.path,
+      settings: data.settings,
+      analyzedAt: data.analyzedAt,
+      entries: data.entries,
+      ...(saved !== undefined ? { saved } : {}),
+      ...(duplicates.length ? { duplicates } : {}),
+    });
   }
 
   /** Abort everything (used on stdin EOF) and wait for tasks to settle. */
