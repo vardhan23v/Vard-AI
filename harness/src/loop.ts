@@ -21,6 +21,7 @@ import { buildSystemPrompt, compactMessages, repoMap } from "./context";
 import type { McpCallInfo } from "./mcp/types";
 import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall, reflectPrompt } from "./memory";
 import { Policy } from "./policy";
+import type { TaskGraph } from "./agents/schema";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
 import { ALL_TOOLS, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
 import { runCommand } from "./tools/command";
@@ -38,12 +39,16 @@ export interface ApprovalRequest {
   mcp?: McpCallInfo;
   /** "Always" isn't offered for this call. */
   noAlways?: boolean;
+  /** Team runs: the structured plan being approved. */
+  graph?: TaskGraph;
 }
 
 export interface ApprovalResponse {
   decision: ApprovalDecision;
   reason?: string;
   plan?: string;
+  /** Team runs: the plan as the user edited it. */
+  graph?: unknown;
 }
 
 export interface LoopOptions {
@@ -193,6 +198,11 @@ export class AgentLoop {
 
   toolLines() {
     return [...this.toolLog];
+  }
+
+  /** The approval ids this loop has issued so far (for tests and diagnostics). */
+  get approvalsIssued() {
+    return this.approvalSeq;
   }
 
   verifyLine() {
@@ -461,7 +471,18 @@ export interface ReflectInput {
  * After a successful task, ask the model which durable facts are worth remembering. Returns
  * proposals only; the caller shows them to the user, and nothing is saved here. Never throws.
  */
-export async function reflectOnTask(loop: AgentLoop, o: LoopOptions, input: ReflectInput): Promise<Proposal[]> {
+/** What reflection needs from a finished run (an AgentLoop, or a team run's combined log). */
+export interface ReflectSource {
+  toolLines(): string[];
+  verifyLine(): string | undefined;
+  addUsage(u: { inputTokens?: number; outputTokens?: number; totalTokens?: number }): void;
+}
+
+export async function reflectOnTask(
+  loop: ReflectSource,
+  o: Pick<LoopOptions, "memory" | "signal" | "prompt" | "model" | "retry" | "taskId">,
+  input: ReflectInput,
+): Promise<Proposal[]> {
   if (!o.memory || o.signal?.aborted) return [];
   try {
     const existing = o.memory.store.active();

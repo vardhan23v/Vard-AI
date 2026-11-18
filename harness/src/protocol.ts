@@ -7,6 +7,7 @@
  */
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
+import { AgentMessage, AgentRun, IntegrationRecord, OrchControl, OrchestrationState, OrchPhase, ReviewResult, RoleConfig, RoleId, RoleOverride, SubtaskState, TaskGraph, TeamRequest } from "./agents/schema";
 import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
 import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
 
@@ -76,6 +77,9 @@ export const TaskStartRequest = z.object({
   skills: z.array(z.string().min(1).max(200)).max(10).optional(),
   /** Pick relevant skills automatically (unset means yes). */
   autoSkills: z.boolean().optional(),
+  /** "team": a planner splits the work across specialist agents (needs a git repo). */
+  mode: z.enum(["single", "team"]).optional(),
+  team: TeamRequest.optional(),
 });
 
 export const TaskApproveRequest = z.object({
@@ -88,6 +92,8 @@ export const TaskApproveRequest = z.object({
   reason: z.string().optional(),
   /** For plan approvals: an edited plan replacing the model's. */
   plan: z.string().optional(),
+  /** For team plans: the edited task graph. */
+  graph: z.unknown().optional(),
 });
 
 export const TaskCancelRequest = z.object({
@@ -181,6 +187,31 @@ export const SkillsListRequest = z.object({ ...skillsReq, type: z.literal("skill
 export const SkillsGetRequest = z.object({ ...skillsReq, type: z.literal("skills.get"), skillId: z.string().min(1).max(200) });
 export const SkillsUpdateRequest = z.object({ ...skillsReq, type: z.literal("skills.update"), change: SkillChange });
 
+// ---------- team runs ----------
+
+export const OrchControlRequest = z.object({
+  ...reqBase,
+  type: z.literal("orch.control"),
+  taskId: z.string().min(1),
+  action: OrchControl,
+  subtaskId: z.string().optional(),
+  /** For retry_subtask: guidance (or the answer to the agent's question) for the next attempt. */
+  note: z.string().max(4000).optional(),
+});
+/** Current state of a team run (after a reconnect). */
+export const OrchStatusRequest = z.object({ ...reqBase, type: z.literal("orch.status"), taskId: z.string().min(1) });
+export const AgentsRolesRequest = z.object({
+  ...reqBase,
+  type: z.literal("agents.roles"),
+  projectRoot: z.string().min(1).optional(),
+  change: z
+    .discriminatedUnion("op", [
+      z.object({ op: z.literal("save"), scope: z.enum(["global", "project"]), role: RoleId, override: RoleOverride }),
+      z.object({ op: z.literal("reset"), scope: z.enum(["global", "project"]), role: RoleId }),
+    ])
+    .optional(),
+});
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -203,6 +234,9 @@ export const Request = z.discriminatedUnion("type", [
   SkillsListRequest,
   SkillsGetRequest,
   SkillsUpdateRequest,
+  OrchControlRequest,
+  OrchStatusRequest,
+  AgentsRolesRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -273,6 +307,8 @@ export const Event = z.discriminatedUnion("type", [
     mcp: McpCallInfo.optional(),
     /** "Always for this project" isn't offered (skill scripts ask every time). */
     noAlways: z.boolean().optional(),
+    /** Team runs: the structured plan being approved. */
+    graph: TaskGraph.optional(),
   }),
   z.object({ ...evBase, type: z.literal("plan"), plan: z.string() }),
   z.object({
@@ -440,6 +476,21 @@ export const Event = z.discriminatedUnion("type", [
     skills: z.array(ActivatedSkill),
     /** Approximate tokens the skills add to the context. */
     tokens: z.number(),
+  }),
+  // Team runs (mode "team"). All carry the task id and a per-task `seq`.
+  z.object({ ...evBase, type: z.literal("orch_snapshot"), state: OrchestrationState }),
+  z.object({ ...evBase, type: z.literal("orch_phase"), phase: OrchPhase, reason: z.string().optional() }),
+  z.object({ ...evBase, type: z.literal("orch_plan"), graph: TaskGraph, approved: z.boolean().optional() }),
+  z.object({ ...evBase, type: z.literal("orch_task"), subtask: SubtaskState, why: z.string().optional() }),
+  z.object({ ...evBase, type: z.literal("orch_agent"), agent: AgentRun }),
+  z.object({ ...evBase, type: z.literal("orch_integration"), record: IntegrationRecord }),
+  z.object({ ...evBase, type: z.literal("orch_review"), review: ReviewResult }),
+  z.object({ ...evBase, type: z.literal("agent_message"), message: AgentMessage }),
+  z.object({
+    ...evBase,
+    type: z.literal("agent_roles"),
+    roles: z.array(RoleConfig),
+    overrides: z.object({ global: z.record(z.string(), RoleOverride), project: z.record(z.string(), RoleOverride) }),
   }),
   z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);

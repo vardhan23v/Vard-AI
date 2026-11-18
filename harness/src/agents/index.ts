@@ -1,0 +1,11 @@
+export * from "./schema";
+export { OrchestrationError } from "./errors";
+export { BUILTIN_ROLES, RoleRegistry, applyOverride, narrowTools } from "./registry";
+export { validateGraph, findCycle, dedupeGraph, addFileEdges, pathsOverlap, readySubtasks, propagateBlocked, layers } from "./dependencies";
+export { MessageBus } from "./communication";
+export { Integrator } from "./integrator";
+export { Scheduler, type Outcome } from "./scheduler";
+export { planGraph, parseGraph, renderGraph, extractJson, plannerPrompt } from "./planner";
+export { runReview, parseReview, reviewDiffTool } from "./reviewer";
+export { runAgent, roleTools, roleMcpTools, type AgentEnv, type AgentSpec } from "./worker";
+export { Orchestrator, type OrchestratorDeps, type OrchestrationResult } from "./orchestrator";
