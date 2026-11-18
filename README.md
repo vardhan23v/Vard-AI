@@ -54,7 +54,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
 
 **Command line (`vard`)**
-- The same chat and coding agent in any terminal, with approvals inline
+- A full-screen terminal UI: Starry Night banner, streamed Markdown replies, tool steps that tick off, pop-ups for approvals and merging, a status bar (model · branch · tokens), slash-command autocomplete and a model/session picker
 - Uses the API keys you saved in the app
 
 **App**
@@ -88,7 +88,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 Install it from **Settings → Command-line tool → Install** (it links `/usr/local/bin/vard` to the binary inside the app). Then, in any folder:
 
 ```bash
-vard                                  # interactive: chat, and /task to run the agent here
+vard                                  # full-screen UI: chat, and /task to run the agent here
 vard ask "what does this regex do?"   # one answer
 git diff | vard ask "review this"     # piped input is added as context
 vard run "add input validation to the signup form" --verify "bun test"
@@ -96,11 +96,13 @@ vard run "add input validation to the signup form" --verify "bun test"
 
 | Command | What it does |
 |---|---|
-| `vard` | Interactive session. Type to chat; `/task <what to do>` runs the agent in this repo; `/model`, `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/clear`, `/help`. `vard -c` continues the last one. |
+| `vard` | Full-screen session. Type to chat; `/task <what to do>` runs the agent in this repo; `/model` and `/sessions` open pickers; `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/keys`, `/clear`, `/help`. `vard -c` continues the last conversation; `vard --classic` is the plain line-by-line version. |
 | `vard ask "…"` | One streamed answer |
 | `vard run "…"` | Agent task on its own branch: approve the plan and risky commands, then merge, view, discard or keep the diff. Flags: `--no-plan`, `--verify "<cmd>"`, `--no-worktree`, `--max-steps <n>`, `--yes` (scripts). Exit code 0 done, 1 stopped, 2 cancelled. |
 | `vard keys [list\|set\|remove] <provider>` | Keys in the Keychain the app also uses |
 | `vard models [use <id>]` | List models or set the default |
+
+In the full-screen UI: **Enter** sends, **Ctrl+J** adds a line, **Tab** completes a `/command`, **↑/↓** walk history, **Esc** stops a reply or task (typing a new message while a reply streams interrupts and redirects it), and **Ctrl+C** twice quits.
 
 Keys come from `GROQ_API_KEY`, `OPENROUTER_API_KEY`, `ANTHROPIC_API_KEY`, `OPENAI_API_KEY` or `GEMINI_API_KEY` if set, otherwise from the Keychain. A key saved by an older build of the app may be readable only by the app; save it again with `pbpaste | vard keys set <provider>` to share it. Chat history is in `~/.vard/sessions`, task traces in `~/.vard/traces`.
 

@@ -11,7 +11,7 @@ Vard AI is a macOS desktop app (Tauri v2) with a chat and a coding agent. Read [
 | `src/lib/agent-client.ts` | Typed bridge to the sidecar; types come from `harness/src/protocol.ts` |
 | `src/lib/firebase.ts` | Firebase Auth + Firestore (data under `users/{uid}/…`) |
 | `src-tauri/` | Rust shell: Keychain keys, sidecar relay, Google OAuth (`src/oauth.rs`) |
-| `harness/` | Agent harness, compiled into the `vard` binary: the app's sidecar (`vard agent --stdio`) and the CLI (`harness/src/cli/`); has its own `package.json` |
+| `harness/` | Agent harness, compiled into the `vard` binary: the app's sidecar (`vard agent --stdio`) and the CLI (`harness/src/cli/`, full-screen UI in `harness/src/tui/`); has its own `package.json` |
 | `firestore.rules` | Security rules; deploy with `bunx firebase-tools deploy --only firestore` |
 
 ## Commands

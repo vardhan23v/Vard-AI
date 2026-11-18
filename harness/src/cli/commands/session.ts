@@ -9,40 +9,60 @@ import { streamReply } from "./ask";
 import { reviewChanges, runTask } from "./task";
 import { VERSION } from "../../server";
 
-type SessionFile = { file: string; messages: ChatTurn[] };
+export type SessionFile = { file: string; messages: ChatTurn[] };
 
 export function sessionsDir(ctx: Ctx) {
   return path.join(ctx.config.home, "sessions");
 }
 
-function newSession(ctx: Ctx): SessionFile {
+export function newSession(ctx: Ctx): SessionFile {
   const dir = sessionsDir(ctx);
   fs.mkdirSync(dir, { recursive: true });
   const stamp = new Date().toISOString().replace(/[:.]/g, "-");
   return { file: path.join(dir, `${stamp}.jsonl`), messages: [] };
 }
 
-/** The most recently written session, if any. */
-export function lastSession(ctx: Ctx): SessionFile | null {
-  const dir = sessionsDir(ctx);
-  if (!fs.existsSync(dir)) return null;
-  const files = fs
-    .readdirSync(dir)
-    .filter((f) => f.endsWith(".jsonl"))
-    .map((f) => path.join(dir, f))
-    .sort((a, b) => fs.statSync(b).mtimeMs - fs.statSync(a).mtimeMs);
-  if (!files[0]) return null;
+export function loadSession(file: string): SessionFile {
   const messages = fs
-    .readFileSync(files[0], "utf8")
+    .readFileSync(file, "utf8")
     .split("\n")
     .filter(Boolean)
-    .map((l) => JSON.parse(l))
+    .flatMap((l) => {
+      try {
+        return [JSON.parse(l)];
+      } catch {
+        return [];
+      }
+    })
     .filter((m) => m.role === "user" || m.role === "assistant")
     .map((m) => ({ role: m.role, content: m.content }) as ChatTurn);
-  return { file: files[0], messages };
+  return { file, messages };
 }
 
-function append(s: SessionFile, m: ChatTurn) {
+/** Saved conversations, newest first. */
+export function listSessions(ctx: Ctx): { file: string; mtime: number; title: string; count: number }[] {
+  const dir = sessionsDir(ctx);
+  if (!fs.existsSync(dir)) return [];
+  return fs
+    .readdirSync(dir)
+    .filter((f) => f.endsWith(".jsonl"))
+    .map((f) => {
+      const file = path.join(dir, f);
+      const s = loadSession(file);
+      const first = s.messages.find((m) => m.role === "user")?.content ?? "";
+      return { file, mtime: fs.statSync(file).mtimeMs, title: first.replace(/\s+/g, " ").slice(0, 70), count: s.messages.length };
+    })
+    .filter((s) => s.count > 0)
+    .sort((a, b) => b.mtime - a.mtime);
+}
+
+/** The most recently written session, if any. */
+export function lastSession(ctx: Ctx): SessionFile | null {
+  const last = listSessions(ctx)[0];
+  return last ? loadSession(last.file) : null;
+}
+
+export function append(s: SessionFile, m: ChatTurn) {
   s.messages.push(m);
   fs.appendFileSync(s.file, JSON.stringify({ ...m, ts: Date.now() }) + "\n");
 }
