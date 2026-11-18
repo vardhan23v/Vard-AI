@@ -2,10 +2,12 @@
 //!
 //! Responsibilities:
 //! - Store provider API keys in the macOS Keychain. Keys never reach the WebView.
-//! - Spawn and supervise the `vard-agent` sidecar (the TypeScript harness).
+//! - Spawn and supervise the agent sidecar: the `vard` binary (the TypeScript harness) run as
+//!   `vard agent --stdio`. The same binary is the command-line tool (see `cli.rs`).
 //! - Relay JSON-lines between the WebView and the sidecar, injecting API keys
 //!   into outgoing requests on the way through.
 
+mod cli;
 mod oauth;
 
 use std::sync::Mutex;
@@ -18,7 +20,7 @@ use tauri_plugin_shell::{
 };
 
 const KEYCHAIN_SERVICE: &str = "ai.vard.desktop";
-const PROVIDERS: &[&str] = &["anthropic", "openai", "google", "ollama", "openai-compatible"];
+const PROVIDERS: &[&str] = &["anthropic", "openai", "google", "ollama", "openai-compatible", "groq"];
 const EVENT_AGENT: &str = "agent://event";
 const EVENT_AGENT_STATUS: &str = "agent://status";
 
@@ -74,7 +76,7 @@ fn api_key_status() -> Value {
 }
 
 /// Providers that can't be called without a key.
-const KEYED: &[&str] = &["anthropic", "openai", "google", "openai-compatible"];
+const KEYED: &[&str] = &["anthropic", "openai", "google", "openai-compatible", "groq"];
 
 fn provider_label(p: &str) -> &str {
     match p {
@@ -82,6 +84,7 @@ fn provider_label(p: &str) -> &str {
         "openai" => "OpenAI",
         "google" => "Google Gemini",
         "openai-compatible" => "OpenRouter",
+        "groq" => "Groq",
         other => other,
     }
 }
@@ -126,8 +129,9 @@ fn inject_keys(msg: &mut Value) -> Result<(), String> {
 fn spawn_agent(app: &AppHandle) -> Result<(), String> {
     let (mut rx, child) = app
         .shell()
-        .sidecar("vard-agent")
+        .sidecar("vard")
         .map_err(|e| e.to_string())?
+        .args(["agent", "--stdio"])
         .spawn()
         .map_err(|e| e.to_string())?;
 
@@ -152,12 +156,12 @@ fn spawn_agent(app: &AppHandle) -> Result<(), String> {
                             Ok(v) => {
                                 let _ = app.emit(EVENT_AGENT, v);
                             }
-                            Err(_) => eprintln!("[vard-agent] {line}"),
+                            Err(_) => eprintln!("[vard agent] {line}"),
                         }
                     }
                 }
                 CommandEvent::Stderr(bytes) => {
-                    eprint!("[vard-agent] {}", String::from_utf8_lossy(&bytes));
+                    eprint!("[vard agent] {}", String::from_utf8_lossy(&bytes));
                 }
                 CommandEvent::Terminated(status) => {
                     *app.state::<Agent>().0.lock().unwrap() = None;
@@ -206,7 +210,10 @@ pub fn run() {
             api_key_status,
             agent_send,
             agent_restart,
-            oauth::google_sign_in
+            oauth::google_sign_in,
+            cli::cli_status,
+            cli::install_cli,
+            cli::uninstall_cli
         ])
         .build(tauri::generate_context!())
         .expect("error while building Vard AI")

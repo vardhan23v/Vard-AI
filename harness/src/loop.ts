@@ -22,7 +22,7 @@ import { Policy } from "./policy";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
 import { ALL_TOOLS, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
 import { runCommand } from "./tools/command";
-import { DEFAULT_RETRY, type RetryOptions, withRetry } from "./retry";
+import { DEFAULT_RETRY, isToolCallRejection, type RetryOptions, withRetry } from "./retry";
 import { describeError, truncateMiddle } from "./util";
 
 export interface ApprovalRequest {
@@ -100,6 +100,26 @@ export class AgentLoop {
 
   private checkCancel() {
     if (this.o.signal?.aborted) throw new Cancelled("cancelled");
+  }
+
+  /**
+   * Some providers (e.g. Groq) validate tool calls themselves and reject the whole response when
+   * the model sends bad arguments. Tell the model what went wrong and let it try again, a few times.
+   */
+  private async withToolCallRepair<T>(call: () => Promise<T>): Promise<T> {
+    for (let attempt = 1; ; attempt++) {
+      try {
+        return await call();
+      } catch (e) {
+        if (this.o.signal?.aborted || attempt > 3 || !isToolCallRejection(e)) throw e;
+        const message = describeError(e);
+        this.o.emit({ type: "retry", attempt, maxAttempts: 3, delayMs: 0, message });
+        this.messages.push({
+          role: "user",
+          content: `Your last tool call was rejected before it ran: ${message}\nCall the tool again using exactly the parameter names and types in its schema.`,
+        });
+      }
+    }
   }
 
   async run(): Promise<LoopResult> {
@@ -205,7 +225,7 @@ export class AgentLoop {
     const { messages, compacted } = compactMessages(this.messages, { budgetTokens: o.contextBudget ?? 120_000 });
     if (compacted) this.messages = messages;
 
-    const { text, toolCalls, response, u } = await withRetry(
+    const { text, toolCalls, response, u } = await this.withToolCallRepair(() => withRetry(
       async (markEmitted) => {
         const result = streamText({
           model: o.model,
@@ -241,7 +261,7 @@ export class AgentLoop {
           message: describeError(r.error),
         }),
       o.signal,
-    );
+    ));
     this.messages.push(...(response.messages as ModelMessage[]));
 
     const step: Usage = {

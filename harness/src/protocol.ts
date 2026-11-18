@@ -9,7 +9,7 @@ import { z } from "zod";
 
 // ---------- shared ----------
 
-export const ProviderId = z.enum(["anthropic", "openai", "google", "ollama", "openai-compatible"]);
+export const ProviderId = z.enum(["anthropic", "openai", "google", "ollama", "openai-compatible", "groq"]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
 export const ProviderConfig = z.object({

@@ -1,13 +1,13 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { ExternalLink, KeyRound, Loader2, Moon, Sun } from "lucide-react";
+import { Check, Copy, ExternalLink, KeyRound, Loader2, Moon, Sun, Terminal } from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/shell/AppShell";
 import { requireAuth } from "@/lib/guard";
-import { isTauri, keys, ping, type ProviderId } from "@/lib/agent-client";
+import { cli, isTauri, keys, ping, type ProviderId } from "@/lib/agent-client";
 import { PROVIDERS, type ProviderInfo } from "@/lib/models";
 import { ACCENTS, useTheme } from "@/lib/theme";
 import { useMotion } from "@/lib/motion";
@@ -29,6 +29,7 @@ export function SettingsPage() {
         </header>
         <ApiKeys />
         <Appearance />
+        <CommandLine />
         <AgentStatus />
       </div>
     </div>
@@ -259,6 +260,92 @@ function Appearance() {
             ))}
           </div>
         </fieldset>
+      </div>
+    </Section>
+  );
+}
+
+function CommandLine() {
+  const qc = useQueryClient();
+  const status = useQuery({ queryKey: ["cli-status"], queryFn: cli.status, enabled: isTauri(), retry: false });
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState(false);
+
+  const act = async (fn: () => Promise<unknown>, done: string) => {
+    setBusy(true);
+    try {
+      await fn();
+      await qc.invalidateQueries({ queryKey: ["cli-status"] });
+      toast.success(done);
+    } catch (err) {
+      toast.error("Command-line tool", { description: String(err) });
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  const copy = async () => {
+    await navigator.clipboard.writeText("vard");
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1500);
+  };
+
+  const s = status.data;
+  return (
+    <Section
+      title="Command-line tool"
+      description="Chat and run the coding agent from any terminal with the vard command. It uses the same API keys."
+    >
+      <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm">
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <Terminal className="size-4 text-muted-foreground" aria-hidden />
+            <div>
+              <p className="font-medium">vard</p>
+              <p className="text-xs text-muted-foreground">
+                {!isTauri()
+                  ? "Available in the desktop app"
+                  : status.isLoading
+                    ? "Checking…"
+                    : status.error
+                      ? String(status.error)
+                      : s?.installed
+                        ? `Installed at ${s.link}`
+                        : s?.conflict
+                          ? `Not installed: ${s.link} points to ${s.conflict}`
+                          : "Not installed"}
+              </p>
+            </div>
+          </div>
+          {isTauri() && s && (
+            <button
+              onClick={() =>
+                s.installed
+                  ? act(cli.uninstall, "Removed the vard command")
+                  : act(cli.install, "Installed. Open a new terminal and type vard.")
+              }
+              disabled={busy}
+              className="inline-flex min-h-9 items-center gap-2 rounded-md border border-input px-3 hover:bg-accent disabled:opacity-50"
+            >
+              {busy && <Loader2 className="size-4 animate-spin" />}
+              {s.installed ? "Uninstall" : s.conflict ? "Replace link" : "Install"}
+            </button>
+          )}
+        </div>
+        <div className="flex items-center gap-2 rounded-md bg-background px-3 py-2 font-mono text-xs">
+          <span className="flex-1 text-muted-foreground">
+            <span className="text-foreground">vard</span> · <span className="text-foreground">vard ask</span> "…" ·{" "}
+            <span className="text-foreground">vard run</span> "…"
+          </span>
+          <button
+            type="button"
+            onClick={copy}
+            aria-label="Copy the vard command"
+            className="inline-flex size-8 items-center justify-center rounded-md hover:bg-accent"
+          >
+            {copied ? <Check className="size-3.5" /> : <Copy className="size-3.5" />}
+          </button>
+        </div>
       </div>
     </Section>
   );
