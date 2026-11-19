@@ -85,6 +85,11 @@ export class Client {
     return done;
   }
 
+  /** Team runs: pause, resume, retry or cancel a subtask, or continue past failures. */
+  control(taskId: string, action: "pause" | "resume" | "cancel_subtask" | "retry_subtask" | "continue", subtaskId?: string, note?: string) {
+    return this.server.handle({ id: newId("orch"), type: "orch.control", taskId, action, subtaskId, note });
+  }
+
   approve(taskId: string, approvalId: string, decision: ApprovalDecision, extra: { reason?: string; plan?: string } = {}) {
     return this.server.handle({ id: newId("ans"), type: "task.approve", taskId, approvalId, decision, ...extra });
   }

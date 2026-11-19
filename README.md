@@ -60,6 +60,17 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Review the diff, then **Merge**, **Discard** or **Show in Finder**
 - **Project memory:** Vard analyzes each project, remembers its stack, commands, conventions, decisions and past fixes, and uses the relevant ones on every task. After a task it suggests new notes; you choose what's saved
 
+**Skills**
+- Reusable instructions that teach the agent a kind of task (React, APIs, databases, testing, debugging, code review, security, docs, deployment, MCP servers, accessibility); 12 ship with Vard
+- Vard picks the relevant skills for each task and shows which it used; you can also pick them by hand
+- Write your own, import them, keep them global or per project. Skills are guidance only: they never skip approvals
+
+**Agent teams**
+- Turn on **Team** and a planner splits a bigger task into subtasks for frontend, backend, database and testing agents
+- You approve (or edit) the plan; independent subtasks run in parallel, each agent on its own branch with its own skills
+- Finished work is merged one subtask at a time with conflict checks, reviewed by a reviewer agent, and shown to you as one diff to merge
+- A live dashboard: plan graph, agent cards, approvals, review findings, pause/resume, retry and cancel
+
 **Integrations (MCP)**
 - Connect MCP servers, local (stdio) or remote (Streamable HTTP, with bearer or OAuth sign-in), to give the agent new tools, data and prompts
 - Every call goes through Vard's approvals, never leaves the project folder, and is clearly marked as coming from an external server
@@ -113,9 +124,11 @@ vard run "add input validation to the signup form" --verify "bun test"
 
 | Command | What it does |
 |---|---|
-| `vard` | Full-screen session. Type to chat; `/task <what to do>` runs the agent in this repo; `/model` and `/sessions` open pickers; `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/keys`, `/clear`, `/help`. `vard -c` continues the last conversation; `vard --classic` is the plain line-by-line version. |
+| `vard` | Full-screen session. Type to chat; `/task <what to do>` runs the agent in this repo; `/team <task>` runs a team (with `/pause`, `/resume`, `/retry <subtask> [note]`, `/continue`); `/skills` lists skills; `/model` and `/sessions` open pickers; `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/keys`, `/clear`, `/help`. `vard -c` continues the last conversation; `vard --classic` is the plain line-by-line version. |
 | `vard ask "…"` | One streamed answer |
 | `vard run "…"` | Agent task on its own branch: approve the plan and risky commands, then merge, view, discard or keep the diff. Flags: `--no-plan`, `--verify "<cmd>"`, `--no-worktree`, `--max-steps <n>`, `--yes` (scripts). Exit code 0 done, 1 stopped, 2 cancelled. |
+| `vard run --team "…"` | A team run: approve the plan, watch each subtask, answer failures (retry with a note, continue, or stop), then merge the combined diff. `--max-agents <n>` (1–6, default 3) |
+| `vard skills [list\|show\|new\|edit\|import\|validate\|enable\|disable\|rm\|trust\|untrust\|path]` | Manage skills. `vard run --skill <name>` (repeatable) forces a skill; `--no-skills` turns automatic selection off |
 | `vard keys [list\|set\|remove] <provider>` | Keys in the Keychain the app also uses |
 | `vard models [use <id>]` | List models or set the default |
 
@@ -143,6 +156,51 @@ Vard learns each project and reuses that knowledge on every task, so the agent d
 | App | Project page → brain icon: search, filter, edit, verify, delete, add notes, re-analyze, clear, replaced-notes history, and settings (on/off, use in tasks, updates after tasks, context size, excluded paths). A finished task shows "Using N project notes" and the suggested notes |
 | TUI | `/memory`, `/memory search <q>`, `/memory analyze`; a "Remember for next time?" checklist after tasks; `memory N` in the status bar |
 | CLI | `vard memory list [--category c] [--search q]`, `search`, `show`, `add <category> <text>`, `edit <id>`, `rm <id>`, `verify <id>`, `analyze`, `clear`, `config [key value]`, `path`; `vard run --no-memory` and `--remember` |
+
+## Skills
+
+A skill is a folder with a `SKILL.md`: YAML frontmatter, then Markdown instructions. It can also have `references/` (read on request), `scripts/` and `assets/`.
+
+```markdown
+---
+name: react-development
+description: Build and maintain production-ready React applications.
+version: 1.0.0
+tags: [react, frontend, typescript]
+triggers: [react, component, hook]   # words in a task that make it relevant
+globs: ["**/*.tsx"]                  # files that make it relevant for a repo
+roles: [frontend]                    # agent roles it suits
+scripts:
+  - name: lint
+    file: scripts/lint.sh
+---
+
+# React development
+## Instructions
+- Follow existing project conventions.
+```
+
+- **Where they live:** built-in (12, inside the app), global (`~/.vard/skills/<name>/`) and per project (`<project>/.vard/skills/<name>/`). A project or global skill can't replace one with the same name from a higher source (built-in › global › project); it's shown as *shadowed* instead.
+- **How they're chosen:** for each task (or each agent of a team), skills are ranked by the task's words against their name, tags, triggers and description, the project's files and dependencies, and the agent's role. Only the top few, within a size limit, go into the agent's context, and the task view shows which ones and why. You can force skills per task.
+- **Safety:** skill text is treated as untrusted guidance below Vard's own rules; it can't grant permissions or skip approvals. Paths are checked to stay inside the skill folder (no `..`, absolute paths or escaping symlinks). Scripts run only through `skill_run_script`, which asks you every time ("always" is never offered) and gets a clean environment. Skills that contain anything that looks like a credential are rejected. Project skills are used only after you **trust** that exact content; imported skills start turned off.
+- **Manage them:** the **Skills** page (search, filter by source, details, what the agent sees, resources, usage history, create, edit with live validation, import, enable, delete, trust), `vard skills …`, or `/skills` in the TUI.
+
+## Agent teams
+
+Turn on **Team** when starting a task (or `vard run --team`). The run works like this:
+
+1. A **planner** agent inspects the project (read-only) and returns a task graph: subtasks for the frontend, backend, database and testing roles, with dependencies and the files each expects to touch. Duplicate subtasks are merged, and subtasks that touch the same files are ordered one after the other.
+2. You **approve** the plan, or edit titles, instructions and roles, remove subtasks, or ask for a new plan.
+3. Independent subtasks run **in parallel** (up to 3 at once by default, at most 6). Each agent is the normal Vard agent loop with its role's tools, its own skills, the project's memory notes relevant to its assignment, and the approved MCP tools. It works in **its own worktree**, branched from the run's integration branch, so it sees the work of the subtasks it depends on.
+4. When an agent finishes, its work is committed, checked for conflicts with `git merge-tree`, and merged into the integration branch one subtask at a time. A conflict is never forced: the subtask is retried on top of the latest work, or waits for you.
+5. A **reviewer** agent reads the combined diff (and the verify command's result, if set) and reports findings. If it requests changes, one round of fix subtasks runs and it reviews again.
+6. You review the **combined diff** and merge or discard it, exactly like a normal task.
+
+Every tool call still goes through the policy and your approvals; approvals show which agent is asking. Subtasks have time limits, a retry, and failure isolation (a failure only blocks what depends on it). You can pause (agents stop at their next step), resume, cancel or retry a subtask with a note (or an answer, if the agent asked a question), and continue without failed subtasks. Token use is shown as the providers report it; there's a budget for the whole run and per agent.
+
+**Rate limits.** Every agent calls the model, so a team uses several times the tokens of a single task, and parallel agents share your provider's rate limit. On Groq's free tier (8,000 tokens per minute for GPT-OSS 120B), agents spend most of their time waiting and can hit their time limit. A live test there completed the code subtasks but timed out on tests and fixes. Use a paid tier, a provider with higher limits, or `--max-agents 1`. Rate-limit waits are shown per agent.
+
+**Roles** (Agents page → Roles, or `~/.vard/agents.json`): give a role its own model (it uses that provider's saved key), preferred skills, a step limit and extra instructions. Tool access can only be narrowed: the reviewer and planner never edit files.
 
 ## Integrations (MCP)
 
@@ -185,6 +243,8 @@ Tauri shell (Rust, src-tauri/)
  ├─ providers: Vercel AI SDK (Groq, Anthropic, OpenAI, Google, OpenRouter, Ollama)
  ├─ chat runner (streaming) + agent harness (loop, tools, policy, worktrees, traces, memory)
  ├─ MCP client (harness/src/mcp): stdio + Streamable HTTP servers, tools/resources/prompts
+ ├─ skills (harness/src/skills): discovery, trust, ranking, prompt section, skill tools
+ ├─ teams (harness/src/agents): planner, scheduler, workers, integrator, reviewer
  └─ local tools: files, search, edit, shell commands, git
 Firebase: sign-in (email + Google) and Firestore sync of chats, projects and task summaries
 ```
@@ -193,7 +253,8 @@ Firebase: sign-in (email + Google) and Firestore sync of chats, projects and tas
 - **The agent harness is code, not a prompt.**
   - `harness/src/loop.ts`: plan → approve → act → observe → verify state machine
   - `harness/src/policy.ts`: allow / ask / deny rules, path sandbox, command allowlist
-  - `harness/src/worktree.ts`: one git worktree per task
+  - `harness/src/worktree.ts`: one git worktree per task (and per agent in a team run)
+  - `harness/src/agents/orchestrator.ts`: team runs, built on the same loop, policy and worktrees
   - `harness/src/trace.ts`: a JSONL trace per task in `~/.vard/traces`
   - `harness/src/protocol.ts`: the typed protocol shared with the UI
 - **The protocol is shared.** `src/lib/agent-client.ts` imports its types from `harness/src/protocol.ts`.

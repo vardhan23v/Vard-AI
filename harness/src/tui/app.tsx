@@ -23,6 +23,7 @@ import {
   type PickerRow,
   Spinner,
   StatusBar,
+  TeamPanel,
 } from "./components";
 import * as E from "./editor";
 import { analyze as analyzeMemory, type Proposal } from "../memory";
@@ -103,6 +104,9 @@ export function App(props: AppProps) {
   const [pendingTool, setPendingTool] = useState<Extract<Item, { kind: "tool" }> | null>(null);
   const [busy, setBusy] = useState<Busy>(null);
   const [label, setLabel] = useState("");
+  /** Team runs: one line per agent, and the run being controlled by /pause, /retry, … */
+  const [teamAgents, setTeamAgents] = useState<Extract<Event, { type: "orch_agent" }>["agent"][]>([]);
+  const teamTaskRef = useRef<string | null>(null);
   const [tokens, setTokens] = useState(0);
   const [branch, setBranch] = useState(() => gitBranch(ctx.cwd));
   const [kept, setKept] = useState<{ taskId: string; branch: string; path: string } | null>(null);
@@ -231,7 +235,7 @@ export function App(props: AppProps) {
     }
   };
 
-  const runTask = async (prompt: string) => {
+  const runTask = async (prompt: string, opts: { team?: boolean } = {}) => {
     const root = gitRoot(ctx.cwd);
     if (!root) {
       note("This folder isn't a git repository. The agent works on its own branch, so run `git init` first.", "error");
@@ -252,7 +256,13 @@ export function App(props: AppProps) {
     // Retry notices replace the spinner label until work resumes; then the state label returns.
     let stateLabel = "Starting…";
     const resume = () => setLabel(stateLabel);
-    commit({ kind: "task", text: prompt, model: choiceRef.current.model });
+    commit({ kind: "task", text: opts.team ? `[team] ${prompt}` : prompt, model: choiceRef.current.model });
+    if (opts.team) {
+      teamTaskRef.current = taskId;
+      setTeamAgents([]);
+    }
+    const agentCalls = new Map<string, string>();
+    const subStatus = new Map<string, string>();
     setBusy("task");
     setLabel("Starting…");
     cancelRef.current = () => void ctx.client.cancel(taskId);
@@ -263,7 +273,66 @@ export function App(props: AppProps) {
       return t;
     };
 
+    /** Team runs: agents' events and the orchestrator's. Returns true when handled. */
+    const onTeamEvent = (e: Event): boolean => {
+      if (e.agentId && e.type !== "approval_request") {
+        if (e.type === "tool_call" && e.tool !== "todo_write") agentCalls.set(e.callId, describeToolInput(e.tool, e.input));
+        if (e.type === "tool_result" && e.tool !== "todo_write")
+          commit({
+            kind: "tool",
+            tool: `${e.agentId} › ${e.tool}`,
+            detail: agentCalls.get(e.callId) ?? "",
+            ok: e.ok,
+            error: e.ok ? undefined : e.output.split("\n")[0].slice(0, 200),
+          });
+        return true;
+      }
+      switch (e.type) {
+        case "orch_agent":
+          setTeamAgents((list) => {
+            const i = list.findIndex((a) => a.agentId === e.agent.agentId);
+            if (i === -1) return [...list, e.agent];
+            const next = [...list];
+            next[i] = e.agent;
+            return next;
+          });
+          return true;
+        case "orch_phase":
+          stateLabel =
+            e.phase === "planning" ? "Planning the work…" : e.phase === "running" ? "Agents working…" : e.phase === "reviewing" ? "Reviewing…" : e.phase === "paused" ? "Paused (/resume)" : "Waiting for you";
+          resume();
+          if (e.phase === "attention") note(`${e.reason ?? "Some subtasks need you"}. /retry <id> [note] · /continue · Esc to stop`, "star");
+          return true;
+        case "orch_task": {
+          const s = e.subtask;
+          if (subStatus.get(s.id) === s.status) return true;
+          subStatus.set(s.id, s.status);
+          if (s.status === "completed") note(`✓ ${s.title} (${s.role})`, "ok");
+          else if (s.status === "failed") note(`✗ ${s.title}: ${s.error ?? "failed"} (/retry ${s.id})`, "error");
+          else if (s.status === "needs_attention") note(`? ${s.title}: ${s.question ?? s.error ?? "needs you"} (/retry ${s.id} <answer>)`, "star");
+          else if (s.status === "blocked") note(`– ${s.title} is blocked by ${s.blockedBy?.join(", ")}`);
+          return true;
+        }
+        case "orch_review":
+          note(
+            `Review: ${e.review.verdict.replace("_", " ")}${e.review.summary ? ` · ${e.review.summary}` : ""}${e.review.findings.map((f) => `\n  ${f.severity} ${f.file ?? ""} ${f.message}`).join("")}`,
+            e.review.verdict === "approve" ? "ok" : "star",
+          );
+          return true;
+        case "orch_integration":
+          if (e.record.status === "conflict") note(`! ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}`, "error");
+          return true;
+        case "orch_plan":
+        case "orch_snapshot":
+        case "agent_message":
+          return true;
+        default:
+          return false;
+      }
+    };
+
     const onEvent = (e: Event) => {
+      if (opts.team && onTeamEvent(e)) return;
       switch (e.type) {
         case "state":
           if (STATE_LABEL[e.state]) stateLabel = STATE_LABEL[e.state];
@@ -322,12 +391,16 @@ export function App(props: AppProps) {
         case "usage":
           resume();
           break;
+        case "skills_activated":
+          note(`Skills: ${e.skills.map((x) => x.name).join(", ")}`);
+          break;
         case "memory_proposal":
           proposalsRef.current = e.items;
           taskIdRef.current = taskId;
           break;
         case "approval_request":
           flushText(streamedPlan);
+          if (e.kind === "plan" && e.graph) commit({ kind: "plan", text: (e.plan ?? "").trim() });
           approvals.current.push({ taskId, ev: e });
           setModal((m) => {
             if (m) return m;
@@ -345,7 +418,17 @@ export function App(props: AppProps) {
     let done;
     try {
       done = await ctx.client.startTask(
-        { taskId, projectRoot: root, prompt, provider, planFirst, useWorktree: true, useMemory: true, learn: true },
+        {
+          taskId,
+          projectRoot: root,
+          prompt,
+          provider,
+          planFirst,
+          useWorktree: true,
+          useMemory: true,
+          learn: true,
+          ...(opts.team ? { mode: "team" as const, team: { onFailure: "ask" as const } } : {}),
+        },
         onEvent,
       );
     } catch (e) {
@@ -355,8 +438,11 @@ export function App(props: AppProps) {
       return;
     }
     cancelRef.current = null;
+    teamTaskRef.current = null;
+    setTeamAgents([]);
     setPendingTool(null);
     flushText(done.summary);
+    if (opts.team && done.summary) note(done.summary);
     const usage = done.usage ? ` · ${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens` : "";
     if (done.usage) setTokens((n) => n + done.usage!.totalTokens);
     if (done.status === "done") {
@@ -442,12 +528,46 @@ export function App(props: AppProps) {
             .join("\n") + "\nServers connect when a /task starts. Manage them with `vard mcp`.",
         );
       }
+      case "/skills": {
+        const reg = ctx.client.server.skillRegistry(gitRoot(ctx.cwd) ?? ctx.cwd);
+        const list = reg.all();
+        const mark = (r: (typeof list)[number]) =>
+          r.errors.length ? "invalid" : r.shadowedBy ? `shadowed by ${r.shadowedBy}` : !r.trusted ? "needs trust" : !r.enabled ? "off" : "on";
+        return note(
+          list.map((r) => `${r.usable ? "●" : "○"} ${r.name.padEnd(24)} ${r.source.padEnd(8)} ${mark(r)}`).join("\n") +
+            "\nRelevant skills are picked for each /task. Manage them with `vard skills` or in the app.",
+        );
+      }
       case "/keys":
         return showKeys();
       case "/task":
       case "/run":
         if (!arg) return note("Usage: /task <what the agent should do>");
         return runTask(arg);
+      case "/team":
+        if (!arg) return note("Usage: /team <what the team should build>");
+        return runTask(arg, { team: true });
+      case "/pause":
+      case "/resume":
+      case "/continue":
+      case "/retry": {
+        const id = teamTaskRef.current;
+        if (!id) return note("No team run in progress. Start one with /team <task>.");
+        const [sub, ...noteWords] = arg.split(/\s+/).filter(Boolean);
+        if (cmd === "/retry" && !sub) return note("Usage: /retry <subtask id> [note or answer]");
+        try {
+          await ctx.client.control(
+            id,
+            cmd === "/retry" ? "retry_subtask" : (cmd.slice(1) as "pause" | "resume" | "continue"),
+            cmd === "/retry" ? sub : undefined,
+            noteWords.join(" ") || undefined,
+          );
+          if (cmd !== "/retry") note(cmd === "/pause" ? "Pausing: agents stop at their next step." : cmd === "/resume" ? "Resumed." : "Continuing with what finished.");
+        } catch (e) {
+          note((e as Error).message, "error");
+        }
+        return;
+      }
       case "/diff":
       case "/merge":
       case "/discard": {
@@ -488,13 +608,18 @@ export function App(props: AppProps) {
 
   // ---------- pop-up answers ----------
   const approvalOptions = (ev: Approval): ChoiceOption[] =>
-    ev.kind === "plan"
+    ev.kind === "plan" && ev.graph
+      ? [
+          { key: "y", label: "Start the agents", tone: "ok" },
+          { key: "n", label: "Ask for a new plan", tone: "danger" },
+        ]
+      : ev.kind === "plan"
       ? [
           { key: "y", label: "Approve", tone: "ok" },
           { key: "e", label: "Edit plan" },
           { key: "n", label: "Reject", tone: "danger" },
         ]
-      : ev.mcp?.destructive
+      : ev.mcp?.destructive || ev.noAlways
         ? [
             { key: "a", label: "Allow once", tone: "ok" },
             { key: "d", label: "Deny", tone: "danger" },
@@ -850,6 +975,7 @@ export function App(props: AppProps) {
         </Box>
       ) : null}
       {pendingTool ? <ItemView item={pendingTool} /> : null}
+      {teamAgents.length > 0 ? <TeamPanel agents={teamAgents} /> : null}
       {busy && !modal && mode.kind === "normal" ? <Spinner label={label} /> : null}
 
       {modal?.type === "approval" ? (

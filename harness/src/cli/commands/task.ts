@@ -17,6 +17,13 @@ export type TaskFlags = {
   memory?: boolean;
   /** Save suggested memories without asking (for scripts). */
   remember?: boolean;
+  /** Skills picked by name (--skill, repeatable). */
+  skill?: string[];
+  /** false: don't pick skills automatically (--no-skills). */
+  skills?: boolean;
+  /** Run as a team of agents (--team). */
+  team?: boolean;
+  maxAgents?: number;
 };
 
 export type TaskOutcome = {
@@ -71,7 +78,153 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
     printer.end();
   };
 
+  const team = !!flags.team;
+  const ROLE: Record<string, string> = { planner: "planner", frontend: "frontend", backend: "backend", database: "database", testing: "testing", reviewer: "reviewer" };
+  const tag = (agentId: string) => t.cerulean(`[${agentId}]`);
+  const lastStatus = new Map<string, string>();
+
+  /** Team runs: agent-tagged and orch_* events. Returns true when handled. */
+  const onTeamEvent = (e: Event): boolean => {
+    if (e.agentId) {
+      switch (e.type) {
+        case "tool_call": {
+          if (e.tool === "todo_write") return true;
+          pause();
+          const d = describeToolInput(e.tool, e.input);
+          out.write(`  ${tag(e.agentId)} ${t.cerulean("▸")} ${e.tool}${d ? " " + t.muted(d) : ""}\n`);
+          ctx.spinner.start(label);
+          return true;
+        }
+        case "tool_result":
+          if (!e.ok) {
+            pause();
+            out.write(`  ${tag(e.agentId)}   ${t.danger("✗")} ${t.muted(e.output.split("\n")[0].slice(0, 140))}\n`);
+            ctx.spinner.start(label);
+          }
+          return true;
+        case "skills_activated":
+          pause();
+          out.write(`  ${tag(e.agentId)} ${t.muted(`skills: ${e.skills.map((x) => x.name).join(", ")}`)}\n`);
+          ctx.spinner.start(label);
+          return true;
+        case "approval_request":
+          return false; // answered below, labelled with the agent
+        case "retry":
+          pause();
+          ctx.err.write(
+            t.muted(
+              /tool call|failed_generation/i.test(e.message)
+                ? `  [${e.agentId}] malformed tool call; asking the model again (${e.attempt}/${e.maxAttempts})\n`
+                : /rate limit|429/i.test(e.message)
+                  ? `  [${e.agentId}] rate-limited by the provider; retrying in ${Math.ceil(e.delayMs / 1000)}s (${e.attempt}/${e.maxAttempts})\n`
+                  : `  [${e.agentId}] ${e.message.split("\n")[0].slice(0, 120)}; retrying in ${Math.ceil(e.delayMs / 1000)}s (${e.attempt}/${e.maxAttempts})\n`,
+            ),
+          );
+          ctx.spinner.start(label);
+          return true;
+        case "error":
+          pause();
+          ctx.err.write(`  ${tag(e.agentId)} ${t.danger(explainError(e.message))}\n`);
+          ctx.spinner.start(label);
+          return true;
+        default:
+          return true; // tokens, states and usage of individual agents stay out of the terminal
+      }
+    }
+    switch (e.type) {
+      case "orch_phase": {
+        const labels: Record<string, string> = {
+          planning: "Planning the work…",
+          running: "Agents working…",
+          reviewing: "Reviewing the combined change…",
+          paused: "Paused",
+        };
+        if (labels[e.phase]) {
+          label = labels[e.phase];
+          ctx.spinner.start(label);
+        } else ctx.spinner.stop();
+        if (e.phase === "attention") queue = queue.then(() => attention()).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
+        return true;
+      }
+      case "orch_task": {
+        const s = e.subtask;
+        if (lastStatus.get(s.id) === s.status) return true;
+        lastStatus.set(s.id, s.status);
+        const who = `${s.title} ${t.muted(`(${ROLE[s.role] ?? s.role})`)}`;
+        const line =
+          s.status === "running"
+            ? `${t.star("●")} ${who}${s.attempts > 1 ? t.muted(` attempt ${s.attempts}`) : ""}`
+            : s.status === "completed"
+              ? `${t.sage("✓")} ${who}${s.result?.files.length ? t.muted(` · ${s.result.files.length} file${s.result.files.length > 1 ? "s" : ""}`) : ""}`
+              : s.status === "failed"
+                ? `${t.danger("✗")} ${who}: ${s.error ?? "failed"}`
+                : s.status === "needs_attention"
+                  ? `${t.star("?")} ${who}: ${s.question ?? s.error ?? "needs you"}`
+                  : s.status === "blocked"
+                    ? `${t.muted("–")} ${who} ${t.muted(`blocked by ${s.blockedBy?.join(", ")}`)}`
+                    : s.status === "pending" && s.attempts > 0
+                      ? `${t.star("↻")} ${who} ${t.muted(`retrying: ${s.error ?? ""}`)}`
+                      : "";
+        if (line) {
+          pause();
+          out.write(`${line}\n`);
+          ctx.spinner.start(label);
+        }
+        return true;
+      }
+      case "orch_integration":
+        if (e.record.status === "conflict") {
+          pause();
+          out.write(`  ${t.danger("!")} ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}\n`);
+          ctx.spinner.start(label);
+        }
+        return true;
+      case "orch_review": {
+        pause();
+        const r = e.review;
+        out.write(`\n${t.bold("Review")} ${r.verdict === "approve" ? t.sage("approved") : r.verdict === "changes_requested" ? t.star("changes requested") : t.muted("unavailable")}${r.summary ? `: ${r.summary}` : ""}\n`);
+        for (const f of r.findings) out.write(`  ${f.severity === "low" ? t.muted(f.severity) : t.danger(f.severity)} ${f.file ?? ""}${f.line ? `:${f.line}` : ""} ${f.message}\n`);
+        ctx.spinner.start(label);
+        return true;
+      }
+      case "orch_plan":
+      case "orch_agent":
+      case "orch_snapshot":
+      case "agent_message":
+        return true;
+      default:
+        return false;
+    }
+  };
+
+  /** A team run stopped on failures: retry one, continue without them, or stop. */
+  const attention = async () => {
+    pause();
+    if (!ctx.prompter.interactive) {
+      await ctx.client.control(taskId, "continue");
+      return;
+    }
+    const stuck = [...lastStatus.entries()].filter(([, st]) => ["failed", "needs_attention", "blocked"].includes(st)).map(([id]) => id);
+    out.write(`${t.star("Some subtasks didn't finish:")} ${stuck.join(", ")}\n`);
+    const a = await ctx.prompter.choose(`${t.muted("[c] continue without them  [r] retry one  [s] stop")}`, [
+      { key: "c", label: "continue" },
+      { key: "r", label: "retry" },
+      { key: "s", label: "stop" },
+    ]);
+    if (a === "s") return void ctx.client.cancel(taskId);
+    if (a === "c") return void (await ctx.client.control(taskId, "continue"));
+    const id = ((await ctx.prompter.line(`Which subtask? (${stuck.join(", ")}) `)) ?? "").trim() || stuck[0];
+    const note = ((await ctx.prompter.line("Note or answer for the agent (optional): ")) ?? "").trim();
+    try {
+      await ctx.client.control(taskId, "retry_subtask", id, note || undefined);
+    } catch (err) {
+      ctx.err.write(t.danger(`${(err as Error).message}\n`));
+      await attention();
+    }
+  };
+
   const onEvent = (e: Event) => {
+    if (team && onTeamEvent(e)) return;
     switch (e.type) {
       case "state":
         if (STATE_LABEL[e.state]) {
@@ -145,6 +298,11 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       case "memory_proposal":
         proposals.push(...e.items);
         break;
+      case "skills_activated":
+        pause();
+        out.write(t.muted(`Skills: ${e.skills.map((x) => x.name).join(", ")} (~${e.tokens.toLocaleString()} tokens)\n`));
+        ctx.spinner.start(label);
+        break;
       case "approval_request":
         queue = queue.then(() => answer(e)).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
         break;
@@ -157,7 +315,18 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
 
   const answer = async (e: Extract<Event, { type: "approval_request" }>) => {
     pause();
-    if (e.kind === "plan") {
+    if (e.kind === "plan" && e.graph) {
+      out.write(`\n${t.star(t.bold("Team plan"))}\n${indent((e.plan ?? "").trim())}\n\n`);
+      const a = await ctx.prompter.choose(`${t.star("Start these agents?")} ${t.muted("[y] yes  [n] ask for a new plan")}`, [
+        { key: "y", label: "approve" },
+        { key: "n", label: "reject" },
+      ]);
+      if (a === "y") await ctx.client.approve(taskId, e.approvalId, "allow_once");
+      else {
+        const reason = (await ctx.prompter.line("What should change? ")) ?? "";
+        await ctx.client.approve(taskId, e.approvalId, "deny", { reason: reason.trim() || "Please revise the plan." });
+      }
+    } else if (e.kind === "plan") {
       const a = await ctx.prompter.choose(
         `${t.star("Approve this plan?")} ${t.muted("[y] yes  [e] edit  [n] no")}`,
         [
@@ -177,14 +346,16 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
     } else {
       const d = describeToolInput(e.tool ?? "", e.input);
       const m = e.mcp;
+      if (e.agentId) out.write(`  ${t.cerulean(`[${e.agentId}]`)} asks:\n`);
       if (m)
         out.write(
           `  ${t.star("?")} ${t.cerulean(`[MCP ${m.serverName}]`)} ${t.bold(m.tool)} ${t.muted(JSON.stringify(e.input ?? {}).slice(0, 160))}\n    ${t.muted(m.access)}\n`,
         );
       else out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
+      const once = m?.destructive || e.noAlways;
       const a = await ctx.prompter.choose(
-        `  ${t.muted(m?.destructive ? "[a] allow once  [d] deny  (destructive: asks every time)" : "[a] allow once  [A] always in this project  [d] deny")}`,
-        m?.destructive
+        `  ${t.muted(once ? `[a] allow once  [d] deny  (${m?.destructive ? "destructive" : "this tool"}: asks every time)` : "[a] allow once  [A] always in this project  [d] deny")}`,
+        once
           ? [
               { key: "a", label: "allow once" },
               { key: "d", label: "deny" },
@@ -200,7 +371,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
     ctx.spinner.start(label);
   };
 
-  out.write(`${t.star("✦")} ${t.bold("Task")} ${t.muted(`· ${choice.model}${planFirst ? " · plan first" : ""}`)}\n`);
+  out.write(`${t.star("✦")} ${t.bold(team ? "Team task" : "Task")} ${t.muted(`· ${choice.model}${team ? ` · up to ${flags.maxAgents ?? 3} agents at once` : planFirst ? " · plan first" : ""}`)}\n`);
   ctx.prompter.onInterrupt(() => {
     pause();
     out.write(t.muted("Stopping the task…\n"));
@@ -220,6 +391,14 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         maxSteps: flags.maxSteps,
         useMemory: flags.memory !== false,
         learn: flags.memory !== false,
+        ...(flags.skill?.length ? { skills: flags.skill } : {}),
+        ...(flags.skills === false ? { autoSkills: false } : {}),
+        ...(team
+          ? {
+              mode: "team" as const,
+              team: { ...(flags.maxAgents ? { maxAgents: flags.maxAgents } : {}), onFailure: ctx.prompter.interactive ? ("ask" as const) : ("continue" as const) },
+            }
+          : {}),
       },
       onEvent,
     );

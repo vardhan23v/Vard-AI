@@ -91,3 +91,36 @@ export function withReflection<T extends object>(model: T, reply: string): T {
   });
   return model;
 }
+
+export type RouteInfo = {
+  system: string;
+  /** The agent's assignment (its first user message). */
+  task: string;
+  /** Model calls this agent has made before this one. */
+  step: number;
+  /** Text of the latest tool results, if the last message holds them. */
+  lastResults: string[];
+};
+
+/**
+ * A model that answers by looking at the conversation, so concurrent agents (each its own
+ * AgentLoop sharing one model) get deterministic, per-agent scripts. `delayMs` slows each call.
+ */
+export function routedModel(route: (r: RouteInfo) => Turn, opts: { delayMs?: number; onCall?: (r: RouteInfo) => void } = {}) {
+  const text = (c: unknown): string =>
+    typeof c === "string" ? c : Array.isArray(c) ? c.map((p: any) => p.text ?? (p.output ? String(p.output.value ?? "") : "")).join("") : "";
+  return new MockLanguageModelV4({
+    doStream: async (o: any) => {
+      const prompt: any[] = o.prompt;
+      const system = prompt.filter((m) => m.role === "system").map((m) => text(m.content)).join("\n");
+      const task = text(prompt.find((m) => m.role === "user")?.content);
+      const step = prompt.filter((m) => m.role === "assistant").length;
+      const last = prompt[prompt.length - 1];
+      const lastResults = last?.role === "tool" ? last.content.map((p: any) => String(p.output?.value ?? "")) : [];
+      const info = { system, task, step, lastResults };
+      opts.onCall?.(info);
+      if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));
+      return { stream: convertArrayToReadableStream(turnParts(route(info))) };
+    },
+  });
+}

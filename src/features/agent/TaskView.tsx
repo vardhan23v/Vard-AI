@@ -17,11 +17,13 @@ import {
   Trash2,
   Wrench,
   XCircle,
+  Sparkles,
 } from "lucide-react";
 import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { Markdown } from "@/features/chat/Markdown";
+import { TeamDashboard } from "@/features/agents/TeamDashboard";
 import { DiffView } from "./DiffView";
 import { isRunning, taskActions, useTask, type LiveTask, type TimelineItem } from "./store";
 import { projectPath, type AgentTask } from "./projects";
@@ -71,6 +73,17 @@ export function TaskView({ task }: { task: AgentTask }) {
   const live = useTask(task.id);
   const status = live?.done?.status ?? live?.state ?? task.status;
   const running = isRunning(live);
+  const hasTeam = !!live?.team;
+
+  // After the window reloads, ask the agent for the team run's current state.
+  useEffect(() => {
+    if (
+      task.mode === "team" &&
+      !hasTeam &&
+      !["done", "blocked", "cancelled", "merged", "discarded"].includes(task.status)
+    )
+      void taskActions.sync(task.id).catch(() => {});
+  }, [task.id, task.mode, task.status, hasTeam]);
 
   return (
     <div className="flex h-full flex-col">
@@ -97,8 +110,11 @@ export function TaskView({ task }: { task: AgentTask }) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
           {!live && <OfflineSummary task={task} />}
-          {live?.pending?.kind === "plan" && <PlanApproval taskId={task.id} live={live} />}
-          {live?.plan && live.pending?.kind !== "plan" && (
+          {live?.team && <TeamDashboard task={task} live={live} />}
+          {!live?.team && live?.pending?.kind === "plan" && (
+            <PlanApproval taskId={task.id} live={live} />
+          )}
+          {!live?.team && live?.plan && live.pending?.kind !== "plan" && (
             <Card title="Plan" icon={<CircleDot className="size-4" />}>
               <Markdown text={live.plan} className="text-sm" />
             </Card>
@@ -109,8 +125,25 @@ export function TaskView({ task }: { task: AgentTask }) {
               Using {live.recall.count} of {live.recall.total} project notes
             </p>
           )}
+          {live?.skills && live.skills.length > 0 && (
+            <p className="flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
+              <Sparkles className="size-3.5 text-agent-foreground" aria-hidden />
+              Skills:
+              {live.skills.map((s) => (
+                <span
+                  key={s.id}
+                  title={s.reasons.join("; ")}
+                  className="rounded-full border border-border px-2 py-px text-foreground"
+                >
+                  {s.name}
+                </span>
+              ))}
+            </p>
+          )}
           {live && live.todos.length > 0 && <Todos todos={live.todos} />}
-          {live && live.timeline.length > 0 && <Timeline taskId={task.id} items={live.timeline} />}
+          {!live?.team && live && live.timeline.length > 0 && (
+            <Timeline taskId={task.id} items={live.timeline} />
+          )}
           {live?.pending?.kind === "tool" && <ToolApproval taskId={task.id} live={live} />}
           {live?.done && <Result task={task} live={live} />}
         </div>
@@ -119,7 +152,7 @@ export function TaskView({ task }: { task: AgentTask }) {
   );
 }
 
-function Card({
+export function Card({
   title,
   icon,
   children,
@@ -237,30 +270,55 @@ function PlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   );
 }
 
-function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
+export function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   const req = live.pending!;
   const m = req.mcp;
+  const agent = req.agentId ? live.team?.agents.find((a) => a.agentId === req.agentId) : undefined;
   return (
     <Card
       title={m ? `Allow ${m.serverName} to run ${m.tool}?` : "Allow this action?"}
       icon={<ShieldAlert className="size-4 text-primary" />}
       tone="attention"
     >
+      {(req.agentId || live.approvals.length > 1) && (
+        <p className="mb-2 text-xs text-muted-foreground">
+          {req.agentId && (
+            <>
+              Asked by the <span className="text-foreground">{agent?.role ?? "team"}</span> agent{" "}
+              <code className="text-xs">{req.agentId}</code>.{" "}
+            </>
+          )}
+          {live.approvals.length > 1 && `${live.approvals.length - 1} more waiting after this one.`}
+        </p>
+      )}
       {m ? (
         <div className="space-y-2 text-sm">
           <p className="flex flex-wrap items-center gap-2">
             <McpBadge server={m.serverName} />
             {m.destructive ? (
-              <span className="rounded-full border border-destructive/40 px-1.5 py-px text-xs text-destructive">destructive</span>
+              <span className="rounded-full border border-destructive/40 px-1.5 py-px text-xs text-destructive">
+                destructive
+              </span>
             ) : m.readOnly ? (
-              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">read-only (unverified)</span>
+              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">
+                read-only (unverified)
+              </span>
             ) : null}
           </p>
           <p>{m.access}</p>
-          <p className="text-xs text-muted-foreground">MCP servers are third-party code. Check the arguments before allowing.</p>
+          <p className="text-xs text-muted-foreground">
+            MCP servers are third-party code. Check the arguments before allowing.
+          </p>
         </div>
       ) : (
-        <p className="text-sm">{req.reason}</p>
+        <p className="text-sm">
+          {req.reason}
+          {req.noAlways && (
+            <span className="block text-xs text-muted-foreground">
+              This kind of action asks every time.
+            </span>
+          )}
+        </p>
       )}
       <pre className="mt-3 max-h-48 overflow-auto rounded-md bg-background/60 p-3 font-mono text-xs">
         {m ? m.tool : req.tool}: {formatInput(req.input)}
@@ -273,7 +331,7 @@ function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
         >
           Allow once
         </button>
-        {!m?.destructive && (
+        {!m?.destructive && !req.noAlways && (
           <button
             onClick={() => taskActions.approve(taskId, req.approvalId, "always")}
             className="min-h-10 rounded-md border border-input px-4 text-sm hover:bg-accent"
@@ -315,7 +373,7 @@ function Todos({ todos }: { todos: LiveTask["todos"] }) {
   );
 }
 
-function Timeline({ items }: { taskId: string; items: TimelineItem[] }) {
+export function Timeline({ items }: { taskId: string; items: TimelineItem[] }) {
   return (
     <ol className="space-y-2" aria-label="Agent steps">
       {items.map((item, i) => {
@@ -675,7 +733,10 @@ function SuggestedMemories({
 
 function McpBadge({ server }: { server: string }) {
   return (
-    <span className="inline-flex shrink-0 items-center gap-1 rounded-full border border-agent/50 px-1.5 py-px text-[11px] text-agent-foreground" title="Tool from an MCP server">
+    <span
+      className="inline-flex shrink-0 items-center gap-1 rounded-full border border-agent/50 px-1.5 py-px text-[11px] text-agent-foreground"
+      title="Tool from an MCP server"
+    >
       <Plug className="size-3" aria-hidden /> {server}
     </span>
   );

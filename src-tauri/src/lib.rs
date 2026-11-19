@@ -123,6 +123,12 @@ fn inject_keys(msg: &mut Value) -> Result<(), String> {
             fill(v)?;
         }
     }
+    // Team runs: per-role models (`team.models.<role>`).
+    if let Some(models) = msg.pointer_mut("/team/models").and_then(Value::as_object_mut) {
+        for v in models.values_mut() {
+            fill(v)?;
+        }
+    }
     Ok(())
 }
 

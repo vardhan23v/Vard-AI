@@ -6,8 +6,12 @@
 import fs from "node:fs";
 import { type ModelMessage, streamText } from "ai";
 import { AgentLoop, type ApprovalResponse, type LoopOptions, reflectOnTask } from "./loop";
+import { Orchestrator, OrchestrationError, ROLE_IDS, RoleRegistry, TeamOptions, type RoleConfig, type RoleId } from "./agents";
+import { ProviderConfig } from "./protocol";
 import { analyze, applyAuto, MemoryError, MemoryStore } from "./memory";
 import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, validateServerUrl, type SecretStore } from "./mcp";
+import { vardHome } from "./mcp/config";
+import { applySkillChange, previewTokens, projectSignals, renderSkillsBlock, SkillError, SkillRegistry, skillsForTask, type TaskSkills } from "./skills";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
 import { createModel, type ModelFactory } from "./providers";
@@ -31,6 +35,8 @@ export interface ServerDeps {
   mcp?: McpManager;
   mcpHome?: string;
   mcpSecrets?: SecretStore;
+  /** Where global skills and skill state live (defaults to ~/.vard, or $VARD_HOME). */
+  skillsHome?: string;
 }
 
 interface TaskEntry {
@@ -43,6 +49,8 @@ interface TaskEntry {
   worktree?: Worktree;
   running: boolean;
   done: Promise<void>;
+  /** Set for team runs. */
+  team?: Orchestrator;
 }
 
 export class Server {
@@ -119,7 +127,7 @@ export class Server {
         if (!resolve) throw new Error(`no pending approval ${req.approvalId} for task ${req.taskId}`);
         t.approvals.delete(req.approvalId);
         t.tracer.append({ type: "request", request: req, ts: Date.now() });
-        resolve({ decision: req.decision, reason: req.reason, plan: req.plan });
+        resolve({ decision: req.decision, reason: req.reason, plan: req.plan, graph: req.graph });
         return;
       }
       case "task.cancel": {
@@ -146,6 +154,26 @@ export class Server {
       case "mcp.permissions":
       case "mcp.secret":
         return this.mcpRequest(req);
+      case "skills.list":
+      case "skills.get":
+      case "skills.update":
+        return this.skillsRequest(req);
+      case "orch.control":
+      case "orch.status": {
+        const t = this.task(req.taskId);
+        if (!t.team) throw new Error(`task ${req.taskId} is not a team run`);
+        if (req.type === "orch.control") {
+          try {
+            t.team.control(req.action, req.subtaskId, req.note);
+          } catch (e) {
+            if (e instanceof OrchestrationError) throw new Error(e.message);
+            throw e;
+          }
+        }
+        return this.emitter(req.id, t.taskId)({ type: "orch_snapshot", state: t.team.snapshot() });
+      }
+      case "agents.roles":
+        return this.rolesRequest(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -234,10 +262,36 @@ export class Server {
       throw new Error(`project folder not found: ${req.projectRoot}`);
 
     const model = this.modelFactory(req.provider); // fail fast on a bad provider config
+    // Skills: resolve before anything starts, so a bad explicit skill fails the request cleanly.
+    let skills: TaskSkills | undefined;
+    const team = req.mode === "team";
+    if (team && !(await isGitRepo(req.projectRoot)))
+      throw new Error("Team mode needs a git repository with at least one commit (each agent works on its own branch).");
+    if (!team && (req.skills?.length || req.autoSkills !== false)) {
+      try {
+        const registry = this.skillRegistry(req.projectRoot);
+        skills = skillsForTask({
+          registry,
+          prompt: req.prompt,
+          explicit: req.skills,
+          auto: req.autoSkills,
+          signals: await projectSignals(req.projectRoot),
+          taskId,
+        });
+      } catch (e) {
+        if (e instanceof SkillError) throw new Error(e.message);
+        if (req.skills?.length) throw e;
+        skills = undefined; // automatic skills must never break a task
+      }
+    }
     const tracer = new Tracer(taskId, this.deps.traceDir);
     const { apiKey: _redacted, ...provider } = req.provider;
-    tracer.append({ type: "request", request: { ...req, provider }, ts: Date.now() });
+    const teamForTrace = req.team?.models
+      ? { ...req.team, models: Object.fromEntries(Object.entries(req.team.models).map(([k, v]) => [k, v && typeof v === "object" ? { ...(v as object), apiKey: undefined } : v])) }
+      : req.team;
+    tracer.append({ type: "request", request: { ...req, provider, ...(teamForTrace ? { team: teamForTrace } : {}) }, ts: Date.now() });
     const emit = this.emitter(req.id, taskId, tracer);
+    if (skills?.activated.length) emit({ type: "skills_activated", skills: skills.activated, tokens: skills.tokens });
 
     const entry: TaskEntry = {
       taskId,
@@ -252,7 +306,7 @@ export class Server {
     this.tasks.set(taskId, entry);
 
     let workRoot = req.projectRoot;
-    if (req.useWorktree && (await isGitRepo(req.projectRoot))) {
+    if ((req.useWorktree || team) && (await isGitRepo(req.projectRoot))) {
       try {
         entry.worktree = await createWorktree(req.projectRoot, taskId);
       } catch (e) {
@@ -291,6 +345,7 @@ export class Server {
       retry: this.deps.retry,
       signal: entry.abort.signal,
       memory,
+      ...(skills?.resolved.length ? { skills: { block: skills.block, tools: skills.tools } } : {}),
     };
     // MCP: connect this project's servers (bounded wait; failures stay per server) and offer
     // their tools through the normal tool registry.
@@ -307,6 +362,7 @@ export class Server {
       loopOptions.extraTools = () => this.mcp.toolDefs(projectRoot);
       loopOptions.mcpSummary = () => this.mcp.summary(projectRoot);
     }
+    if (team) return this.startTeam(req, entry, loopOptions, { emit, learn, memSettings: memSettings ?? undefined, store, hasMcp });
     const loop = new AgentLoop(loopOptions);
 
     entry.done = (async () => {
@@ -471,6 +527,140 @@ export class Server {
       }
     } catch (e) {
       throw new Error(toMcpError(e, "config").message);
+    }
+  }
+
+  /** A team run: the orchestrator replaces the single agent loop; done/diff/merge work as usual. */
+  private startTeam(
+    req: TaskStartRequest,
+    entry: TaskEntry,
+    lo: LoopOptions,
+    x: { emit: (e: import("./protocol").EventBody) => void; learn: boolean; memSettings?: { autoUpdate: string }; store: MemoryStore; hasMcp: boolean },
+  ) {
+    const projectRoot = lo.projectRoot;
+    const home = this.deps.skillsHome ?? this.deps.mcpHome ?? vardHome();
+    const options = TeamOptions.parse(req.team ?? {});
+    const registry = new RoleRegistry({ home, projectRoot });
+    const roles = Object.fromEntries(ROLE_IDS.map((id) => [id, registry.role(id)])) as Record<RoleId, RoleConfig>;
+    const label = (p: { provider: string; model: string }) => `${p.provider}/${p.model}`;
+    const modelFor = (role: RoleConfig) => {
+      const given = options.models?.[role.id];
+      if (given) {
+        const cfg = ProviderConfig.safeParse(given);
+        if (cfg.success) return { model: this.modelFactory(cfg.data), label: label(cfg.data) };
+      }
+      // A role model on the task's provider can reuse the task's key; others need team.models.
+      if (role.model && role.model.provider === req.provider.provider && (!role.model.baseURL || role.model.baseURL === req.provider.baseUrl))
+        return {
+          model: this.modelFactory({ ...req.provider, model: role.model.model, ...(role.model.baseURL ? { baseUrl: role.model.baseURL } : {}) }),
+          label: label(role.model),
+        };
+      return { model: lo.model, label: label(req.provider) };
+    };
+    const skillsOn = req.autoSkills !== false;
+    const orch = new Orchestrator({
+      taskId: entry.taskId,
+      goal: req.prompt,
+      projectRoot,
+      integration: entry.worktree!,
+      roles,
+      options,
+      emit: x.emit,
+      requestApproval: lo.requestApproval,
+      modelFor,
+      policyFor: (workRoot) =>
+        new Policy({
+          projectRoot,
+          workRoot,
+          allowlist: req.allowlist,
+          store: this.deps.rulesStoreFor?.(req.projectRoot) ?? new FileRulesStore(req.projectRoot),
+        }),
+      mcp: x.hasMcp
+        ? {
+            tools: () => this.mcp.toolDefs(projectRoot),
+            summary: () => this.mcp.summary(projectRoot),
+            addRoot: (p) => this.mcp.addRoot(projectRoot, p),
+            removeRoot: (p) => this.mcp.removeRoot(projectRoot, p),
+          }
+        : undefined,
+      skills: skillsOn ? this.skillRegistry(projectRoot) : undefined,
+      memory: lo.memory,
+      retry: this.deps.retry,
+      verifyCommand: req.verifyCommand,
+      signal: entry.abort.signal,
+      reflectModel: lo.model,
+      learn: x.learn ? { store: x.store, mode: x.memSettings?.autoUpdate === "auto" ? "auto" : "ask" } : null,
+    });
+    entry.team = orch;
+    entry.done = (async () => {
+      if (skillsOn) orch.setSignals(await projectSignals(projectRoot));
+      const r = await orch.run();
+      const diffStat = await worktreeDiff(entry.worktree!).then((d) => d.stat, () => undefined);
+      if (r.proposals.length) x.emit({ type: "memory_proposal", items: r.proposals });
+      entry.running = false;
+      entry.approvals.clear();
+      if (x.hasMcp && entry.worktree) this.mcp.removeRoot(projectRoot, entry.worktree.path);
+      x.emit({ type: "done", status: r.status, summary: r.summary, reason: r.reason, steps: r.steps, usage: r.usage, diffStat });
+    })();
+  }
+
+  /** agents.roles: list role configs, or save/reset a user override. */
+  private rolesRequest(req: Extract<Request, { type: "agents.roles" }>) {
+    const home = this.deps.skillsHome ?? this.deps.mcpHome ?? vardHome();
+    const reg = new RoleRegistry({ home, projectRoot: req.projectRoot });
+    try {
+      if (req.change) reg.save(req.change.scope, req.change.role, req.change.op === "save" ? req.change.override : null);
+      this.emitter(req.id)({ type: "agent_roles", roles: reg.all(), overrides: { global: reg.overrides("global"), project: reg.overrides("project") } });
+    } catch (e) {
+      if (e instanceof OrchestrationError) throw new Error(e.message);
+      throw e;
+    }
+  }
+
+  skillRegistry(projectRoot?: string) {
+    return new SkillRegistry({ home: this.deps.skillsHome ?? this.deps.mcpHome ?? vardHome(), projectRoot });
+  }
+
+  /** skills.list / skills.get / skills.update. Answers carry the request id. */
+  private async skillsRequest(req: Extract<Request, { type: `skills.${string}` }>) {
+    const emit = this.emitter(req.id);
+    if (req.projectRoot && (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory()))
+      throw new Error(`project folder not found: ${req.projectRoot}`);
+    const reg = this.skillRegistry(req.projectRoot);
+    const snapshot = (changed?: string) => {
+      const hasProjectSkills = reg.all().some((r) => r.source === "project");
+      emit({
+        type: "skills",
+        projectRoot: req.projectRoot,
+        skills: reg.summaries(),
+        trusted: req.projectRoot && hasProjectSkills ? reg.projectTrusted() : undefined,
+        globalDir: reg.globalDir,
+        projectDir: reg.projectDir,
+        ...(changed ? { changed } : {}),
+      });
+    };
+    try {
+      if (req.type === "skills.list") return snapshot();
+      if (req.type === "skills.get") {
+        const r = reg.find(req.skillId);
+        if (!r) throw new SkillError("not_found", `no skill "${req.skillId}"`);
+        const one = [{ record: r, activation: { id: r.id, name: r.name, source: r.source, version: r.frontmatter?.version ?? "", score: 0, reasons: [], explicit: true } }];
+        const text = r.frontmatter ? renderSkillsBlock(one) : "";
+        return emit({
+          type: "skill_detail",
+          skill: reg.summary(r),
+          text: r.text,
+          body: r.body,
+          usage: reg.usage(r).slice(0, 50),
+          preview: { text, tokens: r.frontmatter ? previewTokens(one) : 0 },
+        });
+      }
+      const res = applySkillChange(reg, req.change);
+      if (res.validation) return emit({ type: "skill_validation", ...res.validation });
+      return snapshot(res.id);
+    } catch (e) {
+      if (e instanceof SkillError) throw new Error(e.message);
+      throw e;
     }
   }
 

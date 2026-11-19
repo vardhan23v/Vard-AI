@@ -187,13 +187,22 @@ export class Policy {
         const relToWork = path.relative(inWork ? this.workRoot : this.projectRoot, abs);
         if (relToWork.split(path.sep).includes(".git"))
           return { action: "deny", reason: `writes into .git are not allowed: ${v}` };
-        if (!inWork && isInside(abs, path.join(this.projectRoot, ".vard")))
+        if ((!inWork && isInside(abs, path.join(this.projectRoot, ".vard"))) || isInside(abs, path.join(this.workRoot, ".vard")))
           return { action: "deny", reason: `writes into .vard are not allowed: ${v}` };
         if (!inWork) writeOutsideWork = true;
       }
     }
 
-    // 2. Risk classes.
+    // 2. Tools that always ask (skill scripts): no allowlist, no remembered approval.
+    if (tool.alwaysAsk) {
+      if (tool.risk === "exec") {
+        const c = classifyCommand(String(input.command ?? ""));
+        if (c.action === "deny") return { action: "deny", reason: c.reason! };
+      }
+      return { action: "ask", reason: tool.alwaysAsk };
+    }
+
+    // 3. Risk classes.
     switch (tool.risk) {
       case "mcp":
         return decideMcp(tool, input, (this.rules.mcp ??= {}), { workRoot: this.workRoot, projectRoot: this.projectRoot });
@@ -220,6 +229,7 @@ export class Policy {
 
   /** "Always for this project": remember the approval so the same call does not ask again. */
   remember(tool: ToolDef, input: Record<string, unknown>): boolean {
+    if (tool.alwaysAsk) return false;
     if (tool.risk === "mcp") {
       if (!rememberMcp(tool, input, (this.rules.mcp ??= {}))) return false;
       this.store.save(this.rules);

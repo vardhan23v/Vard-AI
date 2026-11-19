@@ -8,7 +8,8 @@ import { ModelPicker } from "@/features/chat/ModelPicker";
 import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { send } from "@/lib/agent-client";
+import { SkillPicker } from "@/features/skills/SkillPicker";
+import { agentRoles, send } from "@/lib/agent-client";
 import { MemoryTab } from "./MemoryTab";
 import { providerConfig, useModelChoice } from "@/lib/models";
 import { cn } from "@/lib/utils";
@@ -282,6 +283,10 @@ function NewTask({ project, path }: { project: Project; path: string }) {
   const [prompt, setPrompt] = useState("");
   const [planFirst, setPlanFirst] = useState(true);
   const [busy, setBusy] = useState(false);
+  const [autoSkills, setAutoSkills] = useState(true);
+  const [pickedSkills, setPickedSkills] = useState<string[]>([]);
+  const [teamMode, setTeamMode] = useState(false);
+  const [maxAgents, setMaxAgents] = useState(3);
 
   const start = async () => {
     const text = prompt.trim();
@@ -293,8 +298,25 @@ function NewTask({ project, path }: { project: Project; path: string }) {
         prompt: text,
         provider: choice.provider,
         model: choice.model,
+        ...(teamMode ? { mode: "team" as const } : {}),
       });
       startTaskStore();
+      // Roles with their own model: the shell adds each provider's key to team.models.
+      let models: Record<string, unknown> | undefined;
+      if (teamMode) {
+        const roles = await agentRoles.list(path).catch(() => null);
+        const entries = (roles?.roles ?? [])
+          .filter((r) => r.model)
+          .map((r) => [
+            r.id,
+            {
+              provider: r.model!.provider,
+              model: r.model!.model,
+              ...(r.model!.baseURL ? { baseUrl: r.model!.baseURL } : {}),
+            },
+          ]);
+        if (entries.length) models = Object.fromEntries(entries);
+      }
       await send(
         {
           type: "task.start",
@@ -307,6 +329,11 @@ function NewTask({ project, path }: { project: Project; path: string }) {
           allowlist: project.command_allowlist,
           verifyCommand: project.verify_command ?? undefined,
           useMemory: true,
+          autoSkills,
+          ...(pickedSkills.length ? { skills: pickedSkills } : {}),
+          ...(teamMode
+            ? { mode: "team" as const, team: { maxAgents, ...(models ? { models } : {}) } }
+            : {}),
         },
         `task-${task.id}`,
       );
@@ -351,13 +378,56 @@ function NewTask({ project, path }: { project: Project; path: string }) {
         placeholder="Describe a task, e.g. “Add input validation to the signup form and a test for it”"
         className="w-full resize-none rounded-lg border border-border bg-card p-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-input"
       />
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <ModelPicker />
-        <label className="flex items-center gap-2 text-xs text-muted-foreground">
-          <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" /> Plan
-          first
-        </label>
+      <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="flex flex-wrap items-center gap-2">
+          <ModelPicker />
+          <SkillPicker
+            projectRoot={path}
+            auto={autoSkills}
+            onAuto={setAutoSkills}
+            picked={pickedSkills}
+            onPicked={setPickedSkills}
+          />
+        </div>
+        <div className="flex flex-wrap items-center gap-3">
+          <label
+            className="flex items-center gap-2 text-xs text-muted-foreground"
+            title="A planner splits the task across specialist agents that work in parallel"
+          >
+            <Switch checked={teamMode} onCheckedChange={setTeamMode} aria-label="Team of agents" />{" "}
+            Team
+          </label>
+          {teamMode ? (
+            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+              Up to
+              <select
+                value={maxAgents}
+                onChange={(e) => setMaxAgents(Number(e.target.value))}
+                className="h-7 rounded border border-input bg-background px-1 text-xs outline-none focus:border-primary"
+                aria-label="Agents at once"
+              >
+                {[1, 2, 3, 4, 5, 6].map((n) => (
+                  <option key={n} value={n}>
+                    {n}
+                  </option>
+                ))}
+              </select>
+              at once
+            </label>
+          ) : (
+            <label className="flex items-center gap-2 text-xs text-muted-foreground">
+              <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" />{" "}
+              Plan first
+            </label>
+          )}
+        </div>
       </div>
+      {teamMode && (
+        <p className="mt-2 text-xs text-muted-foreground">
+          A planner splits the task; agents work in parallel on their own branches; you approve the
+          plan and the combined diff. Uses more tokens than a single agent.
+        </p>
+      )}
       <button
         type="submit"
         disabled={!prompt.trim() || busy}

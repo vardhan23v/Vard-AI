@@ -1,17 +1,32 @@
 import { useEffect, useState, type ComponentType, type ReactNode } from "react";
 import { Link, Outlet, useNavigate, useRouterState } from "@tanstack/react-router";
-import { FolderGit2, LogOut, MessagesSquare, PanelLeft, Plug, Settings } from "lucide-react";
+import {
+  FolderGit2,
+  LogOut,
+  MessagesSquare,
+  PanelLeft,
+  Plug,
+  Settings,
+  Sparkles,
+  Users,
+} from "lucide-react";
 
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
 
-type RailItem = { to: "/chat" | "/projects" | "/integrations" | "/settings"; label: string; icon: ComponentType<{ className?: string }> };
+type RailItem = {
+  to: "/chat" | "/projects" | "/integrations" | "/skills" | "/agents" | "/settings";
+  label: string;
+  icon: ComponentType<{ className?: string }>;
+};
 
 const RAIL: RailItem[] = [
   { to: "/chat", label: "Chats", icon: MessagesSquare },
   { to: "/projects", label: "Projects", icon: FolderGit2 },
   { to: "/integrations", label: "Integrations", icon: Plug },
+  { to: "/agents", label: "Agents", icon: Users },
+  { to: "/skills", label: "Skills", icon: Sparkles },
 ];
 
 /**
@@ -65,7 +80,10 @@ export function AppShell({ list }: { list?: ReactNode }) {
         >
           <PanelLeft className="size-5" />
         </button>
-        <RailLink item={{ to: "/settings", label: "Settings", icon: Settings }} active={isActive("/settings")} />
+        <RailLink
+          item={{ to: "/settings", label: "Settings", icon: Settings }}
+          active={isActive("/settings")}
+        />
         <button
           type="button"
           onClick={async () => {
@@ -92,7 +110,11 @@ export function AppShell({ list }: { list?: ReactNode }) {
 
       {/* Main */}
       <main className="relative min-w-0 flex-1" style={{ paddingTop: "var(--titlebar-h)" }}>
-        <div className="absolute inset-x-0 top-0 z-10" style={{ height: "var(--titlebar-h)" }} data-tauri-drag-region />
+        <div
+          className="absolute inset-x-0 top-0 z-10"
+          style={{ height: "var(--titlebar-h)" }}
+          data-tauri-drag-region
+        />
         <Outlet />
       </main>
     </div>
@@ -109,10 +131,17 @@ function RailLink({ item, active }: { item: RailItem; active: boolean }) {
       aria-current={active ? "page" : undefined}
       className={cn(
         "relative inline-flex size-11 items-center justify-center rounded-lg transition-colors",
-        active ? "bg-accent text-foreground" : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        active
+          ? "bg-accent text-foreground"
+          : "text-muted-foreground hover:bg-accent hover:text-foreground",
       )}
     >
-      {active && <span className="absolute top-2 bottom-2 -left-2.5 w-0.5 rounded-full bg-primary" aria-hidden />}
+      {active && (
+        <span
+          className="absolute top-2 bottom-2 -left-2.5 w-0.5 rounded-full bg-primary"
+          aria-hidden
+        />
+      )}
       <Icon className="size-5" />
     </Link>
   );

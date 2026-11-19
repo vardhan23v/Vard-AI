@@ -7,7 +7,7 @@ import { MemoryStore } from "../src/memory";
 import { MemorySecrets } from "../src/mcp";
 import { NonInteractivePrompter, ScriptedPrompter } from "../src/cli/prompt";
 import { TokenPrinter, makeTheme } from "../src/cli/render";
-import { scriptedModel, sh, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
+import { routedModel, scriptedModel, sh, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
 
 class Buf {
   text = "";
@@ -302,4 +302,91 @@ describe("models and config", () => {
     const cfg = JSON.parse(fs.readFileSync(path.join(h.home, "cli.json"), "utf8"));
     expect(cfg).toMatchObject({ provider: "anthropic", model: "claude-sonnet-5-5" });
   });
+});
+
+describe("vard skills", () => {
+  test("parses --skill (repeatable) and --no-skills", () => {
+    const p = parseCliArgs(["run", "x", "--skill", "react-development", "--skill", "testing-strategy", "--no-skills"]);
+    expect(p.flags.skill).toEqual(["react-development", "testing-strategy"]);
+    expect(p.flags.skills).toBe(false);
+    expect(parseCliArgs(["skills", "list"]).command).toBe("skills");
+  });
+
+  test("list, new, validate, disable, show, import and rm", async () => {
+    const repo = tmpGitRepo();
+    const h = io({ cwd: repo, stdin: "", answers: ["y"] });
+    expect(await runCli(["skills"], h.opts)).toBe(0);
+    expect(h.out.text).toContain("Built-in");
+    expect(h.out.text).toContain("react-development");
+
+    expect(await runCli(["skills", "new", "team-style", "--description", "Our team style"], h.opts)).toBe(0);
+    expect(fs.existsSync(path.join(h.home, "skills", "team-style", "SKILL.md"))).toBe(true);
+    expect(await runCli(["skills", "validate", "team-style"], h.opts)).toBe(0);
+    expect(await runCli(["skills", "disable", "team-style"], h.opts)).toBe(0);
+    h.out.text = "";
+    expect(await runCli(["skills", "show", "team-style"], h.opts)).toBe(0);
+    expect(h.out.text).toContain("disabled");
+    expect(h.out.text).toContain("Our team style");
+
+    const src = tmpDir();
+    fs.mkdirSync(path.join(src, "ext"));
+    fs.writeFileSync(path.join(src, "ext", "SKILL.md"), "---\nname: ext\ndescription: External\n---\nDo it.\n");
+    h.out.text = "";
+    expect(await runCli(["skills", "import", path.join(src, "ext")], h.opts)).toBe(0);
+    expect(h.out.text).toContain("Imported global:ext");
+    expect(h.out.text).toContain("disabled");
+    expect(await runCli(["skills", "rm", "ext"], h.opts)).toBe(0);
+    expect(fs.existsSync(path.join(h.home, "skills", "ext"))).toBe(false);
+
+    expect(await runCli(["skills", "show", "nope"], h.opts)).toBe(1);
+    expect(h.err.text).toContain('No skill "nope"');
+  });
+
+  test("vard run --skill shows the skills in use", async () => {
+    const repo = tmpGitRepo();
+    const h = io({ cwd: repo, stdin: "", turns: [{ text: "Nothing to change." }] });
+    const code = await runCli(["run", "check things", "--no-plan", "--no-worktree", "--no-memory", "--skill", "code-review", "-y"], h.opts);
+    expect(code).toBe(0);
+    expect(h.out.text).toContain("Skills: code-review");
+    const bad = io({ cwd: repo, stdin: "" });
+    expect(await runCli(["run", "x", "--no-plan", "--skill", "missing", "-y"], bad.opts)).not.toBe(0);
+    expect(bad.err.text).toContain("missing");
+  });
+});
+
+describe("vard run --team", () => {
+  test("parses --team and --max-agents", () => {
+    const p = parseCliArgs(["run", "x", "--team", "--max-agents", "2"]);
+    expect(p.flags).toMatchObject({ team: true, maxAgents: 2 });
+    expect(() => parseCliArgs(["run", "x", "--team", "--max-agents", "9"])).toThrow(/1 to 6/);
+  });
+
+  test("runs a team in a repo and prints each subtask and the review", async () => {
+    const repo = tmpGitRepo();
+    const plan = {
+      summary: "two parts",
+      tasks: [
+        { id: "api", title: "Add the API", role: "backend", description: "write api.txt", files: ["api.txt"] },
+        { id: "ui", title: "Add the UI", role: "frontend", description: "write ui.txt", dependsOn: ["api"], files: ["ui.txt"] },
+      ],
+    };
+    const model = routedModel((r) => {
+      if (r.task.startsWith("Plan this request")) return { text: "```json\n" + JSON.stringify(plan) + "\n```" };
+      if (r.task.startsWith("Review the combined")) return { text: '```json\n{"verdict":"approve","summary":"Fine.","findings":[]}\n```' };
+      const sub = /subtask "([^"]+)"/.exec(r.task)?.[1];
+      return r.step === 0 ? { calls: [{ name: "write_file", input: { path: `${sub}.txt`, content: `${sub}\n` } }] } : { text: `${sub} done` };
+    });
+    const h = io({ cwd: repo, stdin: "" });
+    h.opts.modelFactory = () => model;
+    const code = await runCli(["run", "build api and ui", "--team", "--no-memory", "-y"], h.opts);
+    expect(h.err.text).toBe("");
+    expect(code).toBe(0);
+    expect(h.out.text).toContain("Team task");
+    expect(h.out.text).toContain("✓ Add the API");
+    expect(h.out.text).toContain("✓ Add the UI");
+    expect(h.out.text).toContain("[backend-api]");
+    expect(h.out.text).toContain("Review approved");
+    expect(h.out.text).toContain("2/2 subtasks completed");
+    expect(h.out.text).toContain("Merged vard/");
+  }, 30_000);
 });
