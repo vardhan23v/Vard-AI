@@ -117,7 +117,7 @@ export function analyzeImpact(ix: CodeIndex, target: string, o: { depth?: number
     indirect: indirect.sort((a, b) => a.depth - b.depth || a.path.localeCompare(b.path)).slice(0, 100),
     referencing: referencing.slice(0, 100),
     publicApi: publicApi.slice(0, 50),
-    tests,
+    tests: tests.slice(0, 200),
     config,
     verify,
     risk,
@@ -135,7 +135,7 @@ export function renderImpact(r: ImpactReport): string {
   if (r.indirect.length) L.push(`Indirect (${r.indirect.length}): ${r.indirect.slice(0, 20).map((d) => `${d.path} [${d.depth}]`).join(", ")}`);
   if (r.referencing.length) L.push(`References: ${r.referencing.slice(0, 20).map((x) => `${x.path}:${x.line}${x.symbol ? ` in ${x.symbol}` : ""}`).join(", ")}`);
   if (r.publicApi.length) L.push(`Public API: ${r.publicApi.slice(0, 15).map((s) => `${s.name} (${s.path}:${s.line})`).join(", ")}`);
-  L.push(`Tests: ${r.tests.length ? r.tests.join(", ") : "none found"}`);
+  L.push(`Tests (${r.tests.length}): ${r.tests.length ? r.tests.slice(0, 30).join(", ") + (r.tests.length > 30 ? ", …" : "") : "none found"}`);
   if (r.config.length) L.push(`Config: ${r.config.join(", ")}`);
   if (r.verify.length) L.push(`Verify with: ${r.verify.join(" · ")}`);
   for (const n of r.notes) L.push(`Note: ${n}`);
