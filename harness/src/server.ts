@@ -13,6 +13,8 @@ import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, 
 import { vardHome } from "./mcp/config";
 import { architecture, CodeGraph, CodeIntel, codeTools, deleteIndex, IntelError, loadIndexConfig, renderArchitecture, saveIndexConfig, searchCode, analyzeImpact, updateEmbeddings } from "./intelligence";
 import { ALL_TOOLS } from "./tools";
+import { BrowserManager, browserTools, cleanArtifacts, detectBrowser, DevServers, installBrowser, listArtifacts, readArtifact, BrowserError, checkUrl, VIEWPORTS } from "./browser";
+import { supportsVision } from "./catalog";
 import nodePath from "node:path";
 import { applySkillChange, previewTokens, projectSignals, renderSkillsBlock, SkillError, SkillRegistry, skillsForTask, type TaskSkills } from "./skills";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
@@ -66,11 +68,23 @@ export class Server {
   /** Code indexes (one per project), shared by tasks, the UI and the CLI. */
   readonly intel: CodeIntel;
   private codeBuilds = new Map<string, AbortController>();
+  /** The test browser (launched lazily) and dev servers started by tasks. */
+  readonly browser: BrowserManager;
+  readonly devServers: DevServers;
+  private installing: Promise<unknown> | null = null;
   private codeProgressAt = new Map<string, number>();
   private mcpPush = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(private deps: ServerDeps) {
     this.modelFactory = deps.modelFactory ?? createModel;
+    const browserEmit = (taskId?: string) => this.emitter("browser", taskId);
+    this.browser = new BrowserManager({
+      projectOrigins: (root) => (this.deps.rulesStoreFor?.(root) ?? new FileRulesStore(root)).load().browserOrigins ?? [],
+      onSession: (session) => browserEmit(session.taskId)({ type: "browser_session", session, ...(session.agentId ? { agentId: session.agentId } : {}) }),
+      onAction: (session, action, ok, detail) => browserEmit(session.taskId)({ type: "browser_action", sessionId: session.id, action, ok, detail, ...(session.agentId ? { agentId: session.agentId } : {}) }),
+      onReport: (session, report) => browserEmit(session.taskId)({ type: "browser_report", sessionId: session.id, report, ...(session.agentId ? { agentId: session.agentId } : {}) }),
+    });
+    this.devServers = new DevServers((server) => browserEmit(server.taskId)({ type: "dev_server", server }));
     this.intel = new CodeIntel({
       onStatus: (status) => this.emitter("code")({ type: "code_index_status", status }),
       onProgress: (projectRoot, done, total) => {
@@ -195,6 +209,14 @@ export class Server {
       case "code.query":
       case "code.config":
         return this.codeRequest(req);
+      case "browser.status":
+      case "browser.install":
+      case "browser.sessions":
+      case "browser.control":
+      case "artifacts.list":
+      case "artifacts.get":
+      case "artifacts.clean":
+        return this.browserRequest(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -383,6 +405,10 @@ export class Server {
       loopOptions.extraTools = () => this.mcp.toolDefs(projectRoot);
       loopOptions.mcpSummary = () => this.mcp.summary(projectRoot);
     }
+    // Browser: tools for UI work (asked for, or the request is about pages, layout or testing).
+    loopOptions.vision = supportsVision(req.provider.provider, req.provider.model);
+    if (wantsBrowser(req)) loopOptions.tools = [...(loopOptions.tools ?? ALL_TOOLS), ...this.browserTools(loopOptions)];
+
     // Code intelligence: update (or build) the project's index within a bounded wait, then give
     // the agent the code tools and a short overview.
     if (req.codeIndex !== false) {
@@ -390,7 +416,7 @@ export class Server {
         const state = await this.intel.ensure(projectRoot, 15_000);
         const ix = this.intel.get(projectRoot);
         const overview = ix.exists() ? renderArchitecture(architecture(ix), 1_500) : "";
-        loopOptions.tools = [...ALL_TOOLS, ...codeTools(this.intel)];
+        loopOptions.tools = [...(loopOptions.tools ?? ALL_TOOLS), ...codeTools(this.intel)];
         if (overview) loopOptions.codebase = overview;
         emit({ type: "code_context", overview, indexing: state === "building" });
       } catch {
@@ -412,6 +438,7 @@ export class Server {
       }
       entry.running = false;
       entry.approvals.clear();
+      await this.endBrowserWork(taskId);
       if (hasMcp && workRoot !== projectRoot) this.mcp.removeRoot(projectRoot, workRoot);
       emit({
         type: "done",
@@ -634,6 +661,7 @@ export class Server {
       if (r.proposals.length) x.emit({ type: "memory_proposal", items: r.proposals });
       entry.running = false;
       entry.approvals.clear();
+      await this.endBrowserWork(entry.taskId);
       if (x.hasMcp && entry.worktree) this.mcp.removeRoot(projectRoot, entry.worktree.path);
       x.emit({ type: "done", status: r.status, summary: r.summary, reason: r.reason, steps: r.steps, usage: r.usage, diffStat });
     })();
@@ -695,6 +723,88 @@ export class Server {
       return snapshot(res.id);
     } catch (e) {
       if (e instanceof SkillError) throw new Error(e.message);
+      throw e;
+    }
+  }
+
+  browserTools(lo: Pick<LoopOptions, "vision">) {
+    return browserTools({ mgr: this.browser, dev: this.devServers, vision: () => !!lo.vision });
+  }
+
+  /** Closes a task's browser sessions and stops its dev servers (screenshots and reports stay). */
+  async endBrowserWork(taskId: string) {
+    this.devServers.stopTask(taskId);
+    await this.browser.closeTask(taskId).catch(() => {});
+  }
+
+  /** browser.* and artifacts.* requests from the UI and CLI. */
+  private async browserRequest(req: Extract<Request, { type: `browser.${string}` | `artifacts.${string}` }>) {
+    const emit = this.emitter(req.id);
+    try {
+      switch (req.type) {
+        case "browser.status":
+          return emit({ type: "browser_status", install: detectBrowser(), running: this.browser.running, sessions: this.browser.list(), devServers: this.devServers.list() });
+        case "browser.install": {
+          const found = detectBrowser();
+          if (!found.installed || req.force) {
+            let last = 0;
+            this.installing ??= installBrowser({
+              onProgress: (received, total) => {
+                if (Date.now() - last < 300 && received < total) return;
+                last = Date.now();
+                this.emitter(req.id)({ type: "browser_install_progress", received, total });
+              },
+            }).finally(() => (this.installing = null));
+            await this.installing;
+          }
+          return emit({ type: "browser_status", install: detectBrowser(), running: this.browser.running, sessions: this.browser.list(), devServers: this.devServers.list() });
+        }
+        case "browser.sessions":
+          return emit({ type: "browser_status", install: detectBrowser(), running: this.browser.running, sessions: this.browser.list(), devServers: this.devServers.list() });
+        case "browser.control": {
+          const s = this.browser.find(req.sessionId);
+          if (!s || s.state === "closed") throw new BrowserError("closed", "That browser session is closed.");
+          const key = [...this.browser.sessions].find(([, v]) => v === s)![0];
+          switch (req.action) {
+            case "stop":
+              await this.browser.close(key);
+              break;
+            case "navigate": {
+              // You typed this URL, so other sites are allowed for this session; file: and the like never are.
+              const c = checkUrl(req.url ?? "", [...s.allowed]);
+              if (c.action === "deny") throw new BrowserError("blocked", c.reason);
+              if (c.origin) s.allowed.add(c.origin);
+              await this.browser.act(s, "navigate (you)", () => s.page().goto(req.url!, { waitUntil: "load", timeout: 30_000 }));
+              break;
+            }
+            case "back":
+              await this.browser.act(s, "back (you)", () => s.page().goBack({ timeout: 15_000 }));
+              break;
+            case "reload":
+              await this.browser.act(s, "reload (you)", () => s.page().reload({ timeout: 30_000 }));
+              break;
+            case "viewport":
+              await this.browser.act(s, "viewport (you)", () => this.browser.setViewport(s, req.viewport ?? "laptop"));
+              break;
+            case "screenshot":
+              await this.browser.act(s, "screenshot (you)", () => s.screenshot({ label: "manual", fullPage: true }));
+              break;
+          }
+          return emit({ type: "browser_status", install: detectBrowser(), running: this.browser.running, sessions: this.browser.list(), devServers: this.devServers.list() });
+        }
+        case "artifacts.list":
+          return emit({ type: "artifacts", projectRoot: req.projectRoot, items: listArtifacts(req.projectRoot, req.run).slice(0, 500) });
+        case "artifacts.get": {
+          const a = readArtifact(req.projectRoot, req.path);
+          return emit({ type: "artifact", path: req.path, ...a });
+        }
+        case "artifacts.clean": {
+          const r = cleanArtifacts(req.projectRoot, { run: req.run, olderThanDays: req.olderThanDays });
+          return emit({ type: "artifacts", projectRoot: req.projectRoot, items: listArtifacts(req.projectRoot), removed: r.removed, bytes: r.bytes });
+        }
+      }
+    } catch (e) {
+      if (e instanceof BrowserError) throw new Error(e.message);
       throw e;
     }
   }
@@ -805,10 +915,20 @@ export class Server {
   /** Abort everything (used on stdin EOF) and wait for tasks to settle. */
   async shutdown() {
     for (const c of this.codeBuilds.values()) c.abort();
+    this.devServers.stopAll();
+    await this.browser.closeAll().catch(() => {});
     this.intel.closeAll();
     await this.mcp.closeAll().catch(() => {});
     for (const c of this.chats.values()) c.abort();
     for (const t of this.tasks.values()) t.abort.abort();
     await Promise.allSettled([...this.tasks.values()].map((t) => t.done));
   }
+}
+
+const BROWSER_WORDS = /\b(browser|web ?page|page|pages|ui|layout|responsive|mobile|desktop|tablet|viewport|screenshot|visual|css|style|styling|dashboard|form|button|click|render|frontend|front-end|website|site|e2e|end-to-end|playwright|navigation|navbar|menu|overflow|dev server|localhost)\b/i;
+
+/** Browser tools are offered when asked for, or when the request is about pages, layout or UI testing. */
+export function wantsBrowser(req: TaskStartRequest): boolean {
+  if (req.browser !== undefined) return req.browser;
+  return BROWSER_WORDS.test(req.prompt);
 }

@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
 import { AgentMessage, AgentRun, IntegrationRecord, OrchControl, OrchestrationState, OrchPhase, ReviewResult, RoleConfig, RoleId, RoleOverride, SubtaskState, TaskGraph, TeamRequest } from "./agents/schema";
+import { BrowserInstall, BrowserReport, BrowserSessionInfo, DevServerInfo, ViewportName } from "./browser/schema";
 import { CodeSymbol, GraphData, ImpactReport, IndexConfig, IndexStatus, SearchHit } from "./intelligence/schema";
 import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
 import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
@@ -78,6 +79,8 @@ export const TaskStartRequest = z.object({
   skills: z.array(z.string().min(1).max(200)).max(10).optional(),
   /** Pick relevant skills automatically (unset means yes). */
   autoSkills: z.boolean().optional(),
+  /** Offer the browser and dev-server tools (unset: when the request is about pages, layout or UI). */
+  browser: z.boolean().optional(),
   /** Use the code index (build or update it before the task; unset means yes). */
   codeIndex: z.boolean().optional(),
   /** "team": a planner splits the work across specialist agents (needs a git repo). */
@@ -248,6 +251,25 @@ export type CodeQuery = z.infer<typeof CodeQuery>;
 export const CodeQueryRequest = z.object({ ...codeReq, type: z.literal("code.query"), query: CodeQuery });
 export const CodeConfigRequest = z.object({ ...reqBase, type: z.literal("code.config"), projectRoot: z.string().min(1), config: IndexConfig.partial().optional() });
 
+// ---------- browser ----------
+
+export const BrowserStatusRequest = z.object({ ...reqBase, type: z.literal("browser.status") });
+/** Downloads Chrome Headless Shell into Playwright's cache (only when you ask). */
+export const BrowserInstallRequest = z.object({ ...reqBase, type: z.literal("browser.install"), force: z.boolean().optional() });
+export const BrowserSessionsRequest = z.object({ ...reqBase, type: z.literal("browser.sessions") });
+export const BrowserControlRequest = z.object({
+  ...reqBase,
+  type: z.literal("browser.control"),
+  sessionId: z.string().min(1).max(80),
+  action: z.enum(["navigate", "back", "reload", "viewport", "screenshot", "stop"]),
+  url: z.string().max(2000).optional(),
+  viewport: ViewportName.optional(),
+});
+const artReq = { ...reqBase, projectRoot: z.string().min(1) };
+export const ArtifactsListRequest = z.object({ ...artReq, type: z.literal("artifacts.list"), run: z.string().max(200).optional() });
+export const ArtifactsGetRequest = z.object({ ...artReq, type: z.literal("artifacts.get"), path: z.string().min(1).max(1000) });
+export const ArtifactsCleanRequest = z.object({ ...artReq, type: z.literal("artifacts.clean"), run: z.string().max(200).optional(), olderThanDays: z.number().min(0).max(3650).optional() });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -276,6 +298,13 @@ export const Request = z.discriminatedUnion("type", [
   CodeIndexRequest,
   CodeQueryRequest,
   CodeConfigRequest,
+  BrowserStatusRequest,
+  BrowserInstallRequest,
+  BrowserSessionsRequest,
+  BrowserControlRequest,
+  ArtifactsListRequest,
+  ArtifactsGetRequest,
+  ArtifactsCleanRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -332,6 +361,8 @@ export const Event = z.discriminatedUnion("type", [
     tool: z.string(),
     ok: z.boolean(),
     output: z.string(),
+    /** Screenshot files the tool saved (task artifacts). */
+    images: z.array(z.string()).optional(),
   }),
   z.object({
     ...evBase,
@@ -531,6 +562,22 @@ export const Event = z.discriminatedUnion("type", [
     roles: z.array(RoleConfig),
     overrides: z.object({ global: z.record(z.string(), RoleOverride), project: z.record(z.string(), RoleOverride) }),
   }),
+  // Browser.
+  z.object({ ...evBase, type: z.literal("browser_status"), install: BrowserInstall, running: z.boolean(), sessions: z.array(BrowserSessionInfo), devServers: z.array(DevServerInfo) }),
+  z.object({ ...evBase, type: z.literal("browser_install_progress"), received: z.number(), total: z.number() }),
+  z.object({ ...evBase, type: z.literal("browser_session"), session: BrowserSessionInfo }),
+  z.object({ ...evBase, type: z.literal("browser_action"), sessionId: z.string(), action: z.string(), ok: z.boolean(), detail: z.string().optional() }),
+  z.object({ ...evBase, type: z.literal("browser_report"), sessionId: z.string(), report: BrowserReport }),
+  z.object({ ...evBase, type: z.literal("dev_server"), server: DevServerInfo }),
+  z.object({
+    ...evBase,
+    type: z.literal("artifacts"),
+    projectRoot: z.string(),
+    items: z.array(z.object({ path: z.string(), run: z.string(), name: z.string(), bytes: z.number(), at: z.number() })),
+    removed: z.number().optional(),
+    bytes: z.number().optional(),
+  }),
+  z.object({ ...evBase, type: z.literal("artifact"), path: z.string(), data: z.string(), mediaType: z.string(), bytes: z.number() }),
   // Code intelligence.
   z.object({ ...evBase, type: z.literal("code_index_status"), status: IndexStatus }),
   z.object({ ...evBase, type: z.literal("code_index_progress"), projectRoot: z.string(), done: z.number(), total: z.number() }),

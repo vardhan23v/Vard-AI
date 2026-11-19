@@ -11,6 +11,7 @@ import { reflectOnTask, type ApprovalRequest, type ApprovalResponse, type LoopRe
 import { applyAuto, type MemoryStore, type Proposal } from "../memory";
 import type { EventBody, Usage } from "../protocol";
 import { runCommand } from "../tools/command";
+import { textOf } from "../tools/types";
 import { git, truncateMiddle } from "../util";
 import { createWorktree, discardWorktree, type Worktree } from "../worktree";
 import { MessageBus } from "./communication";
@@ -476,10 +477,10 @@ export class Orchestrator {
     const cmd = this.d.verifyCommand;
     if (!cmd) return undefined;
     this.emit({ type: "verify", status: "running", command: cmd });
-    const out = await runCommand.execute(
+    const out = textOf(await runCommand.execute(
       { command: cmd, timeoutSec: 600 },
       { workRoot: this.d.integration.path, projectRoot: this.d.projectRoot, todos: [], setTodos: () => {}, signal: this.d.signal },
-    );
+    ));
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);
     this.emit({ type: "verify", status: ok ? "passed" : "failed", command: cmd, output });

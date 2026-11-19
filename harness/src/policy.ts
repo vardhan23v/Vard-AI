@@ -11,6 +11,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import { decideMcp, type McpRules, rememberMcp } from "./mcp/permissions";
+import { decideBrowser, rememberBrowser } from "./browser/permissions";
 import type { McpCallInfo } from "./mcp/types";
 import type { ToolDef } from "./tools/types";
 import { isInside, realpathLoose } from "./util";
@@ -21,6 +22,8 @@ export interface Decision {
   reason: string;
   /** For MCP tools: what the user is approving (shown with the approval). */
   mcp?: McpCallInfo;
+  /** "Always" can't be chosen for this call. */
+  noAlways?: boolean;
 }
 
 export interface ProjectRules {
@@ -30,6 +33,8 @@ export interface ProjectRules {
   tools: string[];
   /** MCP decisions for this project, keyed "<server>/<tool>" ("*" for a whole server). */
   mcp?: McpRules;
+  /** Origins (outside this Mac) the browser agent may open without asking. */
+  browserOrigins?: string[];
 }
 
 export interface RulesStore {
@@ -46,7 +51,7 @@ export class FileRulesStore implements RulesStore {
   load(): ProjectRules {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return { allowlist: raw.allowlist ?? [], tools: raw.tools ?? [], mcp: raw.mcp ?? {} };
+      return { allowlist: raw.allowlist ?? [], tools: raw.tools ?? [], mcp: raw.mcp ?? {}, ...(raw.browserOrigins ? { browserOrigins: raw.browserOrigins } : {}) };
     } catch {
       return { allowlist: [], tools: [] };
     }
@@ -204,6 +209,8 @@ export class Policy {
 
     // 3. Risk classes.
     switch (tool.risk) {
+      case "browser":
+        return decideBrowser(tool, input, this.rules);
       case "mcp":
         return decideMcp(tool, input, (this.rules.mcp ??= {}), { workRoot: this.workRoot, projectRoot: this.projectRoot });
       case "read":
@@ -230,6 +237,11 @@ export class Policy {
   /** "Always for this project": remember the approval so the same call does not ask again. */
   remember(tool: ToolDef, input: Record<string, unknown>): boolean {
     if (tool.alwaysAsk) return false;
+    if (tool.risk === "browser") {
+      if (input.confirm_sensitive === true || !rememberBrowser(tool, input, this.rules)) return false;
+      this.store.save(this.rules);
+      return true;
+    }
     if (tool.risk === "mcp") {
       if (!rememberMcp(tool, input, (this.rules.mcp ??= {}))) return false;
       this.store.save(this.rules);

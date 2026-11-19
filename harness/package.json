@@ -6,7 +6,7 @@
   "scripts": {
     "test": "bun test",
     "typecheck": "tsc --noEmit",
-    "build": "bun build src/bin.ts --compile --outfile dist/vard"
+    "build": "bun build src/bin.ts --compile --external chromium-bidi --external 'chromium-bidi/*' --outfile dist/vard"
   },
   "dependencies": {
     "@ai-sdk/anthropic": "^4.0.99",
@@ -18,6 +18,7 @@
     "ai": "^7.0.166",
     "ink": "^6.8.0",
     "ollama-ai-provider-v2": "^4.1.0",
+    "playwright-core": "1.61.1",
     "react": "^19.3.1",
     "react-devtools-core": "file:./stubs/react-devtools-core",
     "zod": "^4.6.7"

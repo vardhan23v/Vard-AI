@@ -6,7 +6,7 @@ import { isInside, realpathLoose } from "../util";
  * read: no side effects. write: changes files. exec: runs arbitrary processes.
  * mcp: a tool from an external MCP server (untrusted; permission is decided per server/tool).
  */
-export type Risk = "read" | "write" | "exec" | "mcp";
+export type Risk = "read" | "write" | "exec" | "mcp" | "browser";
 
 /** Where an MCP tool comes from, and what its (unverified) annotations claim. */
 export interface McpToolMeta {
@@ -35,6 +35,8 @@ export interface ToolContext {
   todos: Todo[];
   setTodos(todos: Todo[]): void;
   signal?: AbortSignal;
+  /** The loop's task id ("<task>.<agent>" for team agents): keys per-agent state such as browser sessions. */
+  taskId?: string;
 }
 
 export interface ToolDef<I = any> {
@@ -48,7 +50,7 @@ export interface ToolDef<I = any> {
   maxOutput: number;
   /** Shapes the raw output to fit maxOutput. */
   truncate(output: string): string;
-  execute(input: I, ctx: ToolContext): Promise<string>;
+  execute(input: I, ctx: ToolContext): Promise<string | ToolOutput>;
   /** JSON Schema sent to the model as-is (MCP tools); otherwise derived from inputSchema. */
   jsonSchema?: Record<string, unknown>;
   /** Set for MCP tools. */
@@ -58,9 +60,20 @@ export interface ToolDef<I = any> {
    * (skill scripts). "Always for this project" is refused for such tools.
    */
   alwaysAsk?: string;
+  /** Set for browser tools: which kind of action (the policy checks URLs and sensitive actions). */
+  browser?: { action: string };
+}
+
+/** A tool result with images (screenshots). Models that can't see images get the text only. */
+export interface ToolOutput {
+  text: string;
+  images?: { path: string; mediaType: string }[];
 }
 
 export class ToolError extends Error {}
+
+/** The text of a tool result (rich results carry images too). */
+export const textOf = (o: string | ToolOutput): string => (typeof o === "string" ? o : o.text);
 
 /** Resolve `p` against the work root, refusing anything that lands outside root/project. */
 export function resolveIn(ctx: ToolContext, p: string): string {
