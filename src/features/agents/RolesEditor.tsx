@@ -119,15 +119,25 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
         </fieldset>
         <fieldset className="space-y-2">
           <legend className="mb-1 text-xs font-medium text-muted-foreground">Tools</legend>
-          {(["write", "exec"] as const).map((k) => (
+          {(["write", "exec", "browser"] as const).map((k) => (
             <label key={k} className="flex items-center gap-2">
               <Switch
                 checked={tools[k]}
                 disabled={!base.tools[k] && !draft.tools?.[k]}
                 onCheckedChange={(v) => setDraft((d) => ({ ...d, tools: { ...d.tools, [k]: v } }))}
-                aria-label={k === "write" ? "Edit files" : "Run commands"}
+                aria-label={
+                  k === "write"
+                    ? "Edit files"
+                    : k === "exec"
+                      ? "Run commands"
+                      : "Use the test browser"
+                }
               />
-              {k === "write" ? "Edit files" : "Run commands (still asks unless allowed)"}
+              {k === "write"
+                ? "Edit files"
+                : k === "exec"
+                  ? "Run commands (still asks unless allowed)"
+                  : "Use the test browser and dev servers"}
             </label>
           ))}
           <label className="flex items-center gap-2">

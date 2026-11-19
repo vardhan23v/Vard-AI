@@ -55,7 +55,29 @@ export class BrowserManager {
       artifactsDir: s.artifactsDir,
       startedAt: s.startedAt,
       lastAction: s.lastAction,
+      recentConsole: s.console.filter((c) => c.type !== "info").slice(-30),
+      recentNetwork: s.network.slice(-30),
     };
+  }
+
+  private pending = new Map<string, ReturnType<typeof setTimeout>>();
+  /** Sends a session's state right away (opened, closed, crashed). */
+  private flush(s: BrowserSession) {
+    clearTimeout(this.pending.get(s.id));
+    this.pending.delete(s.id);
+    this.o.onSession?.(this.info(s));
+  }
+
+  /** Session updates are batched (a chatty page logs a lot). */
+  private changed(s: BrowserSession) {
+    if (this.pending.has(s.id)) return;
+    this.pending.set(
+      s.id,
+      setTimeout(() => {
+        this.pending.delete(s.id);
+        this.o.onSession?.(this.info(s));
+      }, 250),
+    );
   }
 
   private async launch(): Promise<Browser> {
@@ -96,10 +118,11 @@ export class BrowserManager {
       id,
       runDir(o.projectRoot, o.run ?? o.taskId ?? "browser"),
       { taskId: o.taskId, agentId: o.agentId, projectOrigins: () => this.o.projectOrigins?.(o.projectRoot) ?? [] },
-      () => this.o.onSession?.(this.info(s!)),
+      () => this.changed(s!),
     );
     this.sessions.set(key, s);
     await s.open(await this.launch());
+    this.flush(s);
     this.touch(key);
     return s;
   }
@@ -174,7 +197,10 @@ export class BrowserManager {
     clearTimeout(this.idle.get(key));
     this.idle.delete(key);
     const s = this.sessions.get(key);
-    if (s) await s.close();
+    if (s) {
+      await s.close();
+      this.flush(s);
+    }
   }
 
   /** Closes every session belonging to a task (its team agents included). */

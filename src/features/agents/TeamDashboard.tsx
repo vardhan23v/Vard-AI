@@ -292,6 +292,28 @@ function PlanGraph({
                     after {[...s.dependsOn, ...s.implicitDeps].join(", ")}
                   </p>
                 )}
+                {s.check && (
+                  <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
+                    <Pill
+                      tone={
+                        s.check.verdict === "pass"
+                          ? "ok"
+                          : s.check.verdict === "fail"
+                            ? "bad"
+                            : "muted"
+                      }
+                    >
+                      {s.check.verdict === "pass"
+                        ? "check passed"
+                        : s.check.verdict === "fail"
+                          ? `${s.check.findings.length} finding(s)`
+                          : "no verdict"}
+                    </Pill>
+                    {s.retestRound ? (
+                      <span className="text-muted-foreground">re-test {s.retestRound}</span>
+                    ) : null}
+                  </p>
+                )}
                 {agent?.skills.length ? (
                   <p className="mt-1 truncate text-xs text-muted-foreground">
                     skills: {agent.skills.map((k) => k.name).join(", ")}

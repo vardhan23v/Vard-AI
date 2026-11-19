@@ -7,7 +7,7 @@ import { taskActions, type LiveTask } from "@/features/agent/store";
 import { ROLE_LABEL } from "./team-utils";
 
 type Graph = NonNullable<NonNullable<LiveTask["pending"]>["graph"]>;
-const WORKERS = ["frontend", "backend", "database", "testing"] as const;
+const WORKERS = ["frontend", "backend", "database", "testing", "browser", "analyst"] as const;
 
 export function TeamPlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
   const req = live.pending!;

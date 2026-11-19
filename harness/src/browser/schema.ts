@@ -100,6 +100,9 @@ export const BrowserSessionInfo = z.object({
   artifactsDir: z.string(),
   startedAt: z.number(),
   lastAction: z.string().optional(),
+  /** The latest console and network problems (redacted), for the UI. */
+  recentConsole: z.array(ConsoleEntry).optional(),
+  recentNetwork: z.array(NetworkEntry).optional(),
 });
 export type BrowserSessionInfo = z.infer<typeof BrowserSessionInfo>;
 

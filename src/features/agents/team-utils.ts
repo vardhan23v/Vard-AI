@@ -6,6 +6,8 @@ export const ROLE_LABEL: Record<string, string> = {
   backend: "Backend",
   database: "Database",
   testing: "Testing",
+  browser: "Browser testing",
+  analyst: "Codebase analyst",
   reviewer: "Reviewer",
 };
 

@@ -9,6 +9,7 @@
 import { useCallback, useSyncExternalStore } from "react";
 import { onAgentEvent, send, type AgentEvent } from "@/lib/agent-client";
 import { updateTask } from "./projects";
+import { startBrowserStore } from "@/features/browser/useBrowser";
 
 type Ev<T extends AgentEvent["type"]> = Extract<AgentEvent, { type: T }>;
 
@@ -60,6 +61,14 @@ export type LiveTask = {
   skills?: Ev<"skills_activated">["skills"];
   /** Set for team runs. */
   team?: TeamState;
+  /** The codebase overview the agent got from the code index. */
+  code?: { overview: string; indexing: boolean };
+  /** Browser work in this task (all agents): sessions, reports and dev servers. */
+  browser?: {
+    sessions: Record<string, Ev<"browser_session">["session"]>;
+    reports: (Ev<"browser_report">["report"] & { sessionId: string; agentId?: string })[];
+    servers: Record<string, Ev<"dev_server">["server"]>;
+  };
 };
 
 const tasks = new Map<string, LiveTask>();
@@ -233,7 +242,34 @@ function applyTeam(t: LiveTask, e: AgentEvent): LiveTask | null {
   }
 }
 
+function applyBrowser(t: LiveTask, e: AgentEvent): LiveTask | null {
+  const b = t.browser ?? { sessions: {}, reports: [], servers: {} };
+  switch (e.type) {
+    case "code_context":
+      return { ...t, code: { overview: e.overview, indexing: !!e.indexing } };
+    case "browser_session":
+      return { ...t, browser: { ...b, sessions: { ...b.sessions, [e.session.id]: e.session } } };
+    case "browser_report":
+      return {
+        ...t,
+        browser: {
+          ...b,
+          reports: [
+            ...b.reports,
+            { ...e.report, sessionId: e.sessionId, agentId: e.agentId },
+          ].slice(-20),
+        },
+      };
+    case "dev_server":
+      return { ...t, browser: { ...b, servers: { ...b.servers, [e.server.id]: e.server } } };
+    default:
+      return null;
+  }
+}
+
 function apply(t: LiveTask, e: AgentEvent): LiveTask {
+  const br = applyBrowser(t, e);
+  if (br) return br;
   const team = applyTeam(t, e);
   if (team) return team;
   if (e.seq !== undefined && t.team) {
@@ -296,6 +332,7 @@ let started = false;
 export function startTaskStore() {
   if (started) return;
   started = true;
+  startBrowserStore();
   onAgentEvent((e) => {
     if (!e.taskId || e.id.startsWith("chat-")) return;
     tasks.set(e.taskId, apply(get(e.taskId), e));

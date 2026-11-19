@@ -24,6 +24,7 @@ import { toast } from "sonner";
 
 import { Markdown } from "@/features/chat/Markdown";
 import { TeamDashboard } from "@/features/agents/TeamDashboard";
+import { CodeContextCard, TaskBrowserPanel } from "@/features/browser/TaskBrowserPanel";
 import { DiffView } from "./DiffView";
 import { isRunning, taskActions, useTask, type LiveTask, type TimelineItem } from "./store";
 import { projectPath, type AgentTask } from "./projects";
@@ -110,6 +111,7 @@ export function TaskView({ task }: { task: AgentTask }) {
       <div className="flex-1 overflow-y-auto">
         <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
           {!live && <OfflineSummary task={task} />}
+          {live && <CodeContextCard live={live} />}
           {live?.team && <TeamDashboard task={task} live={live} />}
           {!live?.team && live?.pending?.kind === "plan" && (
             <PlanApproval taskId={task.id} live={live} />
@@ -144,6 +146,7 @@ export function TaskView({ task }: { task: AgentTask }) {
           {!live?.team && live && live.timeline.length > 0 && (
             <Timeline taskId={task.id} items={live.timeline} />
           )}
+          {live && <TaskBrowserPanel live={live} />}
           {live?.pending?.kind === "tool" && <ToolApproval taskId={task.id} live={live} />}
           {live?.done && <Result task={task} live={live} />}
         </div>
