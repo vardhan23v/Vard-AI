@@ -109,6 +109,19 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
           return true;
         case "approval_request":
           return false; // answered below, labelled with the agent
+        case "retry":
+          pause();
+          ctx.err.write(
+            t.muted(
+              /tool call|failed_generation/i.test(e.message)
+                ? `  [${e.agentId}] malformed tool call; asking the model again (${e.attempt}/${e.maxAttempts})\n`
+                : /rate limit|429/i.test(e.message)
+                  ? `  [${e.agentId}] rate-limited by the provider; retrying in ${Math.ceil(e.delayMs / 1000)}s (${e.attempt}/${e.maxAttempts})\n`
+                  : `  [${e.agentId}] ${e.message.split("\n")[0].slice(0, 120)}; retrying in ${Math.ceil(e.delayMs / 1000)}s (${e.attempt}/${e.maxAttempts})\n`,
+            ),
+          );
+          ctx.spinner.start(label);
+          return true;
         case "error":
           pause();
           ctx.err.write(`  ${tag(e.agentId)} ${t.danger(explainError(e.message))}\n`);

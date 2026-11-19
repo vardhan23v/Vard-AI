@@ -198,6 +198,8 @@ Turn on **Team** when starting a task (or `vard run --team`). The run works like
 
 Every tool call still goes through the policy and your approvals; approvals show which agent is asking. Subtasks have time limits, a retry, and failure isolation (a failure only blocks what depends on it). You can pause (agents stop at their next step), resume, cancel or retry a subtask with a note (or an answer, if the agent asked a question), and continue without failed subtasks. Token use is shown as the providers report it; there's a budget for the whole run and per agent.
 
+**Rate limits.** Every agent calls the model, so a team uses several times the tokens of a single task, and parallel agents share your provider's rate limit. On Groq's free tier (8,000 tokens per minute for GPT-OSS 120B), agents spend most of their time waiting and can hit their time limit. A live test there completed the code subtasks but timed out on tests and fixes. Use a paid tier, a provider with higher limits, or `--max-agents 1`. Rate-limit waits are shown per agent.
+
 **Roles** (Agents page → Roles, or `~/.vard/agents.json`): give a role its own model (it uses that provider's saved key), preferred skills, a step limit and extra instructions. Tool access can only be narrowed: the reviewer and planner never edit files.
 
 ## Integrations (MCP)
