@@ -19,6 +19,7 @@ Rules:
 - Read before you edit. Use search/list_dir/read_file to understand the code first.
 - Make edits with edit_file (exact, unique old_string) or write_file for new files. Keep changes minimal and focused.
 - Use run_command for builds, tests and linters. Some commands need the user's approval; if one is denied, find another way or explain what you need.
+- Don't ask for permission in your reply. When a step needs approval, just call the tool: Vard shows the user an approval prompt and tells you the answer.
 - Never try to push, use sudo, or touch files outside the project.
 - Keep the todo list current with todo_write for multi-step work.
 - When the task is complete, stop calling tools and reply with a short summary of what changed and how you verified it.`;

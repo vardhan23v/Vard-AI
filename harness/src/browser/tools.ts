@@ -282,7 +282,7 @@ export function browserTools(env: BrowserToolsEnv): ToolDef[] {
         if (!isInside(dir, realpathLoose(ctx.workRoot))) throw new ToolError("cwd must be inside the project");
         const port = await freePort();
         const d = detectDevCommand(dir, port);
-        return d ? `Framework: ${d.framework}\nCommand: ${d.command}\nPort: ${port}\nStart it with dev_server_start using exactly this command and port.` : "No dev or start script found in package.json. Pass your own command to dev_server_start.";
+        return d ? `Framework: ${d.framework}\nCommand: ${d.command}\nPort: ${port}\nNext: call dev_server_start with exactly this command and port. Don't ask in your reply; Vard asks the user to approve it.` : "No dev or start script found in package.json. Pass your own command to dev_server_start.";
       },
     },
     {
