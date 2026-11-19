@@ -5,11 +5,11 @@
 import { z } from "zod";
 import { ActivatedSkill } from "../skills/schema";
 
-export const ROLE_IDS = ["planner", "frontend", "backend", "database", "testing", "reviewer"] as const;
+export const ROLE_IDS = ["planner", "frontend", "backend", "database", "testing", "browser", "analyst", "reviewer"] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 /** Roles that can be assigned subtasks (the planner and reviewer run on their own). */
-export const WORKER_ROLES = ["frontend", "backend", "database", "testing"] as const;
+export const WORKER_ROLES = ["frontend", "backend", "database", "testing", "browser", "analyst"] as const;
 
 const ModelRef = z.object({
   provider: z.enum(["anthropic", "openai", "google", "ollama", "openai-compatible", "groq"]),
@@ -25,6 +25,8 @@ export const RoleTools = z.object({
   exec: z.boolean(),
   /** MCP tools: none, only those marked read-only and not destructive, or all. */
   mcp: z.enum(["none", "read", "all"]),
+  /** The isolated test browser and dev servers. */
+  browser: z.boolean().default(false),
 });
 export type RoleTools = z.infer<typeof RoleTools>;
 
@@ -117,6 +119,11 @@ export const SubtaskState = SubTask.extend({
   result: SubtaskResult.optional(),
   /** Set for fix-up subtasks created from review findings. */
   fixOf: z.string().optional(),
+  /** Browser checks: the original check this re-tests, and the round (1, 2, …). */
+  retestOf: z.string().optional(),
+  retestRound: z.number().optional(),
+  /** Browser checks: pass/fail and what failed. */
+  check: z.object({ verdict: z.enum(["pass", "fail", "unknown"]), findings: z.array(z.object({ severity: z.enum(["high", "medium", "low"]), message: z.string(), file: z.string().optional(), viewport: z.string().optional() })) }).optional(),
   startedAt: z.number().optional(),
   endedAt: z.number().optional(),
 });
@@ -230,6 +237,8 @@ export const TeamRequest = z.object({
   tokenBudget: z.number().int().positive().optional(),
   /** Automatic retries per subtask after a failure or merge conflict (default 1). */
   retries: z.number().int().min(0).max(3).optional(),
+  /** Browser checks that fail start fix subtasks and a re-test, at most this many times (0–3, default 2). */
+  retestRounds: z.number().int().min(0).max(3).optional(),
   /** Review the combined change and run one fix round (default on). */
   review: z.boolean().optional(),
   /** When subtasks fail: wait for the user ("ask", default) or finish with what succeeded. */
@@ -245,6 +254,7 @@ export const TeamOptions = TeamRequest.transform((t) => ({
   maxAgents: t.maxAgents ?? 3,
   maxSubtasks: t.maxSubtasks ?? 8,
   retries: t.retries ?? 1,
+  retestRounds: t.retestRounds ?? 2,
   review: t.review ?? true,
   onFailure: t.onFailure ?? ("ask" as const),
 }));
@@ -261,7 +271,7 @@ export const OrchestrationState = z.object({
   integrations: z.array(IntegrationRecord),
   reviews: z.array(ReviewResult),
   usage: Usage,
-  options: z.object({ maxAgents: z.number(), maxSubtasks: z.number(), retries: z.number(), review: z.boolean(), tokenBudget: z.number() }),
+  options: z.object({ maxAgents: z.number(), maxSubtasks: z.number(), retries: z.number(), review: z.boolean(), tokenBudget: z.number(), retestRounds: z.number().optional() }),
   integrationBranch: z.string().optional(),
   /** The last event `seq` included in this snapshot (later events have higher numbers). */
   seq: z.number(),

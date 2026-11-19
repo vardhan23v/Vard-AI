@@ -621,6 +621,11 @@ export class Server {
     };
     const skillsOn = req.autoSkills !== false;
     const orch = new Orchestrator({
+      // Every role can query the code index; roles allowed the browser also get it and dev servers.
+      toolsFor: (role, vision) => [
+        ...(req.codeIndex !== false ? codeTools(this.intel) : []),
+        ...(role.tools.browser ? browserTools({ mgr: this.browser, dev: this.devServers, vision: () => vision }) : []),
+      ],
       taskId: entry.taskId,
       goal: req.prompt,
       projectRoot,

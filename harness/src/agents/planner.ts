@@ -30,7 +30,7 @@ Inspect the project first (read-only tools), then answer with ONLY a JSON object
     {
       "id": "short-kebab-id",
       "title": "what this subtask delivers",
-      "role": "frontend | backend | database | testing",
+      "role": "frontend | backend | database | testing | browser | analyst",
       "description": "precise instructions: what to build or change, where, and any contract other subtasks rely on (API shapes, names)",
       "dependsOn": ["ids of subtasks that must finish first"],
       "files": ["paths or globs this subtask expects to change"],
@@ -44,6 +44,9 @@ Rules:
 - Only add a dependency when a subtask needs another's output (for example the frontend needs the API contract). Independent subtasks run in parallel.
 - Each subtask runs in its own copy of the repository and is merged afterwards, so list the files each one touches; subtasks touching the same files run one after another.
 - Put tests in a "testing" subtask that depends on the code it tests, unless the code subtask should write its own.
+- Before planning a change to existing code, call code_impact_analysis on the main files or symbols it touches (and code_search to find them). Use what it reports (dependents, tests, verification commands) for the "files" lists, the dependencies and the acceptance criteria.
+- When the request changes something users see in a browser (pages, layout, styling, forms, responsive behaviour), add a "browser" subtask that depends on the UI subtasks: it starts the dev server and checks the result at the relevant viewports. It doesn't edit files.
+- Use an "analyst" subtask only when the codebase must be mapped before anyone can work (very large or unfamiliar code); it doesn't edit files.
 - Don't plan reviews: the combined change is reviewed automatically.${feedback ? `\n\nThe user asked for changes to the previous plan:\n${feedback}` : ""}`;
 }
 

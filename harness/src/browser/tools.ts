@@ -228,7 +228,8 @@ export function browserTools(env: BrowserToolsEnv): ToolDef[] {
       async execute(i: { command: string; port: number; cwd: string; timeoutSec: number }, ctx: ToolContext) {
         const dir = realpathLoose(path.resolve(ctx.workRoot, i.cwd));
         if (!isInside(dir, realpathLoose(ctx.workRoot)) || !fs.existsSync(dir)) throw new ToolError("cwd must be an existing folder inside the project");
-        const info = await dev.start({ command: i.command, cwd: dir, port: i.port, taskId: splitTaskId(ctx.taskId).taskId, timeoutMs: i.timeoutSec * 1_000, signal: ctx.signal });
+        const binDirs = [...new Set([path.join(dir, "node_modules", ".bin"), path.join(ctx.workRoot, "node_modules", ".bin"), path.join(ctx.projectRoot, "node_modules", ".bin")])];
+        const info = await dev.start({ command: i.command, cwd: dir, port: i.port, taskId: splitTaskId(ctx.taskId).taskId, timeoutMs: i.timeoutSec * 1_000, signal: ctx.signal, binDirs });
         if (info.state !== "ready") throw new ToolError(`Dev server didn't start: ${info.error}\nLast output:\n${info.log.slice(-15).join("\n")}`);
         return `Dev server ${info.id} ready at ${info.url}. Open it with browser_navigate.`;
       },

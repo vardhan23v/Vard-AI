@@ -27,6 +27,8 @@ import {
 } from "./components";
 import * as E from "./editor";
 import { analyze as analyzeMemory, type Proposal } from "../memory";
+import { analyzeImpact, renderImpact, searchCode } from "../intelligence";
+import { detectBrowser } from "../browser";
 import { itemLabel, memoryFor } from "../cli/commands/memory";
 import { type KeyFlags, splitKeys } from "./keys";
 import { Markdown } from "./markdown";
@@ -536,6 +538,31 @@ export function App(props: AppProps) {
         return note(
           list.map((r) => `${r.usable ? "●" : "○"} ${r.name.padEnd(24)} ${r.source.padEnd(8)} ${mark(r)}`).join("\n") +
             "\nRelevant skills are picked for each /task. Manage them with `vard skills` or in the app.",
+        );
+      }
+      case "/code":
+      case "/impact": {
+        if (!arg) return note(cmd === "/code" ? "Usage: /code <what you're looking for>" : "Usage: /impact <file or symbol>");
+        const root = gitRoot(ctx.cwd) ?? ctx.cwd;
+        const intel = ctx.client.server.intel;
+        try {
+          if (!intel.get(root).exists()) {
+            note("Indexing this project…");
+            await intel.build(root);
+          }
+          const ix = intel.get(root);
+          if (cmd === "/impact") return note(renderImpact(analyzeImpact(ix, arg)));
+          const hits = await searchCode(ix, arg, { limit: 8 });
+          return note(hits.length ? hits.map((h) => `${h.path}:${h.line}${h.symbol ? ` ${h.symbol}` : ""}  · ${h.reasons.join(", ")}`).join("\n") : "No matches.");
+        } catch (e) {
+          return note((e as Error).message, "error");
+        }
+      }
+      case "/browser": {
+        const b = detectBrowser();
+        const sessions = ctx.client.server.browser.list().filter((x) => x.state !== "closed");
+        return note(
+          `${b.installed ? `● ${b.name}${b.version ? ` (${b.version})` : ""}` : "○ No Chromium found: run vard browser install"}\n${sessions.length ? sessions.map((x) => `${x.id} ${x.state} ${x.url ?? ""} ${x.viewport.name}`).join("\n") : "No open browser sessions."}`,
         );
       }
       case "/keys":

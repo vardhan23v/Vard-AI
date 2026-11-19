@@ -48,14 +48,17 @@ export function detectDevCommand(dir: string, port: number): { command: string; 
 }
 
 /** Environment for dev servers: the user's environment minus anything that looks like a credential. */
-function devEnv(port: number): Record<string, string> {
+function devEnv(port: number, binDirs: string[] = []): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v === undefined) continue;
     if (/(API_?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY)/i.test(k)) continue;
     env[k] = v;
   }
-  return { ...env, PORT: String(port), BROWSER: "none", HOST: "127.0.0.1", FORCE_COLOR: "0", CI: "1" };
+  // Worktrees have no node_modules of their own; the project's bin folder (and Node's normal lookup
+  // up the folder tree) lets `vite`, `next` etc. run there.
+  const PATH = [...binDirs.filter((d) => fs.existsSync(d)), env.PATH ?? ""].filter(Boolean).join(":");
+  return { ...env, PATH, PORT: String(port), BROWSER: "none", HOST: "127.0.0.1", FORCE_COLOR: "0", CI: "1" };
 }
 
 const redactLine = (l: string) => (findSecret(l) ? "[line hidden: looks like it contains a secret]" : l.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 300));
@@ -80,11 +83,11 @@ export class DevServers {
   }
 
   /** Starts `command` in `cwd` and waits until `url` answers (or the process exits, or time runs out). */
-  async start(o: { command: string; cwd: string; port: number; taskId?: string; timeoutMs?: number; signal?: AbortSignal }): Promise<DevServerInfo> {
+  async start(o: { command: string; cwd: string; port: number; taskId?: string; timeoutMs?: number; signal?: AbortSignal; binDirs?: string[] }): Promise<DevServerInfo> {
     const id = `dev${++this.seq}`;
     const url = `http://127.0.0.1:${o.port}`;
     const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "starting", log: [] };
-    const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port), stdout: "pipe", stderr: "pipe", stdin: "ignore" });
+    const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port, o.binDirs), stdout: "pipe", stderr: "pipe", stdin: "ignore" });
     this.servers.set(id, { info, proc });
     this.notify(info);
     let announced: string | undefined;
