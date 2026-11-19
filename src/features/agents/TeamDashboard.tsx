@@ -28,6 +28,7 @@ import {
   type SubtaskState,
   type TeamState,
 } from "@/features/agent/store";
+import { Flash } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { AgentSheet } from "./AgentSheet";
 import { Pill } from "./Pill";
@@ -120,7 +121,7 @@ export function TeamDashboard({ task, live }: { task: AgentTask; live: LiveTask 
             {team.phase === "paused" ? (
               <button
                 onClick={() => void control("resume")}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+                className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
               >
                 <Play className="size-4" /> Resume
               </button>
@@ -148,11 +149,17 @@ export function TeamDashboard({ task, live }: { task: AgentTask; live: LiveTask 
           <Stat
             label="Subtasks done"
             value={team.subtasks.length ? `${done} / ${team.subtasks.length}` : "–"}
+            flash
           />
-          <Stat label="Agents working" value={`${active} / ${team.options.maxAgents || "–"}`} />
+          <Stat
+            label="Agents working"
+            value={`${active} / ${team.options.maxAgents || "–"}`}
+            flash
+          />
           <Stat
             label="Tokens (reported)"
             value={fmtTokens(team.usage.totalTokens)}
+            flash
             hint={
               team.options.tokenBudget ? `budget ${fmtTokens(team.options.tokenBudget)}` : undefined
             }
@@ -233,12 +240,23 @@ export function TeamDashboard({ task, live }: { task: AgentTask; live: LiveTask 
   );
 }
 
-function Stat({ label, value, hint }: { label: string; value: string; hint?: string }) {
+function Stat({
+  label,
+  value,
+  hint,
+  flash,
+}: {
+  label: string;
+  value: string;
+  hint?: string;
+  /** Highlight the value when it changes (counters, not the ticking clock). */
+  flash?: boolean;
+}) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>
       <dd className="font-medium tabular-nums">
-        {value}
+        {flash ? <Flash value={value}>{value}</Flash> : value}
         {hint && <span className="ml-1 text-xs font-normal text-muted-foreground">{hint}</span>}
       </dd>
     </div>
@@ -258,7 +276,11 @@ function PlanGraph({
   return (
     <ol className="flex gap-3 overflow-x-auto pb-1" aria-label="Subtasks by dependency order">
       {cols.map((col, i) => (
-        <li key={i} className="flex min-w-52 flex-1 flex-col gap-2">
+        <li
+          key={i}
+          className="flex min-w-52 flex-1 animate-enter flex-col gap-2"
+          style={{ animationDelay: `calc(var(--motion-step) * ${Math.min(i, 9)})` }}
+        >
           <p className="text-xs text-muted-foreground">{i === 0 ? "Start" : `Then (${i + 1})`}</p>
           {col.map((s) => {
             const agent = agents.filter((a) => a.subtaskId === s.id).at(-1);
@@ -294,23 +316,30 @@ function PlanGraph({
                 )}
                 {s.check && (
                   <p className="mt-1.5 flex flex-wrap items-center gap-1.5 text-xs">
-                    <Pill
-                      tone={
-                        s.check.verdict === "pass"
-                          ? "ok"
+                    <span key={s.check.verdict} className="inline-flex animate-scale-in">
+                      <Pill
+                        tone={
+                          s.check.verdict === "pass"
+                            ? "ok"
+                            : s.check.verdict === "fail"
+                              ? "bad"
+                              : "muted"
+                        }
+                      >
+                        {s.check.verdict === "pass"
+                          ? "check passed"
                           : s.check.verdict === "fail"
-                            ? "bad"
-                            : "muted"
-                      }
-                    >
-                      {s.check.verdict === "pass"
-                        ? "check passed"
-                        : s.check.verdict === "fail"
-                          ? `${s.check.findings.length} finding(s)`
-                          : "no verdict"}
-                    </Pill>
+                            ? `${s.check.findings.length} finding(s)`
+                            : "no verdict"}
+                      </Pill>
+                    </span>
                     {s.retestRound ? (
-                      <span className="text-muted-foreground">re-test {s.retestRound}</span>
+                      <span
+                        key={s.retestRound}
+                        className="inline-block animate-scale-in text-muted-foreground"
+                      >
+                        re-test {s.retestRound}
+                      </span>
                     ) : null}
                   </p>
                 )}
@@ -344,7 +373,10 @@ function AgentCard({
       className="w-full rounded-lg border border-border bg-background/40 p-3 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
     >
       <div className="flex items-center justify-between gap-2">
-        <span className="truncate text-sm font-medium">{ROLE_LABEL[a.role]} agent</span>
+        <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
+          {live && <span className="live-dot text-agent-foreground" aria-hidden />}
+          <span className="truncate">{ROLE_LABEL[a.role]} agent</span>
+        </span>
         <Pill tone={agentTone(a.status)} spin={live}>
           {AGENT_LABEL[a.status]}
         </Pill>
@@ -366,10 +398,10 @@ function AgentCard({
       />
       <p className="mt-1.5 flex flex-wrap gap-x-3 text-xs text-muted-foreground">
         <span>{a.model}</span>
-        <span>
+        <Flash value={a.steps}>
           {a.steps}/{a.maxSteps} steps
-        </span>
-        <span>{fmtTokens(a.usage.totalTokens)} tokens</span>
+        </Flash>
+        <Flash value={a.usage.totalTokens}>{fmtTokens(a.usage.totalTokens)} tokens</Flash>
         <span>{a.toolCalls} tool calls</span>
         {a.skills.length > 0 && <span>{a.skills.length} skills</span>}
       </p>
@@ -423,7 +455,7 @@ function ReviewCard({ team, onAgent }: { team: TeamState; onAgent: (id: string) 
             </div>
             {r.summary && <p className="mt-1 text-sm text-muted-foreground">{r.summary}</p>}
             {r.findings.length > 0 && (
-              <ul className="mt-2 space-y-1.5 text-sm">
+              <ul className="stagger mt-2 space-y-1.5 text-sm">
                 {r.findings.map((f, i) => (
                   <li key={i} className="flex gap-2">
                     <span
@@ -483,7 +515,7 @@ function ActivityLog({ team }: { team: TeamState }) {
       </summary>
       <ol className="max-h-80 space-y-1 overflow-y-auto px-4 pb-3 text-xs">
         {items.map((it) => (
-          <li key={it.key} className="flex items-start gap-2">
+          <li key={it.key} className="flex animate-row-in items-start gap-2">
             <time className="w-16 shrink-0 text-muted-foreground tabular-nums">
               {new Date(it.at).toLocaleTimeString()}
             </time>

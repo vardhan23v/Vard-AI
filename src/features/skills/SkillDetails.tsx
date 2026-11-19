@@ -74,7 +74,7 @@ export function SkillDetails({
   return (
     <section
       aria-label={`Skill ${skill.name}`}
-      className="min-w-0 space-y-4 rounded-lg border border-border bg-card p-4"
+      className="min-w-0 animate-enter space-y-4 rounded-lg border border-border bg-card p-4"
     >
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
@@ -154,7 +154,7 @@ export function SkillDetails({
       {(skill.errors.length > 0 || skill.shadowedBy) && (
         <div
           role="alert"
-          className="space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
+          className="animate-enter space-y-1 rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm"
         >
           {skill.shadowedBy && (
             <p className="flex items-start gap-2 text-muted-foreground">
@@ -219,14 +219,14 @@ export function SkillDetails({
           </p>
         ) : detail.data ? (
           <>
-            <TabsContent value="instructions" className="pt-3">
+            <TabsContent value="instructions" className="animate-enter pt-3">
               {detail.data.body ? (
                 <Markdown text={detail.data.body} />
               ) : (
                 <p className="text-sm text-muted-foreground">No instructions.</p>
               )}
             </TabsContent>
-            <TabsContent value="preview" className="space-y-2 pt-3">
+            <TabsContent value="preview" className="animate-enter space-y-2 pt-3">
               <p className="text-xs text-muted-foreground">
                 When this skill is chosen for a task, this block is added to the agent's context (~
                 {detail.data.preview.tokens.toLocaleString()} tokens), wrapped as untrusted
@@ -236,7 +236,7 @@ export function SkillDetails({
                 {detail.data.preview.text || "This skill is invalid, so it is never sent."}
               </pre>
             </TabsContent>
-            <TabsContent value="resources" className="space-y-3 pt-3 text-sm">
+            <TabsContent value="resources" className="animate-enter space-y-3 pt-3 text-sm">
               {skill.scripts.length > 0 && (
                 <div>
                   <h3 className="mb-1 font-medium">Scripts</h3>
@@ -282,7 +282,7 @@ export function SkillDetails({
                 )
               )}
             </TabsContent>
-            <TabsContent value="usage" className="pt-3">
+            <TabsContent value="usage" className="animate-enter pt-3">
               {detail.data.usage.length ? (
                 <ul className="divide-y divide-border text-sm">
                   {detail.data.usage.map((u, i) => (

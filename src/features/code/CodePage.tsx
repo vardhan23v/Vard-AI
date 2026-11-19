@@ -3,7 +3,7 @@
  * and dependencies, the dependency graph and change impact analysis. The index lives in the
  * project's .vard/index and is separate from project memory.
  */
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Braces,
@@ -13,6 +13,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  SearchX,
   Square,
   Trash2,
 } from "lucide-react";
@@ -20,6 +21,7 @@ import { revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StarField } from "@/components/StarField";
 import {
@@ -32,6 +34,7 @@ import {
   type ImpactReport,
 } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
+import { CountUp, Flash } from "@/lib/motion";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { Pill } from "@/features/agents/Pill";
 import { DepGraph } from "./DepGraph";
@@ -145,7 +148,7 @@ export function Workspace({
     <div className="space-y-5">
       <IndexCard s={s} loading={status.isLoading} progress={progress} run={run} />
       {ready && (
-        <div className={cn("grid gap-5", open && "xl:grid-cols-[1fr_28rem]")}>
+        <div className={cn("animate-enter grid gap-5", open && "xl:grid-cols-[1fr_28rem]")}>
           <Tabs defaultValue="search" className="min-w-0">
             <TabsList className="flex-wrap">
               <TabsTrigger value="search">Search</TabsTrigger>
@@ -198,7 +201,10 @@ function IndexCard({
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex flex-wrap items-center gap-2 text-sm">
           {loading ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" />
+            <span role="status" aria-label="Loading index status" className="flex gap-2">
+              <Skeleton className="h-5 w-20 rounded-full" />
+              <Skeleton className="h-5 w-64" />
+            </span>
           ) : (
             <Pill
               tone={
@@ -210,8 +216,8 @@ function IndexCard({
                       ? "live"
                       : "muted"
               }
-              spin={indexing}
             >
+              {indexing && <span className="live-dot" aria-hidden />}
               {indexing
                 ? "Indexing"
                 : s?.state === "ready"
@@ -223,8 +229,10 @@ function IndexCard({
           )}
           {s && s.files > 0 && (
             <span className="text-muted-foreground">
-              {s.files.toLocaleString()} files · {s.symbols.toLocaleString()} symbols ·{" "}
-              {s.imports.toLocaleString()} imports · {(s.bytes / 1e6).toFixed(1)} MB
+              <Flash value={s.files}>{s.files.toLocaleString()} files</Flash> ·{" "}
+              <Flash value={s.symbols}>{s.symbols.toLocaleString()} symbols</Flash> ·{" "}
+              <Flash value={s.imports}>{s.imports.toLocaleString()} imports</Flash> ·{" "}
+              {(s.bytes / 1e6).toFixed(1)} MB
               {s.failed ? ` · ${s.failed} couldn't be parsed` : ""}
               {s.indexedAt ? ` · updated ${new Date(s.indexedAt).toLocaleString()}` : ""}
             </span>
@@ -234,7 +242,7 @@ function IndexCard({
           {indexing ? (
             <button
               onClick={() => run("cancel")}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
+              className="press inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
             >
               <Square className="size-3.5" /> Cancel
             </button>
@@ -242,7 +250,7 @@ function IndexCard({
             <>
               <button
                 onClick={() => run("build")}
-                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+                className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
               >
                 <RefreshCw className="size-4" /> {s?.files ? "Update index" : "Build index"}
               </button>
@@ -250,7 +258,7 @@ function IndexCard({
                 <>
                   <button
                     onClick={() => run("rebuild")}
-                    className="min-h-9 rounded-md border border-input px-3 text-sm hover:bg-accent"
+                    className="press min-h-9 rounded-md border border-input px-3 text-sm hover:bg-accent"
                   >
                     Re-index all
                   </button>
@@ -260,7 +268,7 @@ function IndexCard({
                         "Delete this project's code index? It can be rebuilt any time.",
                       ) && run("clean")
                     }
-                    className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10"
+                    className="press inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10"
                   >
                     <Trash2 className="size-4" /> Delete index
                   </button>
@@ -271,7 +279,7 @@ function IndexCard({
         </div>
       </div>
       {progress && progress.total > 0 && (
-        <div className="mt-3 space-y-1">
+        <div className="animate-fade-in mt-3 space-y-1">
           <Progress
             value={(progress.done / progress.total) * 100}
             className="h-1.5"
@@ -331,6 +339,7 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
   const [text, setText] = useState("");
   const [q, setQ] = useState<CodeQuery | null>(null);
   const r = useCodeQuery(root, q);
+  const input = useRef<HTMLInputElement>(null);
   return (
     <div className="space-y-3">
       <form
@@ -344,13 +353,14 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
           <span className="sr-only">Search the code</span>
           <Search className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <input
+            ref={input}
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="e.g. where is user authentication handled?"
             className="h-10 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none focus:border-primary"
           />
         </label>
-        <button className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+        <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Search
         </button>
       </form>
@@ -358,7 +368,8 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
         r={r}
         render={(d) =>
           d.hits?.length ? (
-            <ul className="space-y-2">
+            // Keyed by the query so each new search cascades in afresh.
+            <ul key={JSON.stringify(q)} className="stagger space-y-2">
               {d.hits.map((h, i) => (
                 <li key={i} className="rounded-lg border border-border bg-card p-3">
                   <div className="flex flex-wrap items-baseline gap-2">
@@ -370,7 +381,18 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
                       </span>
                     )}
                   </div>
-                  <p className="mt-0.5 text-xs text-muted-foreground">{h.reasons.join(" · ")}</p>
+                  {h.reasons.length > 0 && (
+                    <p className="mt-1 flex flex-wrap gap-1">
+                      {h.reasons.map((reason, j) => (
+                        <span
+                          key={j}
+                          className="animate-scale-in rounded-full border border-border px-1.5 text-[11px] text-muted-foreground"
+                        >
+                          {reason}
+                        </span>
+                      ))}
+                    </p>
+                  )}
                   {h.snippet && (
                     <pre className="mt-2 overflow-x-auto rounded bg-muted/40 p-2 text-xs">
                       {h.snippet}
@@ -380,7 +402,19 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
               ))}
             </ul>
           ) : (
-            <p className="text-sm text-muted-foreground">No matches.</p>
+            <div className="animate-enter flex flex-col items-center gap-2 rounded-lg border border-dashed border-border p-8 text-center">
+              <SearchX className="size-5 text-muted-foreground" aria-hidden />
+              <p className="text-sm text-muted-foreground">
+                No matches. Try fewer words, or a file or symbol name.
+              </p>
+              <button
+                type="button"
+                onClick={() => (setText(""), setQ(null), input.current?.focus())}
+                className="press min-h-8 rounded-md border border-input px-3 text-xs hover:bg-accent"
+              >
+                New search
+              </button>
+            </div>
           )
         }
       />
@@ -396,7 +430,13 @@ function Results({
   render: (d: CodeResults) => React.ReactNode;
 }) {
   if (r.isFetching)
-    return <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Searching" />;
+    return (
+      <div role="status" aria-label="Searching" className="space-y-2">
+        <div className="loading-bar rounded-full" />
+        <Skeleton className="h-4 w-2/3" />
+        <Skeleton className="h-4 w-1/2" />
+      </div>
+    );
   if (r.error)
     return (
       <p role="alert" className="text-sm text-destructive">
@@ -426,7 +466,7 @@ function SymbolsTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }
           placeholder="Function, class or type name"
           className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
         />
-        <button className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+        <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Find
         </button>
       </form>
@@ -434,7 +474,7 @@ function SymbolsTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }
         r={r}
         render={(d) =>
           d.symbols?.length ? (
-            <ul className="divide-y divide-border rounded-lg border border-border bg-card text-sm">
+            <ul className="stagger divide-y divide-border rounded-lg border border-border bg-card text-sm">
               {d.symbols.map((s, i) => (
                 <li key={i} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2">
                   <span>
@@ -489,12 +529,12 @@ function FileTab({
           placeholder="src/lib/agent-client.ts"
           className="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:border-primary"
         />
-        <button className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+        <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Open
         </button>
       </form>
       {active && (
-        <div className="grid gap-4 md:grid-cols-3">
+        <div className="stagger grid gap-4 md:grid-cols-3">
           <section className="rounded-lg border border-border bg-card p-3">
             <h3 className="mb-2 text-xs font-medium tracking-wide text-muted-foreground uppercase">
               Outline
@@ -502,7 +542,7 @@ function FileTab({
             <Results
               r={outline}
               render={(d) => (
-                <ul className="space-y-1 text-sm">
+                <ul className="stagger space-y-1 text-sm">
                   {(d.symbols ?? []).map((s, i) => (
                     <li key={i} className={cn(s.parent && "pl-3")}>
                       <button
@@ -525,7 +565,7 @@ function FileTab({
             <Results
               r={deps}
               render={(d) => (
-                <ul className="space-y-1 font-mono text-xs">
+                <ul className="stagger space-y-1 font-mono text-xs">
                   {(d.files ?? []).map((f) => (
                     <li key={f.path}>
                       <button
@@ -552,7 +592,7 @@ function FileTab({
             <Results
               r={dependents}
               render={(d) => (
-                <ul className="space-y-1 font-mono text-xs">
+                <ul className="stagger space-y-1 font-mono text-xs">
                   {(d.files ?? []).map((f) => (
                     <li key={f.path}>
                       <button
@@ -650,7 +690,7 @@ function ImpactTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
           placeholder="A file path or a symbol name, e.g. verifyToken"
           className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
         />
-        <button className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
+        <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Analyze
         </button>
       </form>
@@ -665,12 +705,14 @@ function ImpactTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
 export function ImpactCard({ r, onOpen }: { r: ImpactReport; onOpen?: (l: Loc) => void }) {
   const open = onOpen ?? (() => {});
   return (
-    <div className="space-y-3 rounded-lg border border-border bg-card p-4 text-sm">
+    <div className="animate-enter space-y-3 rounded-lg border border-border bg-card p-4 text-sm">
       <div className="flex flex-wrap items-center gap-2">
         <span className="font-medium">{r.target}</span>
-        <Pill tone={r.risk === "high" ? "bad" : r.risk === "medium" ? "attention" : "ok"}>
-          {r.risk} risk
-        </Pill>
+        <span key={r.risk} className="animate-scale-in inline-flex">
+          <Pill tone={r.risk === "high" ? "bad" : r.risk === "medium" ? "attention" : "ok"}>
+            {r.risk} risk
+          </Pill>
+        </span>
       </div>
       <p className="text-xs text-muted-foreground">Because: {r.evidence.join("; ")}</p>
       {r.notes.map((n) => (
@@ -679,19 +721,22 @@ export function ImpactCard({ r, onOpen }: { r: ImpactReport; onOpen?: (l: Loc) =
         </p>
       ))}
       <ImpactList
-        title={`Direct dependents (${r.direct.length})`}
+        title="Direct dependents"
+        count={r.direct.length}
         items={r.direct.map((d) => ({ path: d.path, line: 1, sub: d.via }))}
         onOpen={open}
       />
       <ImpactList
-        title={`Indirect (${r.indirect.length})`}
+        title="Indirect"
+        count={r.indirect.length}
         items={r.indirect
           .slice(0, 30)
           .map((d) => ({ path: d.path, line: 1, sub: `${d.depth} hops` }))}
         onOpen={open}
       />
       <ImpactList
-        title={`References (${r.referencing.length})`}
+        title="References"
+        count={r.referencing.length}
         items={r.referencing
           .slice(0, 30)
           .map((d) => ({ path: d.path, line: d.line, sub: d.symbol }))}
@@ -722,11 +767,13 @@ export function ImpactCard({ r, onOpen }: { r: ImpactReport; onOpen?: (l: Loc) =
 
 function ImpactList({
   title,
+  count,
   items,
   onOpen,
   empty,
 }: {
   title: string;
+  count?: number;
   items: { path: string; line: number; sub?: string }[];
   onOpen: (l: Loc) => void;
   empty?: string;
@@ -736,6 +783,12 @@ function ImpactList({
     <section>
       <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
         {title}
+        {count !== undefined && (
+          <>
+            {" "}
+            (<CountUp value={count} />)
+          </>
+        )}
       </h3>
       {items.length ? (
         <ul className="space-y-0.5">
@@ -799,7 +852,7 @@ function SettingsTab({ root }: { root: string }) {
                 .filter(Boolean),
             })
           }
-          className="min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+          className="press min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
         >
           Save exclusions
         </button>
@@ -842,7 +895,7 @@ function Snippet({ root, loc, onClose }: { root: string; loc: Loc; onClose: () =
   return (
     <aside
       aria-label="Code"
-      className="min-w-0 self-start rounded-xl border border-border bg-card xl:sticky xl:top-4"
+      className="animate-enter min-w-0 self-start rounded-xl border border-border bg-card xl:sticky xl:top-4"
     >
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border px-3 py-2">
         <span className="flex min-w-0 items-center gap-1.5 truncate font-mono text-xs">
@@ -880,11 +933,17 @@ function Snippet({ root, loc, onClose }: { root: string; loc: Loc; onClose: () =
         r={r}
         render={(d) =>
           d.snippet ? (
-            <pre className="max-h-[70vh] overflow-auto p-2 text-xs leading-relaxed">
+            <pre
+              key={`${loc.path}:${loc.line}`}
+              className="max-h-[70vh] overflow-auto p-2 text-xs leading-relaxed"
+            >
               {d.snippet.lines.map((l, i) => {
                 const n = d.snippet!.start + i;
                 return (
-                  <div key={n} className={cn("flex", n === loc.line && "bg-primary/15")}>
+                  <div
+                    key={n}
+                    className={cn("flex", n === loc.line && "animate-flash bg-primary/15")}
+                  >
                     <span className="w-10 shrink-0 pr-2 text-right text-muted-foreground select-none">
                       {n}
                     </span>

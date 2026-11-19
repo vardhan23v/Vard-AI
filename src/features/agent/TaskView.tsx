@@ -112,7 +112,11 @@ export function TaskView({ task }: { task: AgentTask }) {
         <div className="mx-auto max-w-3xl space-y-5 px-6 py-6">
           {!live && <OfflineSummary task={task} />}
           {live && <CodeContextCard live={live} />}
-          {live?.team && <TeamDashboard task={task} live={live} />}
+          {live?.team && (
+            <div className="animate-enter">
+              <TeamDashboard task={task} live={live} />
+            </div>
+          )}
           {!live?.team && live?.pending?.kind === "plan" && (
             <PlanApproval taskId={task.id} live={live} />
           )}
@@ -170,7 +174,8 @@ export function Card({
     <section
       className={cn(
         "rounded-xl border bg-card",
-        tone === "attention" ? "border-primary/60" : "border-border",
+        // Approval cards appear mid-run; let them enter rather than pop in.
+        tone === "attention" ? "animate-enter border-primary/60" : "border-border",
       )}
       aria-label={title}
     >

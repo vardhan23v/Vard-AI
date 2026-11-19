@@ -147,30 +147,30 @@ export function SkillEditor({
         />
         <div aria-live="polite" className="min-h-10 space-y-1 text-xs">
           {checking && !check ? (
-            <span className="flex items-center gap-1 text-muted-foreground">
+            <span className="flex animate-row-in items-center gap-1 text-muted-foreground">
               <Loader2 className="size-3 animate-spin" /> Checking…
             </span>
           ) : check?.valid && !nameMismatch ? (
-            <span className="flex items-center gap-1 text-diff-add">
+            <span className="flex animate-row-in items-center gap-1 text-diff-add">
               <CheckCircle2 className="size-3.5" /> Valid{check.name ? `: ${check.name}` : ""}
             </span>
           ) : (
             <>
               {nameMismatch && (
-                <p className="flex items-start gap-1 text-destructive">
+                <p className="flex animate-row-in items-start gap-1 text-destructive">
                   <XCircle className="mt-0.5 size-3.5 shrink-0" /> The name must stay "{fixedName}".
                   To rename, create a new skill.
                 </p>
               )}
               {check?.errors.map((e) => (
-                <p key={e} className="flex items-start gap-1 text-destructive">
+                <p key={e} className="flex animate-row-in items-start gap-1 text-destructive">
                   <XCircle className="mt-0.5 size-3.5 shrink-0" /> {e}
                 </p>
               ))}
             </>
           )}
           {check?.warnings.map((w) => (
-            <p key={w} className="text-muted-foreground">
+            <p key={w} className="animate-row-in text-muted-foreground">
               ! {w}
             </p>
           ))}
@@ -185,7 +185,7 @@ export function SkillEditor({
           <button
             onClick={() => void save()}
             disabled={!canSave}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />}{" "}
             {fixedName ? "Save" : "Create skill"}

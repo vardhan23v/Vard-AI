@@ -3,26 +3,34 @@
  * request), live sessions with their page, viewport, screenshots, console and network problems,
  * reports and activity, plus dev servers. Everything comes from the agent's events.
  */
-import { useMemo, useState } from "react";
+import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
   AlertTriangle,
   ArrowLeft,
   Camera,
+  CheckCircle2,
+  ChevronDown,
   Download,
+  FolderOpen,
   Globe,
+  ImageOff,
   Loader2,
   RotateCw,
   Server,
   Square,
+  Terminal,
   Trash2,
+  Wifi,
 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { StarField } from "@/components/StarField";
 import { browser, isTauri, type BrowserSessionInfo, type ViewportPreset } from "@/lib/agent-client";
+import { Flash, usePresence } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { Pill } from "@/features/agents/Pill";
@@ -46,6 +54,7 @@ export function BrowserPage() {
     st.sessions.find((s) => s.state !== "closed") ??
     st.sessions[0];
   const inst = st.status.data?.install;
+  const sessionRows = usePresence(st.sessions, (s) => s.id);
 
   const doInstall = async () => {
     setInstalling(true);
@@ -88,14 +97,20 @@ export function BrowserPage() {
           {st.status.isLoading ? (
             <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
           ) : inst?.installed ? (
-            <p className="text-sm">
-              <span className="font-medium">{inst.name}</span>{" "}
-              {inst.version && <span className="text-muted-foreground">({inst.version})</span>}
-              <span
-                className="block truncate font-mono text-xs text-muted-foreground"
-                title={inst.executable}
-              >
-                {inst.executable}
+            <p className="flex items-start gap-2 text-sm">
+              <CheckCircle2
+                className="mt-0.5 size-4 shrink-0 animate-scale-in text-diff-add"
+                aria-hidden
+              />
+              <span className="min-w-0">
+                <span className="font-medium">{inst.name}</span>{" "}
+                {inst.version && <span className="text-muted-foreground">({inst.version})</span>}
+                <span
+                  className="block truncate font-mono text-xs text-muted-foreground"
+                  title={inst.executable}
+                >
+                  {inst.executable}
+                </span>
               </span>
             </p>
           ) : (
@@ -113,7 +128,7 @@ export function BrowserPage() {
               <button
                 onClick={() => void doInstall()}
                 disabled={installing}
-                className="inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
+                className="press inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
               >
                 {installing ? (
                   <Loader2 className="size-4 animate-spin" />
@@ -122,13 +137,20 @@ export function BrowserPage() {
                 )}{" "}
                 Install browser
               </button>
-              {installing && st.install && st.install.total > 0 && (
-                <Progress
-                  value={(st.install.received / st.install.total) * 100}
-                  className="h-1.5"
-                  aria-label="Download progress"
-                />
-              )}
+              {installing &&
+                (st.install && st.install.total > 0 ? (
+                  <Progress
+                    value={(st.install.received / st.install.total) * 100}
+                    className="h-1.5 animate-fade-in [&>*]:transition-transform [&>*]:duration-[var(--motion-base)] [&>*]:ease-[var(--ease-out)]"
+                    aria-label="Download progress"
+                  />
+                ) : (
+                  <div
+                    className="loading-bar w-full rounded-full bg-primary/20"
+                    role="progressbar"
+                    aria-label="Starting download"
+                  />
+                ))}
             </div>
           )}
         </section>
@@ -137,6 +159,7 @@ export function BrowserPage() {
           <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
             <StarField seed={53} />
             <div className="relative space-y-2">
+              <Globe className="mx-auto size-6 text-muted-foreground" aria-hidden />
               <p className="text-lg">No browser sessions yet</p>
               <p className="mx-auto max-w-md text-sm text-muted-foreground">
                 Sessions appear here when an agent opens a page, for example a task like "check the
@@ -147,13 +170,20 @@ export function BrowserPage() {
         ) : (
           <div className="grid gap-5 lg:grid-cols-[17rem_1fr]">
             <ul className="space-y-2" aria-label="Browser sessions">
-              {st.sessions.map((s) => (
-                <li key={s.id}>
+              {sessionRows.map(({ item: s, leaving }) => (
+                <li
+                  key={s.id}
+                  aria-hidden={leaving || undefined}
+                  className={cn(
+                    "animate-enter transition-opacity duration-[var(--motion-base)]",
+                    leaving && "pointer-events-none opacity-0",
+                  )}
+                >
                   <button
                     onClick={() => setSelected(s.id)}
                     aria-current={current?.id === s.id}
                     className={cn(
-                      "w-full rounded-lg border p-3 text-left transition-colors",
+                      "press w-full rounded-lg border p-3 text-left transition-colors",
                       current?.id === s.id
                         ? "border-primary bg-accent"
                         : "border-border bg-card hover:bg-accent/60",
@@ -170,7 +200,12 @@ export function BrowserPage() {
                     </p>
                     <p className="mt-1 text-xs text-muted-foreground">
                       {s.viewport.name} · {s.screenshots.length} shots
-                      {s.consoleErrors ? ` · ${s.consoleErrors} errors` : ""}
+                      {s.consoleErrors ? (
+                        <>
+                          {" · "}
+                          <Flash value={s.consoleErrors}>{s.consoleErrors} errors</Flash>
+                        </>
+                      ) : null}
                     </p>
                   </button>
                 </li>
@@ -193,21 +228,24 @@ export function BrowserPage() {
             </h2>
             <ul className="space-y-2 text-sm">
               {st.servers.map((d) => (
-                <li key={d.id} className="flex flex-wrap items-center gap-2">
-                  <Pill
-                    tone={
-                      d.state === "ready"
-                        ? "ok"
-                        : d.state === "failed"
-                          ? "bad"
-                          : d.state === "starting"
-                            ? "live"
-                            : "muted"
-                    }
-                    spin={d.state === "starting"}
-                  >
-                    {d.state}
-                  </Pill>
+                <li key={d.id} className="flex animate-row-in flex-wrap items-center gap-2">
+                  {d.state === "ready" && <span className="live-dot text-diff-add" aria-hidden />}
+                  <Flash value={d.state}>
+                    <Pill
+                      tone={
+                        d.state === "ready"
+                          ? "ok"
+                          : d.state === "failed"
+                            ? "bad"
+                            : d.state === "starting"
+                              ? "live"
+                              : "muted"
+                      }
+                      spin={d.state === "starting"}
+                    >
+                      {d.state}
+                    </Pill>
+                  </Flash>
                   <code className="text-xs">{d.url}</code>
                   <span className="truncate text-xs text-muted-foreground" title={d.command}>
                     {d.command}
@@ -234,10 +272,24 @@ function SessionState({ s }: { s: BrowserSessionInfo }) {
         : s.state === "crashed"
           ? "bad"
           : "muted";
+  const running = s.state === "ready" || s.state === "busy" || s.state === "starting";
   return (
-    <Pill tone={tone} spin={s.state === "busy"}>
-      {s.state}
-    </Pill>
+    <span className="inline-flex items-center gap-1.5">
+      {running && (
+        <span
+          className={cn(
+            "live-dot",
+            s.state === "ready" ? "text-diff-add" : "text-agent-foreground",
+          )}
+          aria-hidden
+        />
+      )}
+      <Flash value={s.state}>
+        <Pill tone={tone} spin={s.state === "busy"}>
+          {s.state}
+        </Pill>
+      </Flash>
+    </span>
   );
 }
 
@@ -269,81 +321,99 @@ function SessionView({
     }
   };
   const report = reports.at(-1);
+  // In flight: a control request we sent, or the agent driving the page.
+  const pending = busy || s.state === "busy";
+  const logRows = useMemo(() => {
+    const seen = new Map<string, number>();
+    return log.map((l) => {
+      const base = `${l.at}:${l.action}:${l.detail ?? ""}`;
+      const n = seen.get(base) ?? 0;
+      seen.set(base, n + 1);
+      return { l, key: n ? `${base}:${n}` : base };
+    });
+  }, [log]);
   return (
     <section
       aria-label={`Session ${s.id}`}
-      className="min-w-0 space-y-4 rounded-xl border border-border bg-card p-4"
+      className="min-w-0 animate-enter space-y-4 rounded-xl border border-border bg-card p-4"
     >
-      <form
-        className="flex flex-wrap items-center gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (url.trim()) void act("navigate", { url: url.trim() });
-        }}
-      >
-        <button
-          type="button"
-          disabled={!live || busy}
-          onClick={() => void act("back")}
-          aria-label="Back"
-          className="inline-flex size-9 items-center justify-center rounded-md border border-input hover:bg-accent disabled:opacity-50"
+      <div className="space-y-1">
+        <form
+          className="flex flex-wrap items-center gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (url.trim()) void act("navigate", { url: url.trim() });
+          }}
         >
-          <ArrowLeft className="size-4" />
-        </button>
-        <button
-          type="button"
-          disabled={!live || busy}
-          onClick={() => void act("reload")}
-          aria-label="Reload"
-          className="inline-flex size-9 items-center justify-center rounded-md border border-input hover:bg-accent disabled:opacity-50"
-        >
-          <RotateCw className="size-4" />
-        </button>
-        <label className="min-w-0 flex-1">
-          <span className="sr-only">Address</span>
-          <input
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            disabled={!live}
-            placeholder={s.url ?? "http://localhost:5173"}
-            className="h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary disabled:opacity-60"
-          />
-        </label>
-        <label>
-          <span className="sr-only">Viewport</span>
-          <select
-            value={s.viewport.name}
+          <button
+            type="button"
             disabled={!live || busy}
-            onChange={(e) => void act("viewport", { viewport: e.target.value as ViewportPreset })}
-            className="h-9 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
+            onClick={() => void act("back")}
+            aria-label="Back"
+            className="press inline-flex size-9 items-center justify-center rounded-md border border-input hover:bg-accent disabled:opacity-50"
           >
-            {VIEWPORTS.map((v) => (
-              <option key={v.id} value={v.id}>
-                {v.label}
-              </option>
-            ))}
-            {!VIEWPORTS.some((v) => v.id === s.viewport.name) && (
-              <option value={s.viewport.name}>{s.viewport.name}</option>
-            )}
-          </select>
-        </label>
-        <button
-          type="button"
-          disabled={!live || busy}
-          onClick={() => void act("screenshot")}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-xs hover:bg-accent disabled:opacity-50"
-        >
-          <Camera className="size-4" /> Screenshot
-        </button>
-        <button
-          type="button"
-          disabled={!live}
-          onClick={() => void act("stop")}
-          className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
-        >
-          <Square className="size-3.5" /> Stop
-        </button>
-      </form>
+            <ArrowLeft className="size-4" />
+          </button>
+          <button
+            type="button"
+            disabled={!live || busy}
+            onClick={() => void act("reload")}
+            aria-label="Reload"
+            className="press inline-flex size-9 items-center justify-center rounded-md border border-input hover:bg-accent disabled:opacity-50"
+          >
+            <RotateCw className="size-4" />
+          </button>
+          <label className="min-w-0 flex-1">
+            <span className="sr-only">Address</span>
+            <input
+              value={url}
+              onChange={(e) => setUrl(e.target.value)}
+              disabled={!live}
+              placeholder={s.url ?? "http://localhost:5173"}
+              className="h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary disabled:opacity-60"
+            />
+          </label>
+          <label>
+            <span className="sr-only">Viewport</span>
+            <select
+              value={s.viewport.name}
+              disabled={!live || busy}
+              onChange={(e) => void act("viewport", { viewport: e.target.value as ViewportPreset })}
+              className="h-9 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
+            >
+              {VIEWPORTS.map((v) => (
+                <option key={v.id} value={v.id}>
+                  {v.label}
+                </option>
+              ))}
+              {!VIEWPORTS.some((v) => v.id === s.viewport.name) && (
+                <option value={s.viewport.name}>{s.viewport.name}</option>
+              )}
+            </select>
+          </label>
+          <button
+            type="button"
+            disabled={!live || busy}
+            onClick={() => void act("screenshot")}
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-xs hover:bg-accent disabled:opacity-50"
+          >
+            <Camera className="size-4" /> Screenshot
+          </button>
+          <button
+            type="button"
+            disabled={!live}
+            onClick={() => void act("stop")}
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-xs text-destructive hover:bg-destructive/10 disabled:opacity-50"
+          >
+            <Square className="size-3.5" /> Stop
+          </button>
+        </form>
+        <div
+          className={cn("h-0.5 rounded-full", pending && "loading-bar")}
+          role={pending ? "progressbar" : undefined}
+          aria-label={pending ? "Page working" : undefined}
+        />
+      </div>
       <p className="text-xs text-muted-foreground">
         {s.viewport.width}×{s.viewport.height} · {s.tabs} tab(s)
         {s.lastAction ? ` · last: ${s.lastAction}` : ""}
@@ -351,8 +421,14 @@ function SessionView({
       <Tabs defaultValue="shots">
         <TabsList>
           <TabsTrigger value="shots">Screenshots ({s.screenshots.length})</TabsTrigger>
-          <TabsTrigger value="console">Console ({s.recentConsole?.length ?? 0})</TabsTrigger>
-          <TabsTrigger value="network">Network ({s.recentNetwork?.length ?? 0})</TabsTrigger>
+          <TabsTrigger value="console">
+            Console (
+            <Flash value={s.recentConsole?.length ?? 0}>{s.recentConsole?.length ?? 0}</Flash>)
+          </TabsTrigger>
+          <TabsTrigger value="network">
+            Network (
+            <Flash value={s.recentNetwork?.length ?? 0}>{s.recentNetwork?.length ?? 0}</Flash>)
+          </TabsTrigger>
           <TabsTrigger value="report">
             Report{report ? ` (${report.findings.length})` : ""}
           </TabsTrigger>
@@ -360,7 +436,7 @@ function SessionView({
         </TabsList>
         <TabsContent value="shots" className="pt-3">
           {s.screenshots.length ? (
-            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
+            <div className="stagger grid grid-cols-2 gap-2 sm:grid-cols-3 xl:grid-cols-4">
               {[...s.screenshots].reverse().map((x) => (
                 <Shot
                   key={x.path}
@@ -370,12 +446,24 @@ function SessionView({
               ))}
             </div>
           ) : (
-            <p className="text-sm text-muted-foreground">No screenshots yet.</p>
+            <EmptyState icon={<Camera className="size-5" aria-hidden />} text="No screenshots yet.">
+              {live && (
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={() => void act("screenshot")}
+                  className="press inline-flex min-h-8 items-center gap-1.5 rounded-md border border-input px-3 text-xs hover:bg-accent disabled:opacity-50"
+                >
+                  <Camera className="size-3.5" /> Take one
+                </button>
+              )}
+            </EmptyState>
           )}
         </TabsContent>
         <TabsContent value="console" className="pt-3">
           <EntryList
             empty="No console errors or warnings."
+            emptyIcon={<Terminal className="size-5" aria-hidden />}
             items={(s.recentConsole ?? []).map((c) => ({
               key: `${c.at}${c.text}`,
               tone: c.type === "warning" ? "warn" : "error",
@@ -387,6 +475,7 @@ function SessionView({
         <TabsContent value="network" className="pt-3">
           <EntryList
             empty="No failed requests."
+            emptyIcon={<Wifi className="size-5" aria-hidden />}
             items={(s.recentNetwork ?? []).map((n) => ({
               key: `${n.at}${n.url}`,
               tone: n.kind === "blocked" ? "warn" : "error",
@@ -405,9 +494,18 @@ function SessionView({
           )}
         </TabsContent>
         <TabsContent value="log" className="pt-3">
+          {!logRows.length && (
+            <EmptyState
+              icon={<Globe className="size-5" aria-hidden />}
+              text="No actions in this session yet."
+            />
+          )}
           <ol className="max-h-80 space-y-1 overflow-y-auto text-xs">
-            {[...log].reverse().map((l, i) => (
-              <li key={i} className={cn("flex gap-2", !l.ok && "text-destructive")}>
+            {[...logRows].reverse().map(({ l, key }) => (
+              <li
+                key={key}
+                className={cn("flex animate-row-in gap-2", !l.ok && "text-destructive")}
+              >
                 <time className="w-20 shrink-0 text-muted-foreground tabular-nums">
                   {new Date(l.at).toLocaleTimeString()}
                 </time>
@@ -424,18 +522,38 @@ function SessionView({
   );
 }
 
+function EmptyState({
+  icon,
+  text,
+  children,
+}: {
+  icon: ReactNode;
+  text: string;
+  children?: ReactNode;
+}) {
+  return (
+    <div className="flex animate-fade-in flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
+      <span className="text-muted-foreground">{icon}</span>
+      <p>{text}</p>
+      {children}
+    </div>
+  );
+}
+
 function EntryList({
   items,
   empty,
+  emptyIcon,
 }: {
   items: { key: string; tone: "warn" | "error"; text: string; sub?: string }[];
   empty: string;
+  emptyIcon: ReactNode;
 }) {
-  if (!items.length) return <p className="text-sm text-muted-foreground">{empty}</p>;
+  if (!items.length) return <EmptyState icon={emptyIcon} text={empty} />;
   return (
     <ul className="max-h-80 space-y-1.5 overflow-y-auto text-xs">
       {[...items].reverse().map((x) => (
-        <li key={x.key} className="rounded border border-border p-2">
+        <li key={x.key} className="animate-row-in rounded border border-border p-2">
           <p
             className={cn("break-words", x.tone === "error" ? "text-destructive" : "text-primary")}
           >
@@ -464,33 +582,43 @@ export function ReportView({
     <div className="space-y-3 text-sm">
       <p>{report.summary}</p>
       {byVp.map((g) => (
-        <div key={g.v}>
-          <h3 className="mb-1 text-xs font-medium tracking-wide text-muted-foreground uppercase">
-            {g.v}
-          </h3>
-          <ul className="space-y-1">
-            {g.items.map((f, i) => (
-              <li key={i} className="flex gap-2">
-                <Pill
-                  tone={
-                    f.severity === "high" ? "bad" : f.severity === "medium" ? "attention" : "muted"
-                  }
-                >
-                  {f.severity}
-                </Pill>
-                <span className="min-w-0">
-                  {f.message}
-                  <span className="block truncate font-mono text-xs text-muted-foreground">
-                    {f.evidence}
+        <Collapsible key={g.v} defaultOpen>
+          <CollapsibleTrigger className="group mb-1 flex items-center gap-1 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:text-foreground">
+            <ChevronDown
+              className="size-3.5 transition-transform duration-[var(--motion-fast)] group-data-[state=closed]:-rotate-90"
+              aria-hidden
+            />
+            {g.v} ({g.items.length})
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul className="stagger space-y-1">
+              {g.items.map((f, i) => (
+                <li key={i} className="flex gap-2">
+                  <Pill
+                    tone={
+                      f.severity === "high"
+                        ? "bad"
+                        : f.severity === "medium"
+                          ? "attention"
+                          : "muted"
+                    }
+                  >
+                    {f.severity}
+                  </Pill>
+                  <span className="min-w-0">
+                    {f.message}
+                    <span className="block truncate font-mono text-xs text-muted-foreground">
+                      {f.evidence}
+                    </span>
                   </span>
-                </span>
-              </li>
-            ))}
-          </ul>
-        </div>
+                </li>
+              ))}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
       ))}
       {report.screenshots.length > 0 && (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+        <div className="stagger grid grid-cols-2 gap-2 sm:grid-cols-3">
           {report.screenshots.map((s) => (
             <Shot key={s.path} path={s.path} label={s.viewport ?? s.label} />
           ))}
@@ -548,7 +676,7 @@ function ArtifactsSection() {
                 toast.success(`Removed ${r.removed ?? 0} files`);
                 void q.refetch();
               }}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm text-destructive hover:bg-destructive/10"
+              className="press inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm text-destructive hover:bg-destructive/10"
             >
               <Trash2 className="size-4" /> Delete all
             </button>
@@ -561,7 +689,7 @@ function ArtifactsSection() {
             <p className="text-xs text-muted-foreground">
               {items.length} files · {(total / 1e6).toFixed(1)} MB · never deleted automatically
             </p>
-            <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
+            <div className="stagger grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
               {items
                 .filter((a) => a.name.endsWith(".png"))
                 .slice(0, 24)
@@ -570,15 +698,19 @@ function ArtifactsSection() {
                 ))}
             </div>
           </>
+        ) : q.isLoading ? (
+          <p className="text-sm text-muted-foreground">Loading…</p>
         ) : (
-          <p className="text-sm text-muted-foreground">
-            {q.isLoading ? "Loading…" : "No artifacts in this project."}
-          </p>
+          <EmptyState
+            icon={<ImageOff className="size-5" aria-hidden />}
+            text="No artifacts in this project yet. Agents save screenshots and reports here when they test it."
+          />
         ))}
       {!root && (
-        <p className="text-sm text-muted-foreground">
-          Choose a project to see its saved artifacts.
-        </p>
+        <EmptyState
+          icon={<FolderOpen className="size-5" aria-hidden />}
+          text="Choose a project above to see its saved artifacts."
+        />
       )}
     </section>
   );

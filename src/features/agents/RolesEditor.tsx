@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Check, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
@@ -41,17 +41,21 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoleOverride>(override ?? {});
   const [saving, setSaving] = useState(false);
+  // Bumped on each successful save so the check icon remounts and scales in again.
+  const [saved, setSaved] = useState(0);
   const base = role; // effective (already narrowed); the switches below can only turn things off
   const tools = { ...base.tools, ...(draft.tools ?? {}) };
 
   const save = async (next: RoleOverride | null) => {
     setSaving(true);
+    setSaved(0);
     try {
       const r = next
         ? await agentRoles.save("global", role.id, next)
         : await agentRoles.reset("global", role.id);
       qc.setQueryData(["agent-roles"], r);
       if (!next) setDraft({});
+      setSaved((n) => n + 1);
       toast.success(`${ROLE_LABEL[role.id]} role ${next ? "saved" : "reset"}`);
     } catch (e) {
       toast.error("Couldn't save the role", {
@@ -214,7 +218,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
               })
             }
             disabled={saving}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />} Save
           </button>
@@ -226,6 +230,15 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
             >
               <RotateCcw className="size-4" /> Reset to default
             </button>
+          )}
+          {saved > 0 && !saving && (
+            <span
+              key={saved}
+              role="status"
+              className="inline-flex animate-scale-in items-center gap-1 text-xs text-diff-add"
+            >
+              <Check className="size-4" aria-hidden /> Saved
+            </span>
           )}
         </div>
       </div>
