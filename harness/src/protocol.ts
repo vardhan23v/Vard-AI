@@ -8,6 +8,7 @@
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
 import { AgentMessage, AgentRun, IntegrationRecord, OrchControl, OrchestrationState, OrchPhase, ReviewResult, RoleConfig, RoleId, RoleOverride, SubtaskState, TaskGraph, TeamRequest } from "./agents/schema";
+import { CodeSymbol, GraphData, ImpactReport, IndexConfig, IndexStatus, SearchHit } from "./intelligence/schema";
 import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
 import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
 
@@ -77,6 +78,8 @@ export const TaskStartRequest = z.object({
   skills: z.array(z.string().min(1).max(200)).max(10).optional(),
   /** Pick relevant skills automatically (unset means yes). */
   autoSkills: z.boolean().optional(),
+  /** Use the code index (build or update it before the task; unset means yes). */
+  codeIndex: z.boolean().optional(),
   /** "team": a planner splits the work across specialist agents (needs a git repo). */
   mode: z.enum(["single", "team"]).optional(),
   team: TeamRequest.optional(),
@@ -212,6 +215,39 @@ export const AgentsRolesRequest = z.object({
     .optional(),
 });
 
+// ---------- code intelligence ----------
+
+const codeReq = {
+  ...reqBase,
+  projectRoot: z.string().min(1),
+  /** For OpenAI/Google embeddings: the shell adds the key for this provider. */
+  provider: z.enum(["openai", "google"]).optional(),
+  apiKey: z.string().optional(),
+};
+export const CodeIndexRequest = z.object({
+  ...codeReq,
+  type: z.literal("code.index"),
+  action: z.enum(["build", "rebuild", "cancel", "clean", "watch", "unwatch", "status"]),
+});
+const relPath = z.string().min(1).max(400);
+export const CodeQuery = z.discriminatedUnion("kind", [
+  z.object({ kind: z.literal("search"), query: z.string().min(1).max(300), limit: z.number().int().min(1).max(50).optional() }),
+  z.object({ kind: z.literal("symbols"), query: z.string().min(1).max(120), limit: z.number().int().min(1).max(100).optional() }),
+  z.object({ kind: z.literal("definition"), name: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal("references"), name: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal("callers"), name: z.string().min(1).max(120) }),
+  z.object({ kind: z.literal("dependencies"), path: relPath }),
+  z.object({ kind: z.literal("dependents"), path: relPath, depth: z.number().int().min(1).max(3).optional() }),
+  z.object({ kind: z.literal("outline"), path: relPath }),
+  z.object({ kind: z.literal("architecture") }),
+  z.object({ kind: z.literal("impact"), target: z.string().min(1).max(400), depth: z.number().int().min(1).max(5).optional() }),
+  z.object({ kind: z.literal("graph"), focus: relPath.optional(), depth: z.number().int().min(1).max(3).optional(), limit: z.number().int().min(10).max(150).optional() }),
+  z.object({ kind: z.literal("snippet"), path: relPath, line: z.number().int().min(1), context: z.number().int().min(0).max(80).optional() }),
+]);
+export type CodeQuery = z.infer<typeof CodeQuery>;
+export const CodeQueryRequest = z.object({ ...codeReq, type: z.literal("code.query"), query: CodeQuery });
+export const CodeConfigRequest = z.object({ ...reqBase, type: z.literal("code.config"), projectRoot: z.string().min(1), config: IndexConfig.partial().optional() });
+
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
   ChatSendRequest,
@@ -237,6 +273,9 @@ export const Request = z.discriminatedUnion("type", [
   OrchControlRequest,
   OrchStatusRequest,
   AgentsRolesRequest,
+  CodeIndexRequest,
+  CodeQueryRequest,
+  CodeConfigRequest,
 ]);
 export type Request = z.infer<typeof Request>;
 export type TaskStartRequest = z.infer<typeof TaskStartRequest>;
@@ -492,6 +531,27 @@ export const Event = z.discriminatedUnion("type", [
     roles: z.array(RoleConfig),
     overrides: z.object({ global: z.record(z.string(), RoleOverride), project: z.record(z.string(), RoleOverride) }),
   }),
+  // Code intelligence.
+  z.object({ ...evBase, type: z.literal("code_index_status"), status: IndexStatus }),
+  z.object({ ...evBase, type: z.literal("code_index_progress"), projectRoot: z.string(), done: z.number(), total: z.number() }),
+  z.object({ ...evBase, type: z.literal("code_config"), projectRoot: z.string(), config: IndexConfig }),
+  z.object({
+    ...evBase,
+    type: z.literal("code_results"),
+    kind: z.string(),
+    hits: z.array(SearchHit).optional(),
+    symbols: z.array(CodeSymbol).optional(),
+    locations: z.array(z.object({ path: z.string(), line: z.number(), kind: z.string().optional(), in: z.string().optional() })).optional(),
+    ambiguous: z.boolean().optional(),
+    files: z.array(z.object({ path: z.string(), depth: z.number().optional(), test: z.boolean().optional() })).optional(),
+    packages: z.array(z.string()).optional(),
+    impact: ImpactReport.optional(),
+    graph: GraphData.optional(),
+    text: z.string().optional(),
+    snippet: z.object({ path: z.string(), start: z.number(), lines: z.array(z.string()) }).optional(),
+  }),
+  /** A task's view of the codebase: overview text and, for team runs, the planner's impact reports. */
+  z.object({ ...evBase, type: z.literal("code_context"), overview: z.string(), impact: ImpactReport.optional(), indexing: z.boolean().optional() }),
   z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
 ]);
 export type Event = z.infer<typeof Event>;

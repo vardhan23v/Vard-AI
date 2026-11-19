@@ -85,6 +85,8 @@ export interface LoopOptions {
   gate?: () => Promise<void>;
   /** Text added to the end of the system prompt (a team agent's role and assignment). */
   extraInstructions?: string;
+  /** A short summary of the codebase from the code index (languages, folders, entry points). */
+  codebase?: string;
 }
 
 export interface LoopResult {
@@ -298,6 +300,7 @@ export class AgentLoop {
       repoMap: this.repoMapCache,
       memory: this.memoryCache,
       skills: o.skills?.block,
+      codebase: o.codebase,
       mcp: o.mcpSummary?.(),
       extra: o.extraInstructions,
     });

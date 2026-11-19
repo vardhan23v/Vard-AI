@@ -91,6 +91,8 @@ export interface SystemPromptInput {
   memory?: string;
   /** The "# Skills" section (skills/activation.ts), if any skills were chosen. */
   skills?: string;
+  /** Codebase overview from the code index. */
+  codebase?: string;
   /** Connected MCP servers (names and tool names only; descriptions travel with the tools). */
   mcp?: { name: string; id: string; tools: string[] }[];
 }
@@ -109,6 +111,10 @@ export async function buildSystemPrompt(input: SystemPromptInput): Promise<strin
   if (input.memory)
     sections.push(
       `# Project memory\nWhat earlier tasks and the user taught you about this project. Facts marked "(inferred, unconfirmed)" may be wrong: check them before relying on them; the rest are verified.\n\n${input.memory}`,
+    );
+  if (input.codebase)
+    sections.push(
+      `# Codebase overview\nFrom Vard's code index. Use code_search, code_find_references, code_get_dependents and code_impact_analysis to find the right code and check what a change affects before editing.\n${input.codebase}`,
     );
   if (input.skills) sections.push(input.skills);
   if (input.mcp?.length)

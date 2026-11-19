@@ -6,6 +6,7 @@ import { keysCommand } from "./commands/keys";
 import { memoryCommand } from "./commands/memory";
 import { mcpCommand } from "./commands/mcp";
 import { skillsCommand } from "./commands/skills";
+import { codeCommand } from "./commands/code";
 import { modelsCommand } from "./commands/models";
 import { session } from "./commands/session";
 import { runTask } from "./commands/task";
@@ -30,6 +31,8 @@ Usage
                             MCP servers (external tools); see vard mcp help
   vard skills [list|show|new|edit|import|validate|enable|disable|rm|trust|untrust|path]
                             reusable instructions the agent picks per task
+  vard code [index|status|search|symbols|def|refs|callers|deps|dependents|outline|impact|arch|embeddings|clean]
+                            the code index: search, dependencies, impact
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
                                             pbpaste | vard keys set openrouter)
   vard models [use <id>]
@@ -56,7 +59,7 @@ or the macOS Keychain shared with the Vard AI app.
 `;
 
 export type ParsedArgs = {
-  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "mcp" | "skills" | "help" | "version";
+  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "mcp" | "skills" | "code" | "help" | "version";
   rest: string[];
   flags: {
     model?: string;
@@ -81,6 +84,7 @@ export type ParsedArgs = {
     description?: string;
     team?: boolean;
     maxAgents?: number;
+    force?: boolean;
   };
 };
 
@@ -110,6 +114,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       skill: { type: "string", multiple: true },
       "no-skills": { type: "boolean" },
       team: { type: "boolean" },
+      force: { type: "boolean" },
       "max-agents": { type: "string" },
       description: { type: "string" },
       remember: { type: "boolean" },
@@ -146,12 +151,13 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     description: values.description,
     team: values.team,
     maxAgents,
+    force: values.force,
   };
   if (values.help) return { command: "help", rest: [], flags };
   if (values.version) return { command: "version", rest: [], flags };
   const [first, ...rest] = positionals;
   if (first === undefined) return { command: "session", rest: [], flags };
-  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory" || first === "mcp" || first === "skills")
+  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory" || first === "mcp" || first === "skills" || first === "code")
     return { command: first, rest, flags };
   if (first === "help") return { command: "help", rest: [], flags };
   throw new Error(`Unknown command "${first}". To ask a question, use: vard ask "${positionals.join(" ")}"`);
@@ -174,6 +180,8 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
       return mcpCommand(ctx, p.rest, p.flags);
     case "skills":
       return skillsCommand(ctx, p.rest, p.flags);
+    case "code":
+      return codeCommand(ctx, p.rest, p.flags);
     case "models":
       return modelsCommand(ctx, p.rest, p.flags);
     case "ask": {

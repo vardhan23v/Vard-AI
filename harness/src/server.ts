@@ -11,6 +11,9 @@ import { ProviderConfig } from "./protocol";
 import { analyze, applyAuto, MemoryError, MemoryStore } from "./memory";
 import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, validateServerUrl, type SecretStore } from "./mcp";
 import { vardHome } from "./mcp/config";
+import { architecture, CodeGraph, CodeIntel, codeTools, deleteIndex, IntelError, loadIndexConfig, renderArchitecture, saveIndexConfig, searchCode, analyzeImpact, updateEmbeddings } from "./intelligence";
+import { ALL_TOOLS } from "./tools";
+import nodePath from "node:path";
 import { applySkillChange, previewTokens, projectSignals, renderSkillsBlock, SkillError, SkillRegistry, skillsForTask, type TaskSkills } from "./skills";
 import { FileRulesStore, Policy, type RulesStore } from "./policy";
 import { type Event, type EventBody, parseRequest, type Request, type TaskStartRequest } from "./protocol";
@@ -18,6 +21,7 @@ import { createModel, type ModelFactory } from "./providers";
 import { Tracer } from "./trace";
 import { DEFAULT_RETRY, type RetryOptions, withRetry } from "./retry";
 import { describeError } from "./util";
+import { isSensitivePath as isSensitive } from "./memory/secrets";
 import { createWorktree, discardWorktree, isGitRepo, mergeWorktree, type Worktree, worktreeDiff } from "./worktree";
 
 import { VERSION } from "./version";
@@ -59,10 +63,23 @@ export class Server {
   private modelFactory: ModelFactory;
 
   readonly mcp: McpManager;
+  /** Code indexes (one per project), shared by tasks, the UI and the CLI. */
+  readonly intel: CodeIntel;
+  private codeBuilds = new Map<string, AbortController>();
+  private codeProgressAt = new Map<string, number>();
   private mcpPush = new Map<string, ReturnType<typeof setTimeout>>();
 
   constructor(private deps: ServerDeps) {
     this.modelFactory = deps.modelFactory ?? createModel;
+    this.intel = new CodeIntel({
+      onStatus: (status) => this.emitter("code")({ type: "code_index_status", status }),
+      onProgress: (projectRoot, done, total) => {
+        const now = Date.now();
+        if (done < total && now - (this.codeProgressAt.get(projectRoot) ?? 0) < 250) return;
+        this.codeProgressAt.set(projectRoot, now);
+        this.emitter("code")({ type: "code_index_progress", projectRoot, done, total });
+      },
+    });
     this.mcp =
       deps.mcp ??
       new McpManager({
@@ -174,6 +191,10 @@ export class Server {
       }
       case "agents.roles":
         return this.rolesRequest(req);
+      case "code.index":
+      case "code.query":
+      case "code.config":
+        return this.codeRequest(req);
       case "task.merge":
       case "task.discard": {
         const t = this.task(req.taskId);
@@ -361,6 +382,20 @@ export class Server {
       if (workRoot !== projectRoot) this.mcp.addRoot(projectRoot, workRoot);
       loopOptions.extraTools = () => this.mcp.toolDefs(projectRoot);
       loopOptions.mcpSummary = () => this.mcp.summary(projectRoot);
+    }
+    // Code intelligence: update (or build) the project's index within a bounded wait, then give
+    // the agent the code tools and a short overview.
+    if (req.codeIndex !== false) {
+      try {
+        const state = await this.intel.ensure(projectRoot, 15_000);
+        const ix = this.intel.get(projectRoot);
+        const overview = ix.exists() ? renderArchitecture(architecture(ix), 1_500) : "";
+        loopOptions.tools = [...ALL_TOOLS, ...codeTools(this.intel)];
+        if (overview) loopOptions.codebase = overview;
+        emit({ type: "code_context", overview, indexing: state === "building" });
+      } catch {
+        // The index must never stop a task.
+      }
     }
     if (team) return this.startTeam(req, entry, loopOptions, { emit, learn, memSettings: memSettings ?? undefined, store, hasMcp });
     const loop = new AgentLoop(loopOptions);
@@ -664,8 +699,113 @@ export class Server {
     }
   }
 
+  /** code.index / code.query / code.config. Answers carry the request id. */
+  private async codeRequest(req: Extract<Request, { type: `code.${string}` }>) {
+    const emit = this.emitter(req.id);
+    if (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory()) throw new Error(`project folder not found: ${req.projectRoot}`);
+    const root = fs.realpathSync(req.projectRoot);
+    if ("apiKey" in req && req.apiKey) this.intel.setEmbeddingKey(root, req.apiKey);
+    const ix = this.intel.get(root);
+    try {
+      if (req.type === "code.config") {
+        const config = req.config ? saveIndexConfig(root, req.config) : loadIndexConfig(root);
+        return emit({ type: "code_config", projectRoot: root, config });
+      }
+      if (req.type === "code.index") {
+        switch (req.action) {
+          case "build":
+          case "rebuild": {
+            if (!ix.isBuilding) {
+              const ctrl = new AbortController();
+              this.codeBuilds.set(root, ctrl);
+              void this.intel
+                .build(root, { force: req.action === "rebuild", signal: ctrl.signal })
+                .then(async () => {
+                  const p = this.intel.embeddings(root);
+                  if (p) await updateEmbeddings(ix, p, { signal: ctrl.signal }).catch((e) => (ix.lastError = `embeddings: ${(e as Error).message}`));
+                  this.emitter("code")({ type: "code_index_status", status: ix.status() });
+                })
+                .catch(() => {})
+                .finally(() => this.codeBuilds.delete(root));
+            }
+            break;
+          }
+          case "cancel":
+            this.codeBuilds.get(root)?.abort();
+            break;
+          case "clean":
+            this.codeBuilds.get(root)?.abort();
+            this.intel.unwatch(root);
+            ix.close();
+            deleteIndex(root);
+            break;
+          case "watch":
+            this.intel.watch(root);
+            break;
+          case "unwatch":
+            this.intel.unwatch(root);
+            break;
+        }
+        return emit({ type: "code_index_status", status: ix.status() });
+      }
+      // code.query
+      const q = req.query;
+      if (q.kind !== "snippet" && !ix.exists()) throw new IntelError("not_indexed", "This project hasn't been indexed yet.");
+      const g = new CodeGraph(ix);
+      const out = (body: Record<string, unknown>) => emit({ type: "code_results", kind: q.kind, ...body } as never);
+      switch (q.kind) {
+        case "search":
+          return out({ hits: await searchCode(ix, q.query, { limit: q.limit ?? 20, embeddings: this.intel.embeddings(root) }) });
+        case "symbols":
+          return out({ symbols: g.symbolSearch(q.query, q.limit ?? 40) });
+        case "definition":
+          return out({ symbols: g.definitions(q.name) });
+        case "references":
+        case "callers": {
+          const refs = q.kind === "callers" ? g.callers(q.name) : g.references(q.name);
+          return out({ locations: refs.map((r) => ({ path: r.path, line: r.line, kind: r.kind, in: r.in })), ambiguous: refs.some((r) => r.ambiguous) });
+        }
+        case "dependencies": {
+          const d = g.dependencies(q.path);
+          return out({ files: d.files.map((p) => ({ path: p, test: g.isTest(p) })), packages: d.packages });
+        }
+        case "dependents": {
+          const d = (q.depth ?? 1) === 1 ? g.dependents(q.path).map((p) => ({ path: p, depth: 1 })) : g.dependentsDeep([q.path], q.depth);
+          return out({ files: d.map((x) => ({ ...x, test: g.isTest(x.path) })) });
+        }
+        case "outline":
+          return out({ symbols: g.outline(q.path) });
+        case "architecture":
+          return out({ text: renderArchitecture(architecture(ix), 8_000) });
+        case "impact":
+          return out({ impact: analyzeImpact(ix, q.target, { depth: q.depth }) });
+        case "graph":
+          return out({ graph: g.graph({ focus: q.focus, depth: q.depth, limit: q.limit }) });
+        case "snippet": {
+          let abs = nodePath.resolve(root, q.path);
+          try {
+            abs = fs.realpathSync(abs);
+          } catch {
+            throw new IntelError("path", `no such file: ${q.path}`);
+          }
+          if (!abs.startsWith(root + nodePath.sep)) throw new IntelError("path", "path escapes the project");
+          if (isSensitive(q.path)) throw new IntelError("path", "refusing to show a credentials file");
+          const lines = fs.readFileSync(abs, "utf8").split("\n");
+          const ctx = q.context ?? 12;
+          const start = Math.max(1, q.line - ctx);
+          return out({ snippet: { path: q.path, start, lines: lines.slice(start - 1, q.line + ctx).map((l) => l.slice(0, 400)) } });
+        }
+      }
+    } catch (e) {
+      if (e instanceof IntelError) throw new Error(e.message);
+      throw e;
+    }
+  }
+
   /** Abort everything (used on stdin EOF) and wait for tasks to settle. */
   async shutdown() {
+    for (const c of this.codeBuilds.values()) c.abort();
+    this.intel.closeAll();
     await this.mcp.closeAll().catch(() => {});
     for (const c of this.chats.values()) c.abort();
     for (const t of this.tasks.values()) t.abort.abort();

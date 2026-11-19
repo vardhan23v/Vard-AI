@@ -236,3 +236,227 @@ describe("incremental index", () => {
     ix.close();
   }, 60_000);
 });
+
+// ---------- Milestone 2: search, graph, impact, tools ----------
+
+import { analyzeImpact, CodeGraph, CodeIntel, codeTools, searchCode, updateEmbeddings, type EmbeddingProvider } from "../src/intelligence";
+import { MemoryRulesStore } from "../src/policy";
+import type { Event } from "../src/protocol";
+import { Server } from "../src/server";
+import { runCli } from "../src/cli/main";
+import { KeyStore } from "../src/cli/keys";
+import { ScriptedPrompter } from "../src/cli/prompt";
+import { scriptedModel, tmpDir, toolCtx } from "./helpers";
+
+const APP = {
+  "package.json": JSON.stringify({ name: "app", scripts: { test: "bun test", typecheck: "tsc --noEmit" }, dependencies: { jose: "5" } }),
+  "bun.lock": "{}",
+  "src/auth/token.ts": 'import { jwtVerify } from "jose";\nexport async function verifyToken(token: string) {\n  return jwtVerify(token, new Uint8Array());\n}\nexport const TOKEN_TTL = 3600;\n',
+  "src/auth/login.ts": 'import { verifyToken } from "./token";\nexport async function loginHandler(req: Request) {\n  const t = req.headers.get("authorization") ?? "";\n  return verifyToken(t);\n}\n',
+  "src/middleware.ts": 'import { verifyToken } from "./auth/token";\nexport async function requireSession(req: Request) {\n  await verifyToken("x");\n}\n',
+  "src/routes.ts": 'import { loginHandler } from "./auth/login";\nimport { requireSession } from "./middleware";\nexport const routes = { "/login": loginHandler, "/me": requireSession };\n',
+  "src/ui/LoginForm.tsx": 'import { routes } from "../routes";\nexport function LoginForm() { return <form action="/login"><button>Sign in</button></form>; }\n',
+  "src/billing/invoice.ts": "export function totalInvoice(items: number[]) { return items.reduce((a, b) => a + b, 0); }\n",
+  "src/auth/token.test.ts": 'import { verifyToken } from "./token";\ntest("verifies", () => verifyToken("x"));\n',
+  "README.md": "# App\n## Auth\nUses JWT.\n",
+};
+
+async function indexed(files: Record<string, string> = APP) {
+  const repo = tmpGitRepo(files);
+  const ix = new CodeIndex(repo);
+  await ix.build();
+  return { repo, ix, g: new CodeGraph(ix) };
+}
+
+describe("search", () => {
+  test("'where is user authentication handled?' finds the auth module, login handler, middleware and tests", async () => {
+    const { ix } = await indexed();
+    const hits = await searchCode(ix, "Where is user authentication handled?", { limit: 10 });
+    const paths = hits.map((h) => h.path);
+    expect(paths.slice(0, 3)).toEqual(expect.arrayContaining(["src/auth/token.ts", "src/auth/login.ts"]));
+    expect(paths).toContain("src/middleware.ts");
+    expect(paths).not.toContain("src/billing/invoice.ts");
+    expect(hits[0].reasons.length).toBeGreaterThan(0);
+    expect(hits.find((h) => h.symbol === "loginHandler")?.snippet).toContain("loginHandler");
+    ix.close();
+  });
+
+  test("symbol and keyword queries; tests rank lower unless asked for", async () => {
+    const { ix } = await indexed();
+    expect((await searchCode(ix, "verifyToken"))[0]).toMatchObject({ path: "src/auth/token.ts", symbol: "verifyToken" });
+    const withTests = await searchCode(ix, "verifyToken tests");
+    expect(withTests.slice(0, 3).map((h) => h.path)).toContain("src/auth/token.test.ts");
+    expect((await searchCode(ix, "invoice total"))[0].path).toBe("src/billing/invoice.ts");
+    expect(await searchCode(ix, "the of and")).toEqual([]);
+    ix.close();
+  });
+
+  test("optional vector search is used when configured, and secret-looking chunks are never embedded", async () => {
+    const files = { ...APP, "src/config.ts": `export const apiKey = "${["sk-", "proj-", "A1b2C3d4E5f6G7h8I9j0K1l2"].join("")}";\n` };
+    const { ix } = await indexed(files);
+    const sent: string[] = [];
+    const mock: EmbeddingProvider = {
+      id: "mock/v1",
+      async embed(texts) {
+        sent.push(...texts);
+        // A toy embedding: does the text mention money?
+        return texts.map((t) => [/(invoice|total|items|money)/i.test(t) ? 1 : 0, /(token|auth|login)/i.test(t) ? 1 : 0, 0.1]);
+      },
+    };
+    const r = await updateEmbeddings(ix, mock);
+    expect(r.embedded).toBeGreaterThan(5);
+    expect(r.skipped).toBeGreaterThan(0);
+    expect(sent.some((t) => t.includes("sk-proj"))).toBe(false);
+    const hits = await searchCode(ix, "money calculations", { embeddings: mock });
+    expect(hits[0].path).toBe("src/billing/invoice.ts");
+    expect(hits[0].reasons.join()).toContain("similar meaning");
+    // Re-running embeds nothing new; changing the model replaces vectors.
+    expect((await updateEmbeddings(ix, mock)).embedded).toBe(0);
+    ix.close();
+  });
+});
+
+describe("graph", () => {
+  test("definitions, references with enclosing function, callers, dependencies, dependents, outline, tests", async () => {
+    const { ix, g } = await indexed();
+    expect(g.definitions("verifyToken")[0]).toMatchObject({ path: "src/auth/token.ts", line: 2, exported: true });
+    const refs = g.references("verifyToken");
+    expect(refs.map((r) => `${r.path}:${r.in}`)).toEqual(
+      expect.arrayContaining(["src/auth/login.ts:loginHandler", "src/middleware.ts:requireSession", "src/auth/token.test.ts:undefined"]),
+    );
+    expect(refs[0].ambiguous).toBe(false);
+    expect(g.callers("verifyToken").length).toBe(3);
+    expect(g.dependencies("src/auth/token.ts")).toEqual({ files: [], packages: ["jose"] });
+    expect(g.dependents("src/auth/token.ts")).toEqual(["src/auth/login.ts", "src/auth/token.test.ts", "src/middleware.ts"]);
+    expect(g.dependentsDeep(["src/auth/token.ts"], 3).map((d) => d.path)).toEqual(expect.arrayContaining(["src/routes.ts", "src/ui/LoginForm.tsx"]));
+    expect(g.outline("src/auth/token.ts").map((s) => s.name)).toEqual(["verifyToken", "TOKEN_TTL"]);
+    expect(g.testsFor("src/auth/token.ts")).toEqual(["src/auth/token.test.ts"]);
+    const graph = g.graph({ focus: "src/auth/token.ts", depth: 1 });
+    expect(graph.nodes.map((n) => n.id)).toEqual(expect.arrayContaining(["src/auth/token.ts", "src/auth/login.ts", "src/middleware.ts"]));
+    expect(graph.edges).toContainEqual({ from: "src/auth/login.ts", to: "src/auth/token.ts", kind: "imports" });
+    expect(graph.edges).toContainEqual({ from: "src/auth/token.test.ts", to: "src/auth/token.ts", kind: "tests" });
+    const folders = g.graph();
+    expect(folders.nodes.some((n) => n.kind === "package")).toBe(true);
+    ix.close();
+  });
+
+  test("graph size is capped", async () => {
+    const files: Record<string, string> = { "hub.ts": "export const hub = 1;\n" };
+    for (let i = 0; i < 300; i++) files[`m${i}.ts`] = 'import { hub } from "./hub";\nexport const x = hub;\n';
+    const { ix, g } = await indexed(files);
+    const graph = g.graph({ focus: "hub.ts", limit: 50 });
+    expect(graph.nodes.length).toBe(50);
+    expect(graph.truncated).toBe(true);
+    ix.close();
+  });
+});
+
+describe("impact analysis", () => {
+  test("a widely used function: dependents, references, tests, verification and evidence-based risk", async () => {
+    const { ix } = await indexed();
+    const r = analyzeImpact(ix, "verifyToken");
+    expect(r.resolved.files).toEqual(["src/auth/token.ts"]);
+    expect(r.direct.map((d) => d.path)).toEqual(["src/auth/login.ts", "src/auth/token.test.ts", "src/middleware.ts"]);
+    expect(r.indirect.map((d) => d.path)).toEqual(expect.arrayContaining(["src/routes.ts"]));
+    expect(r.tests).toEqual(["src/auth/token.test.ts"]);
+    expect(r.verify).toEqual(["bun run typecheck", "bun run test"]);
+    expect(r.config).toContain("package.json");
+    expect(r.risk).toBe("medium");
+    expect(r.evidence.join(" ")).toContain("3 direct dependent files");
+    ix.close();
+  });
+
+  test("an isolated file is low risk; an unknown target says so", async () => {
+    const { ix } = await indexed();
+    const r = analyzeImpact(ix, "src/billing/invoice.ts");
+    expect(r.direct).toEqual([]);
+    expect(r.evidence).toContain("no related tests found");
+    expect(r.risk).toBe("low");
+    expect(analyzeImpact(ix, "doesNotExist").evidence[0]).toContain("nothing in the index");
+    ix.close();
+  });
+});
+
+describe("code tools and protocol", () => {
+  test("tools are read-only, confined to the project and cite file:line", async () => {
+    const { repo } = await indexed();
+    const intel = new CodeIntel();
+    await intel.build(repo);
+    const tools = codeTools(intel);
+    expect(tools.every((t) => t.risk === "read")).toBe(true);
+    const t = (n: string) => tools.find((x) => x.name === n)!;
+    const ctx = toolCtx(repo);
+    expect(await t("code_search").execute({ query: "token verification", limit: 5 }, ctx)).toContain("src/auth/token.ts:");
+    expect(await t("code_get_definition").execute({ name: "loginHandler" }, ctx)).toContain("src/auth/login.ts:2");
+    expect(await t("code_impact_analysis").execute({ target: "verifyToken", depth: 3 }, ctx)).toContain("risk MEDIUM");
+    await expect(t("code_get_dependencies").execute({ path: "../../etc/passwd" }, ctx)).rejects.toThrow("relative to the project");
+    await expect(t("code_get_file_outline").execute({ path: "/etc/passwd" }, ctx)).rejects.toThrow("relative to the project");
+    intel.closeAll();
+  });
+
+  test("a task builds the index, gets the overview and can call the code tools", async () => {
+    const repo = tmpGitRepo(APP);
+    const events: Event[] = [];
+    let system = "";
+    let done!: () => void;
+    const finished = new Promise<void>((r) => (done = r));
+    const model = scriptedModel([{ calls: [{ name: "code_impact_analysis", input: { target: "verifyToken" } }] }, { text: "Checked." }]);
+    const orig = model.doStream.bind(model);
+    (model as any).doStream = async (o: any) => {
+      system ||= JSON.stringify(o.prompt[0]);
+      return orig(o);
+    };
+    const s = new Server({ traceDir: tmpDir(), modelFactory: () => model, rulesStoreFor: () => new MemoryRulesStore(), write: (e) => (events.push(e), e.type === "done" && e.taskId && done()) });
+    await s.handle({ id: "t", type: "task.start", taskId: "ci1", projectRoot: repo, prompt: "change token handling", provider: { provider: "anthropic", model: "m", apiKey: "k" }, planFirst: false, useWorktree: false, useMemory: false });
+    await finished;
+    expect(system).toContain("# Codebase overview");
+    expect(system).toContain("typescript");
+    const ctxEv = events.find((e) => e.type === "code_context") as any;
+    expect(ctxEv.overview).toContain("Languages:");
+    const res = events.find((e) => e.type === "tool_result") as any;
+    expect(res.ok).toBe(true);
+    expect(res.output).toContain("Direct dependents (3)");
+    await s.shutdown();
+  });
+
+  test("code.index / code.query / code.config requests", async () => {
+    const repo = tmpGitRepo(APP);
+    const events: Event[] = [];
+    const s = new Server({ write: (e) => events.push(e) });
+    await s.handle({ id: "b", type: "code.index", projectRoot: repo, action: "build" });
+    for (let i = 0; i < 200 && !(s.intel.get(repo).exists() && !s.intel.get(repo).isBuilding); i++) await new Promise((r) => setTimeout(r, 20));
+    const q = async (query: any) => {
+      await s.handle({ id: `q${events.length}`, type: "code.query", projectRoot: repo, query });
+      return events.at(-1) as any;
+    };
+    expect((await q({ kind: "search", query: "login" })).hits[0].path).toMatch(/login/i);
+    expect((await q({ kind: "impact", target: "src/auth/token.ts" })).impact.direct.length).toBe(3);
+    expect((await q({ kind: "graph" })).graph.nodes.length).toBeGreaterThan(0);
+    expect((await q({ kind: "snippet", path: "src/routes.ts", line: 2, context: 1 })).snippet.lines.length).toBe(3);
+    await s.handleLine(JSON.stringify({ id: "x", type: "code.query", projectRoot: repo, query: { kind: "snippet", path: "../../../etc/hosts", line: 1 } }));
+    expect((events.at(-1) as any).type).toBe("error");
+    await s.handle({ id: "c", type: "code.config", projectRoot: repo, config: { exclude: ["src/billing/"] } });
+    expect((events.at(-1) as any).config.exclude).toEqual(["src/billing/"]);
+    await s.handle({ id: "d", type: "code.index", projectRoot: repo, action: "clean" });
+    expect((events.at(-1) as any).status.state).toBe("missing");
+    await s.shutdown();
+  });
+
+  test("vard code index / search / impact / status", async () => {
+    const repo = tmpGitRepo(APP);
+    const out = { text: "", write(s: string) { this.text += s; } };
+    const err = { text: "", write(s: string) { this.text += s; } };
+    const home = tmpDir();
+    const env = { VARD_HOME: home, GROQ_API_KEY: "gsk_test" };
+    const opts = { stdout: out, stderr: err, stdinIsTTY: false, readStdin: async () => "", env, cwd: repo, prompter: new ScriptedPrompter([]), keys: new KeyStore(env, () => ({ code: 44, stdout: "", stderr: "" }), "darwin") };
+    expect(await runCli(["code", "index"], opts)).toBe(0);
+    expect(out.text).toContain("files");
+    expect(await runCli(["code", "search", "where", "is", "authentication"], opts)).toBe(0);
+    expect(out.text).toContain("src/auth/");
+    expect(await runCli(["code", "impact", "verifyToken"], opts)).toBe(0);
+    expect(out.text).toContain("risk MEDIUM");
+    expect(await runCli(["code", "status"], opts)).toBe(0);
+    expect(out.text).toContain("ready");
+    expect(err.text).toBe("");
+  });
+});
