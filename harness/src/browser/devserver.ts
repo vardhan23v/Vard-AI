@@ -75,6 +75,24 @@ const redactLine = (l: string) => (findSecret(l) ? "[line hidden: looks like it 
 interface Running {
   info: DevServerInfo;
   proc: ReturnType<typeof Bun.spawn>;
+  guard?: ReturnType<typeof Bun.spawn>;
+}
+
+/**
+ * Ends a dev server's process group once the Vard process that started it is gone. The app stops
+ * its sidecar with SIGKILL (restart and quit), so `stop()` never runs then, and a detached group
+ * would otherwise keep running. The watcher notices by being re-parented away from Vard, which
+ * also holds if Vard lingers as a zombie or its pid is reused.
+ */
+export function startGuard(pgid: number, ownerPid = process.pid): ReturnType<typeof Bun.spawn> | undefined {
+  try {
+    const script = `while [ "$(ps -o ppid= -p $$ | tr -d ' ')" = "${ownerPid}" ]; do sleep 1; done; kill -9 -${pgid} 2>/dev/null`;
+    const guard = Bun.spawn(["/bin/sh", "-c", script], { stdin: "ignore", stdout: "ignore", stderr: "ignore", detached: true });
+    guard.unref();
+    return guard;
+  } catch {
+    return undefined; // Best effort: normal stops still work without it.
+  }
 }
 
 export class DevServers {
@@ -104,7 +122,7 @@ export class DevServers {
     const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "starting", log: [] };
     // Its own process group, so stopping it also stops anything it forked.
     const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port, o.binDirs), stdout: "pipe", stderr: "pipe", stdin: "ignore", detached: true });
-    this.servers.set(id, { info, proc });
+    this.servers.set(id, { info, proc, guard: startGuard(proc.pid) });
     this.notify(info);
     let announced: string | undefined;
     const pump = async (stream: ReadableStream<Uint8Array>) => {
@@ -164,6 +182,7 @@ export class DevServers {
       process.kill(-s.proc.pid, "SIGKILL"); // the whole process group
     } catch {}
     killTree(s.proc.pid);
+    s.guard?.kill();
     if (s.info.state !== "failed") s.info.state = state;
     this.notify(s.info);
     this.servers.delete(id);

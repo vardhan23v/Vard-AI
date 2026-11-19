@@ -11,6 +11,16 @@ export async function runStdio(): Promise<void> {
     write: (e) => process.stdout.write(serializeEvent(e) + "\n"),
     traceDir: process.env.VARD_TRACE_DIR || undefined,
   });
+  // Asked to stop (not killed): close browsers, dev servers and MCP servers, then exit.
+  let stopping = false;
+  const stop = () => {
+    if (stopping) return;
+    stopping = true;
+    void server.shutdown().finally(() => process.exit(0));
+    setTimeout(() => process.exit(0), 5_000).unref();
+  };
+  process.on("SIGTERM", stop);
+  process.on("SIGHUP", stop);
   const decoder = new TextDecoder();
   let buf = "";
   const inflight = new Set<Promise<void>>();

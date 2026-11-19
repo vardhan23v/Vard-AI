@@ -433,6 +433,53 @@ describe("review fixes (dev servers and ids)", () => {
     await expect(fetch(`http://127.0.0.1:${other}`, { signal: AbortSignal.timeout(1000) })).rejects.toThrow();
   }, 30_000);
 
+  test("dev servers stop when Vard itself is killed (SIGKILL), not only on a clean stop", async () => {
+    const dir = tmpDir();
+    const port = await freePort();
+    const child = await freePort();
+    fs.writeFileSync(path.join(dir, "child.ts"), `Bun.serve({ port: ${child}, hostname: "127.0.0.1", fetch: () => new Response("child") });`);
+    fs.writeFileSync(path.join(dir, "srv.ts"), 'Bun.serve({ port: Number(process.env.PORT), hostname: "127.0.0.1", fetch: () => new Response("main") });');
+    // A stand-in for the sidecar: starts a dev server (which forks a child), reports, then idles.
+    const devserver = path.resolve(import.meta.dir, "../src/browser/devserver.ts");
+    fs.writeFileSync(
+      path.join(dir, "owner.ts"),
+      `import { DevServers } from ${JSON.stringify(devserver)};
+const info = await new DevServers().start({ command: \`(${process.execPath} child.ts &) ; ${process.execPath} srv.ts\`, cwd: ${JSON.stringify(dir)}, port: ${port} });
+console.log(info.state);
+setInterval(() => {}, 1000);`,
+    );
+    const owner = Bun.spawn([process.execPath, "owner.ts"], { cwd: dir, stdout: "pipe", stderr: "inherit" });
+    const reader = (owner.stdout as ReadableStream<Uint8Array>).getReader();
+    const first = new TextDecoder().decode((await reader.read()).value);
+    expect(first.trim()).toBe("ready");
+    const up = (p: number) => fetch(`http://127.0.0.1:${p}`, { signal: AbortSignal.timeout(1000) }).then(() => true, () => false);
+    for (let i = 0; i < 50 && !(await up(child)); i++) await Bun.sleep(100);
+    expect(await up(port)).toBe(true);
+    expect(await up(child)).toBe(true);
+    owner.kill("SIGKILL");
+    await owner.exited;
+    let gone = false;
+    for (let i = 0; i < 50 && !gone; i++) {
+      gone = !(await up(port)) && !(await up(child));
+      if (!gone) await Bun.sleep(200);
+    }
+    expect(gone).toBe(true);
+  }, 30_000);
+
+  test("the sidecar shuts down cleanly on SIGTERM", async () => {
+    const stdio = path.resolve(import.meta.dir, "../src/stdio.ts");
+    const dir = tmpDir();
+    fs.writeFileSync(path.join(dir, "run.ts"), `import { runStdio } from ${JSON.stringify(stdio)};\nawait runStdio();`);
+    const p = Bun.spawn([process.execPath, "run.ts"], { cwd: dir, stdin: "pipe", stdout: "pipe", stderr: "ignore", env: { ...process.env } });
+    p.stdin.write(JSON.stringify({ id: "p", type: "ping" }) + "\n");
+    p.stdin.flush();
+    const reader = (p.stdout as ReadableStream<Uint8Array>).getReader();
+    expect(new TextDecoder().decode((await reader.read()).value)).toContain('"pong"');
+    p.kill("SIGTERM");
+    const code = await Promise.race([p.exited, Bun.sleep(8000).then(() => "timeout")]);
+    expect(code).toBe(0);
+  }, 20_000);
+
   test("task ids can't contain dots", async () => {
     const events: Event[] = [];
     const s = new Server({ write: (e) => events.push(e) });
