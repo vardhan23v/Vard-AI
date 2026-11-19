@@ -8,13 +8,15 @@ import path from "node:path";
 import { ensureVardDir } from "../policy";
 import { indexDir } from "./config";
 
-export const SCHEMA_VERSION = 1;
+export const SCHEMA_VERSION = 2;
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT);
 CREATE TABLE IF NOT EXISTS files (
   id INTEGER PRIMARY KEY, path TEXT UNIQUE NOT NULL, lang TEXT NOT NULL, size INTEGER, mtime INTEGER,
-  hash TEXT, lines INTEGER, error TEXT, test INTEGER DEFAULT 0, indexed_at INTEGER
+  hash TEXT, lines INTEGER, error TEXT, test INTEGER DEFAULT 0, indexed_at INTEGER,
+  -- 1 when the file's text was left out of search because the index was over its size cap.
+  partial INTEGER DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS symbols (
   id INTEGER PRIMARY KEY, file_id INTEGER NOT NULL, name TEXT NOT NULL, kind TEXT NOT NULL,

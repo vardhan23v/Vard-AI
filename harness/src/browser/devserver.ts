@@ -13,6 +13,15 @@ import type { DevServerInfo } from "./schema";
 
 const MAX_LOG = 200;
 
+function portFree(port: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const s = net.createServer();
+    s.unref();
+    s.once("error", () => resolve(false));
+    s.listen(port, "127.0.0.1", () => s.close(() => resolve(true)));
+  });
+}
+
 export async function freePort(): Promise<number> {
   return new Promise((resolve, reject) => {
     const s = net.createServer();
@@ -52,7 +61,7 @@ function devEnv(port: number, binDirs: string[] = []): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v === undefined) continue;
-    if (/(API_?KEY|TOKEN|SECRET|PASSWORD|CREDENTIAL|PRIVATE_KEY)/i.test(k)) continue;
+    if (/(KEY|TOKEN|SECRET|PASSW|PWD$|CREDENTIAL|PRIVATE|_PAT$|AUTH|COOKIE|SESSION|DATABASE_URL|_DSN$|_URI$|CONNECTION_STRING)/i.test(k) && k !== "PATH") continue;
     env[k] = v;
   }
   // Worktrees have no node_modules of their own; the project's bin folder (and Node's normal lookup
@@ -86,8 +95,15 @@ export class DevServers {
   async start(o: { command: string; cwd: string; port: number; taskId?: string; timeoutMs?: number; signal?: AbortSignal; binDirs?: string[] }): Promise<DevServerInfo> {
     const id = `dev${++this.seq}`;
     const url = `http://127.0.0.1:${o.port}`;
+    // Something already listening there would answer the readiness probe instead of this server.
+    if (!(await portFree(o.port))) {
+      const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "failed", log: [], error: `port ${o.port} is already in use; pick another (dev_server_detect suggests a free one)` };
+      this.notify(info);
+      return info;
+    }
     const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "starting", log: [] };
-    const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port, o.binDirs), stdout: "pipe", stderr: "pipe", stdin: "ignore" });
+    // Its own process group, so stopping it also stops anything it forked.
+    const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port, o.binDirs), stdout: "pipe", stderr: "pipe", stdin: "ignore", detached: true });
     this.servers.set(id, { info, proc });
     this.notify(info);
     let announced: string | undefined;
@@ -119,7 +135,7 @@ export class DevServers {
       if (exited) {
         info.state = "failed";
         info.error = `the command exited (code ${proc.exitCode}) before the server was ready`;
-        this.notify(info);
+        this.stop(id, "failed");
         return info;
       }
       for (const candidate of [url, announced].filter(Boolean) as string[]) {
@@ -144,6 +160,9 @@ export class DevServers {
   stop(id: string, state: "stopped" | "failed" = "stopped") {
     const s = this.servers.get(id);
     if (!s) return false;
+    try {
+      process.kill(-s.proc.pid, "SIGKILL"); // the whole process group
+    } catch {}
     killTree(s.proc.pid);
     if (s.info.state !== "failed") s.info.state = state;
     this.notify(s.info);

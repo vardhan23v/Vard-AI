@@ -460,3 +460,27 @@ describe("code tools and protocol", () => {
     expect(err.text).toBe("");
   });
 });
+
+
+describe("review fixes (code index)", () => {
+  test("a snippet through a symlink to a credentials file is refused", async () => {
+    const repo = tmpGitRepo({ ".env": "TOKEN=abc\n", "src/a.ts": "export const a = 1;\n" });
+    fs.symlinkSync(path.join(repo, ".env"), path.join(repo, "notes.txt"));
+    const events: Event[] = [];
+    const s = new Server({ write: (e) => events.push(e) });
+    await s.intel.build(repo);
+    await s.handleLine(JSON.stringify({ id: "q", type: "code.query", projectRoot: repo, query: { kind: "snippet", path: "notes.txt", line: 1 } }));
+    expect((events.at(-1) as any).message).toContain("credentials");
+    await s.shutdown();
+  });
+
+  test("a file that turns binary loses its old symbols", async () => {
+    const repo = tmpGitRepo({ "src/a.ts": "export function oldName() {}\n" });
+    const ix = new CodeIndex(repo);
+    await ix.build();
+    fs.writeFileSync(path.join(repo, "src/a.ts"), Buffer.from([0, 1, 2, 3, 0, 0]));
+    await ix.build();
+    expect(ix.db().db.query("SELECT COUNT(*) AS n FROM symbols WHERE name = 'oldName'").get()).toEqual({ n: 0 });
+    ix.close();
+  });
+});

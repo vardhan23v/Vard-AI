@@ -28,6 +28,8 @@ export class BrowserManager {
   private browser: Browser | null = null;
   private launching: Promise<Browser> | null = null;
   readonly sessions = new Map<string, BrowserSession>();
+  private creating = new Map<string, Promise<BrowserSession>>();
+  private recovering = new Map<string, Promise<void>>();
   private idle = new Map<string, ReturnType<typeof setTimeout>>();
   private seq = 0;
   launches = 0;
@@ -105,12 +107,23 @@ export class BrowserManager {
 
   /** The session for a task/agent (key), created on first use. */
   async session(key: string, o: { projectRoot: string; taskId?: string; agentId?: string; run?: string }): Promise<BrowserSession> {
-    let s = this.sessions.get(key);
+    const s = this.sessions.get(key);
     if (s && s.state !== "closed") {
       if (s.state === "crashed") await this.recover(s);
       this.touch(key);
       return s;
     }
+    // One creation at a time per key: concurrent callers share it.
+    let p = this.creating.get(key);
+    if (!p) {
+      p = this.create(key, o).finally(() => this.creating.delete(key));
+      this.creating.set(key, p);
+    }
+    return p;
+  }
+
+  private async create(key: string, o: { projectRoot: string; taskId?: string; agentId?: string; run?: string }): Promise<BrowserSession> {
+    let s: BrowserSession | undefined;
     if ([...this.sessions.values()].filter((x) => x.state !== "closed").length >= MAX_SESSIONS)
       throw new BrowserError("launch", `At most ${MAX_SESSIONS} browser sessions can be open; close one first.`);
     const id = `b${++this.seq}-${Date.now().toString(36)}`;
@@ -120,11 +133,19 @@ export class BrowserManager {
       { taskId: o.taskId, agentId: o.agentId, projectOrigins: () => this.o.projectOrigins?.(o.projectRoot) ?? [] },
       () => this.changed(s!),
     );
-    this.sessions.set(key, s);
     await s.open(await this.launch());
+    // Registered only once its page exists, so nobody gets a half-open session.
+    this.sessions.set(key, s);
+    this.prune();
     this.flush(s);
     this.touch(key);
     return s;
+  }
+
+  /** Keeps the most recent 20 closed sessions (for the UI's history); older ones are dropped. */
+  private prune() {
+    const closed = [...this.sessions].filter(([, x]) => x.state === "closed").sort((a, b) => a[1].startedAt - b[1].startedAt);
+    for (const [k] of closed.slice(0, Math.max(0, closed.length - 20))) this.sessions.delete(k);
   }
 
   find(id: string): BrowserSession | undefined {
@@ -141,8 +162,15 @@ export class BrowserManager {
 
   /** Relaunches the browser (if needed) and reopens the session's page. */
   async recover(s: BrowserSession) {
-    await s.context?.close().catch(() => {});
-    await s.open(await this.launch());
+    let p = this.recovering.get(s.id);
+    if (!p) {
+      p = (async () => {
+        await s.context?.close().catch(() => {});
+        await s.open(await this.launch());
+      })().finally(() => this.recovering.delete(s.id));
+      this.recovering.set(s.id, p);
+    }
+    return p;
   }
 
   /**

@@ -4,6 +4,7 @@
  */
 import fs from "node:fs";
 import path from "node:path";
+import { isSensitivePath } from "../memory/secrets";
 import { CodeGraph } from "./graph";
 import type { CodeIndex } from "./indexer";
 import type { EmbeddingProvider } from "./embeddings";
@@ -33,7 +34,11 @@ export interface SearchOptions {
 
 function snippet(root: string, rel: string, line: number): string {
   try {
-    const lines = fs.readFileSync(path.join(root, rel), "utf8").split("\n");
+    // Follow links only within the folder, and never show credential files.
+    const base = fs.realpathSync(root);
+    const abs = fs.realpathSync(path.join(root, rel));
+    if (!abs.startsWith(base + path.sep) || isSensitivePath(abs) || fs.statSync(abs).size > 2_000_000) return "";
+    const lines = fs.readFileSync(abs, "utf8").split("\n");
     return lines
       .slice(line - 1, line + 2)
       .map((l, i) => `${line + i}| ${l.slice(0, 140)}`)

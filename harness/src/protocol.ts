@@ -59,7 +59,8 @@ export const TaskStartRequest = z.object({
   /** Defaults to the request id. */
   taskId: z
     .string()
-    .regex(/^[A-Za-z0-9._-]+$/, "taskId may only contain letters, digits, '.', '_' and '-'")
+    // No "." : team agents' loops use "<task>.<agent>", and per-task cleanup relies on it.
+    .regex(/^[A-Za-z0-9_-]+$/, "taskId may only contain letters, digits, '_' and '-'")
     .optional(),
   projectRoot: z.string().min(1),
   prompt: z.string().min(1),

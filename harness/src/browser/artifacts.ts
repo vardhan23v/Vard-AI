@@ -19,6 +19,12 @@ export function runDir(projectRoot: string, run: string): string {
   return dir;
 }
 
+/** A run folder name: one path segment, nothing that could leave .vard/artifacts. */
+function safeRun(run: string): string {
+  if (!/^[A-Za-z0-9._-]{1,120}$/.test(run) || run === "." || run === "..") throw new BrowserError("blocked", `invalid artifact folder: ${run}`);
+  return run;
+}
+
 export interface ArtifactInfo {
   path: string;
   run: string;
@@ -31,12 +37,14 @@ export function listArtifacts(projectRoot: string, run?: string): ArtifactInfo[]
   const root = artifactsRoot(projectRoot);
   const out: ArtifactInfo[] = [];
   let runs: string[] = [];
+  if (run) safeRun(run);
   try {
     runs = run ? [run] : fs.readdirSync(root);
   } catch {
     return [];
   }
   for (const r of runs) {
+    if (!/^[A-Za-z0-9._-]{1,120}$/.test(r) || r === "." || r === "..") continue;
     let names: string[] = [];
     try {
       names = fs.readdirSync(path.join(root, r));
@@ -74,11 +82,14 @@ export function readArtifact(projectRoot: string, file: string): { data: string;
 
 /** Deletes artifacts the user chose: one run, runs older than N days, or everything. */
 export function cleanArtifacts(projectRoot: string, o: { run?: string; olderThanDays?: number } = {}): { removed: number; bytes: number } {
+  if (o.run) safeRun(o.run);
+  const root = path.resolve(artifactsRoot(projectRoot));
   let removed = 0;
   let bytes = 0;
   const cutoff = o.olderThanDays !== undefined ? Date.now() - o.olderThanDays * 86_400_000 : Infinity;
   for (const a of listArtifacts(projectRoot, o.run)) {
     if (o.olderThanDays !== undefined && a.at > cutoff) continue;
+    if (!path.resolve(a.path).startsWith(root + path.sep)) continue;
     fs.rmSync(a.path, { force: true });
     removed++;
     bytes += a.bytes;

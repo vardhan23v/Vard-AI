@@ -299,7 +299,7 @@ export class Server {
 
   private async startTask(req: TaskStartRequest) {
     const taskId = req.taskId ?? req.id;
-    if (!/^[A-Za-z0-9._-]+$/.test(taskId)) throw new Error(`invalid task id: ${taskId}`);
+    if (!/^[A-Za-z0-9_-]+$/.test(taskId)) throw new Error(`invalid task id: ${taskId}`);
     if (this.tasks.has(taskId)) throw new Error(`task ${taskId} already exists`);
     if (!fs.existsSync(req.projectRoot) || !fs.statSync(req.projectRoot).isDirectory())
       throw new Error(`project folder not found: ${req.projectRoot}`);
@@ -905,6 +905,8 @@ export class Server {
           }
           if (!abs.startsWith(root + nodePath.sep)) throw new IntelError("path", "path escapes the project");
           if (isSensitive(q.path)) throw new IntelError("path", "refusing to show a credentials file");
+          if (isSensitive(abs) || isSensitive(nodePath.relative(root, abs))) throw new IntelError("path", "refusing to show a credentials file");
+          if (fs.statSync(abs).size > 2_000_000) throw new IntelError("too_large", "file is larger than 2 MB");
           const lines = fs.readFileSync(abs, "utf8").split("\n");
           const ctx = q.context ?? 12;
           const start = Math.max(1, q.line - ctx);

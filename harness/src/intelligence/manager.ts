@@ -63,8 +63,9 @@ export class CodeIntel {
       () => "ready" as const,
       () => "ready" as const,
     );
-    const timeout = new Promise<"building">((r) => setTimeout(() => r("building"), budgetMs));
-    return Promise.race([p, timeout]);
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<"building">((r) => (timer = setTimeout(() => r("building"), budgetMs)));
+    return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
   }
 
   watch(projectRoot: string) {

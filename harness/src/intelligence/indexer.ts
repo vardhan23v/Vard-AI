@@ -88,7 +88,7 @@ export class CodeIndex {
     const db = store.db;
     const scan = await scanProject(this.projectRoot, cfg);
     const known = new Map(
-      (db.query("SELECT id, path, size, mtime, hash FROM files").all() as { id: number; path: string; size: number; mtime: number; hash: string }[]).map((r) => [r.path, r]),
+      (db.query("SELECT id, path, size, mtime, hash, partial FROM files").all() as { id: number; path: string; size: number; mtime: number; hash: string; partial: number }[]).map((r) => [r.path, r]),
     );
     const res: BuildResult = { added: 0, updated: 0, removed: 0, unchanged: 0, failed: 0, skipped: scan.skipped, durationMs: 0 };
     const present = new Set(scan.files.map((f) => f.path));
@@ -105,9 +105,9 @@ export class CodeIndex {
     })();
 
     const insFile = db.query(
-      "INSERT INTO files (path, lang, size, mtime, hash, lines, error, test, indexed_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
+      "INSERT INTO files (path, lang, size, mtime, hash, lines, error, test, indexed_at, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
     );
-    const updFile = db.query("UPDATE files SET lang = ?, size = ?, mtime = ?, hash = ?, lines = ?, error = ?, test = ?, indexed_at = ? WHERE id = ?");
+    const updFile = db.query("UPDATE files SET lang = ?, size = ?, mtime = ?, hash = ?, lines = ?, error = ?, test = ?, indexed_at = ?, partial = ? WHERE id = ?");
     const touch = db.query("UPDATE files SET mtime = ?, size = ? WHERE id = ?");
     const insSym = db.query("INSERT INTO symbols (file_id, name, kind, start_line, end_line, exported, parent, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
     const insRef = db.query("INSERT INTO refs (file_id, name, line, kind) VALUES (?, ?, ?, ?)");
@@ -127,22 +127,33 @@ export class CodeIndex {
       }
       const f = scan.files[i];
       const prev = known.get(f.path);
-      if (!o.force && prev && prev.size === f.size && prev.mtime === f.mtime) {
+      const refill = !!prev?.partial && !overCap;
+      if (!o.force && !refill && prev && prev.size === f.size && prev.mtime === f.mtime) {
         res.unchanged++;
         continue;
       }
       let buf: Uint8Array;
+      // A file that became unreadable or binary loses its old entries.
+      const drop = () => {
+        if (prev)
+          db.transaction(() => {
+            store.clearFile(prev.id);
+            delFile.run(prev.id);
+          })();
+      };
       try {
         buf = fs.readFileSync(f.abs);
       } catch {
+        drop();
         continue;
       }
       if (looksBinary(buf)) {
+        drop();
         res.skipped++;
         continue;
       }
       const hash = crypto.createHash("sha1").update(buf).digest("hex");
-      if (!o.force && prev && prev.hash === hash) {
+      if (!o.force && !refill && prev && prev.hash === hash) {
         touch.run(f.mtime, f.size, prev.id);
         res.unchanged++;
         continue;
@@ -155,11 +166,11 @@ export class CodeIndex {
         let id: number;
         if (prev) {
           store.clearFile(prev.id);
-          updFile.run(f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now(), prev.id);
+          updFile.run(f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now(), overCap ? 1 : 0, prev.id);
           id = prev.id;
           res.updated++;
         } else {
-          id = (insFile.get(f.path, f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now()) as { id: number }).id;
+          id = (insFile.get(f.path, f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now(), overCap ? 1 : 0) as { id: number }).id;
           res.added++;
         }
         for (const s of parsed.symbols) insSym.run(id, s.name, s.kind, s.line, s.endLine, s.exported ? 1 : 0, s.parent ?? null, s.signature ?? null);
