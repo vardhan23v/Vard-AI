@@ -104,8 +104,8 @@ describe("task graph", () => {
 
 describe("roles", () => {
   test("overrides can narrow tools but never widen them", () => {
-    expect(narrowTools(BUILTIN_ROLES.reviewer.tools, { write: true, exec: true, mcp: "all" })).toEqual({ write: false, exec: false, mcp: "none" });
-    expect(narrowTools(BUILTIN_ROLES.backend.tools, { exec: false, mcp: "read" })).toEqual({ write: true, exec: false, mcp: "read" });
+    expect(narrowTools(BUILTIN_ROLES.reviewer.tools, { write: true, exec: true, mcp: "all" })).toEqual({ write: false, exec: false, mcp: "none", browser: false });
+    expect(narrowTools(BUILTIN_ROLES.backend.tools, { exec: false, mcp: "read" })).toEqual({ write: true, exec: false, mcp: "read", browser: false });
     const r = applyOverride(BUILTIN_ROLES.frontend, { instructions: "Use Vue.", maxSteps: 9 });
     expect(r.instructions).toContain("Use Vue.");
     expect(r.maxSteps).toBe(9);
@@ -724,7 +724,7 @@ describe("team run (end to end, scripted agents, temp git repo)", () => {
     const h = teamServer(standardRoute());
     await h.server.handle({ id: "r1", type: "agents.roles" });
     const list = h.events.at(-1) as Extract<Event, { type: "agent_roles" }>;
-    expect(list.roles.map((r) => r.id)).toEqual(["planner", "frontend", "backend", "database", "testing", "reviewer"]);
+    expect(list.roles.map((r) => r.id)).toEqual(["planner", "frontend", "backend", "database", "testing", "browser", "analyst", "reviewer"]);
     await h.server.handle({ id: "r2", type: "agents.roles", change: { op: "save", scope: "global", role: "reviewer", override: { tools: { write: true }, maxSteps: 5 } } });
     const after = (h.events.at(-1) as Extract<Event, { type: "agent_roles" }>).roles.find((r) => r.id === "reviewer")!;
     expect(after.maxSteps).toBe(5);
@@ -809,4 +809,95 @@ describe("review fixes", () => {
     expect(text).toContain('"models"');
     expect(text).not.toContain("role-secret-key");
   }, 30_000);
+});
+
+describe("browser and code intelligence in team runs", () => {
+  const UI_PLAN = {
+    summary: "UI change, then a browser check.",
+    tasks: [
+      { id: "ui", title: "Make the header responsive", role: "frontend", description: "Fix header.txt", files: ["header.txt"] },
+      { id: "check", title: "Check the header in the browser", role: "browser", description: "Test mobile and desktop", dependsOn: ["ui"] },
+    ],
+  };
+
+  function uiRoute(verdicts: string[], seen: { tools: Record<string, string[]>; prompts: Record<string, string> }) {
+    let checks = 0;
+    return (r: RouteInfo): Turn => {
+      if (r.task.startsWith("Plan this request")) return { text: json(UI_PLAN) };
+      const sub = /subtask "([^"]+)"/.exec(r.task)?.[1] ?? "";
+      if (r.step === 0) seen.prompts[sub] = r.task;
+      if (sub.startsWith("check") || sub.includes("-r")) {
+        if (r.step === 0) {
+          const v = verdicts[Math.min(checks++, verdicts.length - 1)];
+          return {
+            text:
+              v === "pass"
+                ? json({ verdict: "pass", findings: [] })
+                : json({ verdict: "fail", findings: [{ severity: "high", message: "Header scrolls sideways at 375px (scrollWidth 512)", viewport: "mobile", file: "header.txt" }] }),
+          };
+        }
+      }
+      if (sub === "ui" || sub.includes("uifix")) return r.step === 0 ? { calls: [{ name: "write_file", input: { path: "header.txt", content: `${sub}\n` } }] } : { text: `${sub} done` };
+      return { text: "ok" };
+    };
+  }
+
+  test("a failing browser check starts a fix and a re-test; a passing re-test ends it", async () => {
+    const repo = tmpGitRepo();
+    const seen = { tools: {}, prompts: {} as Record<string, string> };
+    const h = teamServer(uiRoute(["fail", "pass"], seen));
+    await startTeam(h, repo, "ret1", { review: false });
+    const done = await h.done;
+    expect(done.status).toBe("done");
+    const subs = new Map(of(h.events, "orch_task").map((e) => [e.subtask.id, e.subtask]));
+    expect([...subs.keys()]).toEqual(["ui", "check", "ui-uifix1", "check-r1"]);
+    expect(subs.get("check")!.check).toMatchObject({ verdict: "fail" });
+    expect(subs.get("ui-uifix1")).toMatchObject({ role: "frontend", status: "completed", fixOf: "ui" });
+    expect(subs.get("ui-uifix1")!.description).toContain("scrolls sideways");
+    expect(subs.get("check-r1")).toMatchObject({ role: "browser", retestOf: "check", retestRound: 1, status: "completed", dependsOn: ["ui-uifix1"] });
+    expect(subs.get("check-r1")!.check!.verdict).toBe("pass");
+    // The browser tester was told how to report, and to start the dev server itself.
+    expect(seen.prompts.check).toContain("dev_server_detect");
+    expect(seen.prompts.check).toContain('"verdict"');
+  }, 30_000);
+
+  test("fix-and-retest stops after the configured number of rounds", async () => {
+    const repo = tmpGitRepo();
+    const h = teamServer(uiRoute(["fail"], { tools: {}, prompts: {} }));
+    await startTeam(h, repo, "ret2", { review: false, retestRounds: 1 });
+    const done = await h.done;
+    expect(done.status).toBe("done");
+    const ids = [...new Set(of(h.events, "orch_task").map((e) => e.subtask.id))];
+    expect(ids).toEqual(["ui", "check", "ui-uifix1", "check-r1"]);
+    expect(of(h.events, "agent_message").some((e) => e.message.text.includes("no more re-tests"))).toBe(true);
+  }, 30_000);
+
+  test("roles get the right tools: browser tester can't edit or run arbitrary commands; everyone gets code tools; planner is told to use impact analysis", async () => {
+    const repo = tmpGitRepo();
+    const h = teamServer(uiRoute(["pass"], { tools: {}, prompts: {} }));
+    await startTeam(h, repo, "ret3", { review: false }, { browser: true });
+    await h.done;
+    const agents = new Map(of(h.events, "orch_agent").map((e) => [e.agent.agentId, e.agent]));
+    const browser = agents.get("browser-check")!;
+    expect(browser.tools).toEqual(expect.arrayContaining(["browser_navigate", "browser_test_responsive", "dev_server_start", "code_search"]));
+    expect(browser.tools).not.toContain("write_file");
+    expect(browser.tools).not.toContain("run_command");
+    const ui = agents.get("frontend-ui")!;
+    expect(ui.tools).toEqual(expect.arrayContaining(["write_file", "browser_screenshot", "code_impact_analysis"]));
+    const planner = agents.get("planner-1")!;
+    expect(planner.tools).toContain("code_impact_analysis");
+    expect(planner.tools).not.toContain("browser_navigate");
+    const skills = Object.fromEntries(of(h.events, "skills_activated").map((e) => [e.agentId, e.skills.map((s) => s.name)]));
+    expect(skills["browser-check"]).toEqual(expect.arrayContaining(["browser-automation", "responsive-ui-testing"]));
+    expect(skills["planner-1"]).toEqual(expect.arrayContaining(["change-impact-analysis"]));
+  }, 30_000);
+
+  test("the planner prompt asks for impact analysis and browser checks for UI work", async () => {
+    const { plannerPrompt } = await import("../src/agents/planner");
+    const p = plannerPrompt("Make the dashboard responsive", Object.values(BUILTIN_ROLES), 8);
+    expect(p).toContain("code_impact_analysis");
+    expect(p).toContain('"browser" subtask');
+    expect(p).toContain("- browser:");
+    expect(p).toContain("- analyst:");
+  });
 });

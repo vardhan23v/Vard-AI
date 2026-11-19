@@ -137,7 +137,7 @@ export function SkillsPage() {
             </button>
             <button
               onClick={() => setCreating(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+              className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
             >
               <Plus className="size-4" /> New skill
             </button>
@@ -167,7 +167,7 @@ export function SkillsPage() {
                   });
                 }
               }}
-              className="min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+              className="press min-h-9 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
             >
               Trust these skills
             </button>
@@ -252,14 +252,15 @@ export function SkillsPage() {
           </div>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
-            <ul className="space-y-2" aria-label="Skills">
+            {/* Keyed by the filter and search so a new result set cascades in again. */}
+            <ul key={`${filter}:${projectId}`} className="stagger space-y-2" aria-label="Skills">
               {shown.map((k) => (
                 <li key={k.id}>
                   <button
                     onClick={() => setSelected(k.id)}
                     aria-current={current?.id === k.id}
                     className={cn(
-                      "w-full rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+                      "lift w-full rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
                       current?.id === k.id
                         ? "border-primary bg-accent"
                         : "border-border bg-card hover:bg-accent/60",

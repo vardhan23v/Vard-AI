@@ -14,14 +14,18 @@ import { Route as SettingsRouteImport } from './routes/settings'
 import { Route as ProjectsRouteImport } from './routes/projects'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as IntegrationsRouteImport } from './routes/integrations'
+import { Route as CodeRouteImport } from './routes/code'
 import { Route as ChatRouteImport } from './routes/chat'
+import { Route as BrowserRouteImport } from './routes/browser'
 import { Route as AgentsRouteImport } from './routes/agents'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as SkillsIndexRouteImport } from './routes/skills.index'
 import { Route as SettingsIndexRouteImport } from './routes/settings.index'
 import { Route as ProjectsIndexRouteImport } from './routes/projects.index'
 import { Route as IntegrationsIndexRouteImport } from './routes/integrations.index'
+import { Route as CodeIndexRouteImport } from './routes/code.index'
 import { Route as ChatIndexRouteImport } from './routes/chat.index'
+import { Route as BrowserIndexRouteImport } from './routes/browser.index'
 import { Route as AgentsIndexRouteImport } from './routes/agents.index'
 import { Route as ProjectsProjectIdRouteImport } from './routes/projects.$projectId'
 import { Route as ChatConversationIdRouteImport } from './routes/chat.$conversationId'
@@ -51,9 +55,19 @@ const IntegrationsRoute = IntegrationsRouteImport.update({
   path: '/integrations',
   getParentRoute: () => rootRouteImport,
 } as any)
+const CodeRoute = CodeRouteImport.update({
+  id: '/code',
+  path: '/code',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ChatRoute = ChatRouteImport.update({
   id: '/chat',
   path: '/chat',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BrowserRoute = BrowserRouteImport.update({
+  id: '/browser',
+  path: '/browser',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AgentsRoute = AgentsRouteImport.update({
@@ -86,10 +100,20 @@ const IntegrationsIndexRoute = IntegrationsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => IntegrationsRoute,
 } as any)
+const CodeIndexRoute = CodeIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => CodeRoute,
+} as any)
 const ChatIndexRoute = ChatIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => ChatRoute,
+} as any)
+const BrowserIndexRoute = BrowserIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BrowserRoute,
 } as any)
 const AgentsIndexRoute = AgentsIndexRouteImport.update({
   id: '/',
@@ -110,7 +134,9 @@ const ChatConversationIdRoute = ChatConversationIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/agents': typeof AgentsRouteWithChildren
+  '/browser': typeof BrowserRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
+  '/code': typeof CodeRouteWithChildren
   '/integrations': typeof IntegrationsRouteWithChildren
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -119,7 +145,9 @@ export interface FileRoutesByFullPath {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/agents/': typeof AgentsIndexRoute
+  '/browser/': typeof BrowserIndexRoute
   '/chat/': typeof ChatIndexRoute
+  '/code/': typeof CodeIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
@@ -131,7 +159,9 @@ export interface FileRoutesByTo {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/agents': typeof AgentsIndexRoute
+  '/browser': typeof BrowserIndexRoute
   '/chat': typeof ChatIndexRoute
+  '/code': typeof CodeIndexRoute
   '/integrations': typeof IntegrationsIndexRoute
   '/projects': typeof ProjectsIndexRoute
   '/settings': typeof SettingsIndexRoute
@@ -141,7 +171,9 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/agents': typeof AgentsRouteWithChildren
+  '/browser': typeof BrowserRouteWithChildren
   '/chat': typeof ChatRouteWithChildren
+  '/code': typeof CodeRouteWithChildren
   '/integrations': typeof IntegrationsRouteWithChildren
   '/login': typeof LoginRoute
   '/projects': typeof ProjectsRouteWithChildren
@@ -150,7 +182,9 @@ export interface FileRoutesById {
   '/chat/$conversationId': typeof ChatConversationIdRoute
   '/projects/$projectId': typeof ProjectsProjectIdRoute
   '/agents/': typeof AgentsIndexRoute
+  '/browser/': typeof BrowserIndexRoute
   '/chat/': typeof ChatIndexRoute
+  '/code/': typeof CodeIndexRoute
   '/integrations/': typeof IntegrationsIndexRoute
   '/projects/': typeof ProjectsIndexRoute
   '/settings/': typeof SettingsIndexRoute
@@ -161,7 +195,9 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/agents'
+    | '/browser'
     | '/chat'
+    | '/code'
     | '/integrations'
     | '/login'
     | '/projects'
@@ -170,7 +206,9 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/projects/$projectId'
     | '/agents/'
+    | '/browser/'
     | '/chat/'
+    | '/code/'
     | '/integrations/'
     | '/projects/'
     | '/settings/'
@@ -182,7 +220,9 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/projects/$projectId'
     | '/agents'
+    | '/browser'
     | '/chat'
+    | '/code'
     | '/integrations'
     | '/projects'
     | '/settings'
@@ -191,7 +231,9 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/agents'
+    | '/browser'
     | '/chat'
+    | '/code'
     | '/integrations'
     | '/login'
     | '/projects'
@@ -200,7 +242,9 @@ export interface FileRouteTypes {
     | '/chat/$conversationId'
     | '/projects/$projectId'
     | '/agents/'
+    | '/browser/'
     | '/chat/'
+    | '/code/'
     | '/integrations/'
     | '/projects/'
     | '/settings/'
@@ -210,7 +254,9 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AgentsRoute: typeof AgentsRouteWithChildren
+  BrowserRoute: typeof BrowserRouteWithChildren
   ChatRoute: typeof ChatRouteWithChildren
+  CodeRoute: typeof CodeRouteWithChildren
   IntegrationsRoute: typeof IntegrationsRouteWithChildren
   LoginRoute: typeof LoginRoute
   ProjectsRoute: typeof ProjectsRouteWithChildren
@@ -255,11 +301,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/code': {
+      id: '/code'
+      path: '/code'
+      fullPath: '/code'
+      preLoaderRoute: typeof CodeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/chat': {
       id: '/chat'
       path: '/chat'
       fullPath: '/chat'
       preLoaderRoute: typeof ChatRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/browser': {
+      id: '/browser'
+      path: '/browser'
+      fullPath: '/browser'
+      preLoaderRoute: typeof BrowserRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/agents': {
@@ -304,12 +364,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IntegrationsIndexRouteImport
       parentRoute: typeof IntegrationsRoute
     }
+    '/code/': {
+      id: '/code/'
+      path: '/'
+      fullPath: '/code/'
+      preLoaderRoute: typeof CodeIndexRouteImport
+      parentRoute: typeof CodeRoute
+    }
     '/chat/': {
       id: '/chat/'
       path: '/'
       fullPath: '/chat/'
       preLoaderRoute: typeof ChatIndexRouteImport
       parentRoute: typeof ChatRoute
+    }
+    '/browser/': {
+      id: '/browser/'
+      path: '/'
+      fullPath: '/browser/'
+      preLoaderRoute: typeof BrowserIndexRouteImport
+      parentRoute: typeof BrowserRoute
     }
     '/agents/': {
       id: '/agents/'
@@ -346,6 +420,17 @@ const AgentsRouteChildren: AgentsRouteChildren = {
 const AgentsRouteWithChildren =
   AgentsRoute._addFileChildren(AgentsRouteChildren)
 
+interface BrowserRouteChildren {
+  BrowserIndexRoute: typeof BrowserIndexRoute
+}
+
+const BrowserRouteChildren: BrowserRouteChildren = {
+  BrowserIndexRoute: BrowserIndexRoute,
+}
+
+const BrowserRouteWithChildren =
+  BrowserRoute._addFileChildren(BrowserRouteChildren)
+
 interface ChatRouteChildren {
   ChatConversationIdRoute: typeof ChatConversationIdRoute
   ChatIndexRoute: typeof ChatIndexRoute
@@ -357,6 +442,16 @@ const ChatRouteChildren: ChatRouteChildren = {
 }
 
 const ChatRouteWithChildren = ChatRoute._addFileChildren(ChatRouteChildren)
+
+interface CodeRouteChildren {
+  CodeIndexRoute: typeof CodeIndexRoute
+}
+
+const CodeRouteChildren: CodeRouteChildren = {
+  CodeIndexRoute: CodeIndexRoute,
+}
+
+const CodeRouteWithChildren = CodeRoute._addFileChildren(CodeRouteChildren)
 
 interface IntegrationsRouteChildren {
   IntegrationsIndexRoute: typeof IntegrationsIndexRoute
@@ -410,7 +505,9 @@ const SkillsRouteWithChildren =
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AgentsRoute: AgentsRouteWithChildren,
+  BrowserRoute: BrowserRouteWithChildren,
   ChatRoute: ChatRouteWithChildren,
+  CodeRoute: CodeRouteWithChildren,
   IntegrationsRoute: IntegrationsRouteWithChildren,
   LoginRoute: LoginRoute,
   ProjectsRoute: ProjectsRouteWithChildren,

@@ -19,6 +19,7 @@ Rules:
 - Read before you edit. Use search/list_dir/read_file to understand the code first.
 - Make edits with edit_file (exact, unique old_string) or write_file for new files. Keep changes minimal and focused.
 - Use run_command for builds, tests and linters. Some commands need the user's approval; if one is denied, find another way or explain what you need.
+- Don't ask for permission in your reply. When a step needs approval, just call the tool: Vard shows the user an approval prompt and tells you the answer.
 - Never try to push, use sudo, or touch files outside the project.
 - Keep the todo list current with todo_write for multi-step work.
 - When the task is complete, stop calling tools and reply with a short summary of what changed and how you verified it.`;
@@ -91,6 +92,8 @@ export interface SystemPromptInput {
   memory?: string;
   /** The "# Skills" section (skills/activation.ts), if any skills were chosen. */
   skills?: string;
+  /** Codebase overview from the code index. */
+  codebase?: string;
   /** Connected MCP servers (names and tool names only; descriptions travel with the tools). */
   mcp?: { name: string; id: string; tools: string[] }[];
 }
@@ -109,6 +112,10 @@ export async function buildSystemPrompt(input: SystemPromptInput): Promise<strin
   if (input.memory)
     sections.push(
       `# Project memory\nWhat earlier tasks and the user taught you about this project. Facts marked "(inferred, unconfirmed)" may be wrong: check them before relying on them; the rest are verified.\n\n${input.memory}`,
+    );
+  if (input.codebase)
+    sections.push(
+      `# Codebase overview\nFrom Vard's code index. Use code_search, code_find_references, code_get_dependents and code_impact_analysis to find the right code and check what a change affects before editing.\n${input.codebase}`,
     );
   if (input.skills) sections.push(input.skills);
   if (input.mcp?.length)

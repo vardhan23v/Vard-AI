@@ -19,8 +19,8 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "Understands the request, inspects the project and splits the work into subtasks with dependencies.",
     instructions:
       "You plan; you never edit files. Inspect the project with the read-only tools until you understand where the work belongs, then break it into the smallest set of independent, well-scoped subtasks.",
-    tools: { write: false, exec: false, mcp: "read" },
-    skills: ["documentation"],
+    tools: { write: false, exec: false, mcp: "read", browser: false },
+    skills: ["codebase-exploration", "change-impact-analysis"],
     maxSteps: 14,
     timeoutMs: 10 * MIN,
   },
@@ -30,7 +30,7 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "UI components, styling, accessibility and frontend tests.",
     instructions:
       "You are the frontend specialist. Build UI with the project's components and styling, keep it accessible, typed and consistent with existing screens, and handle loading, error and empty states.",
-    tools: { write: true, exec: true, mcp: "read" },
+    tools: { write: true, exec: true, mcp: "read", browser: true },
     skills: ["react-development", "accessibility"],
     maxSteps: 40,
     timeoutMs: 20 * MIN,
@@ -41,7 +41,7 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "APIs, business logic, authentication, server-side validation and integrations.",
     instructions:
       "You are the backend specialist. Validate all input, return clear errors, enforce authorization on the server, never hard-code secrets, and keep business logic testable.",
-    tools: { write: true, exec: true, mcp: "all" },
+    tools: { write: true, exec: true, mcp: "all", browser: false },
     skills: ["backend-api", "security-audit"],
     maxSteps: 40,
     timeoutMs: 20 * MIN,
@@ -52,7 +52,7 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "Schemas, migrations, queries, data validation and indexes.",
     instructions:
       "You are the database specialist. Use the project's ORM and migration tool, write safe reversible migrations, add constraints and indexes deliberately, and parameterise every query.",
-    tools: { write: true, exec: true, mcp: "read" },
+    tools: { write: true, exec: true, mcp: "read", browser: false },
     skills: ["database-design"],
     maxSteps: 30,
     timeoutMs: 15 * MIN,
@@ -63,10 +63,32 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "Unit, integration and regression tests, and analysing failures.",
     instructions:
       "You are the testing specialist. Write focused, deterministic tests with the project's framework, cover success, edge and failure cases, run them, and report what is covered.",
-    tools: { write: true, exec: true, mcp: "none" },
+    tools: { write: true, exec: true, mcp: "none", browser: false },
     skills: ["testing-strategy", "debugging"],
     maxSteps: 35,
     timeoutMs: 20 * MIN,
+  },
+  browser: {
+    id: "browser",
+    name: "Browser testing",
+    description: "Starts the app's dev server and checks pages in a real browser: viewports, layout, console and network errors, interactions.",
+    instructions:
+      "You are the browser testing specialist. You never edit files. Find the dev command with dev_server_detect, start it with dev_server_start, open the page, test the relevant viewports with browser_test_responsive, try the flows the task changed, and read console and network errors. Report only what you measured or saw, with the viewport and evidence.",
+    tools: { write: false, exec: true, mcp: "none", browser: true },
+    skills: ["browser-automation", "responsive-ui-testing", "playwright-testing"],
+    maxSteps: 30,
+    timeoutMs: 15 * MIN,
+  },
+  analyst: {
+    id: "analyst",
+    name: "Codebase analyst",
+    description: "Maps the relevant code, dependencies and impact of a change and reports it; never edits.",
+    instructions:
+      "You are the codebase analyst. You never edit files. Use code_search, code_get_architecture, code_get_dependents, code_find_references and code_impact_analysis to find the code that matters, then report files, symbols, dependencies, risks and how to verify, with file:line references.",
+    tools: { write: false, exec: false, mcp: "read", browser: false },
+    skills: ["codebase-exploration", "dependency-analysis", "change-impact-analysis", "semantic-code-search"],
+    maxSteps: 16,
+    timeoutMs: 10 * MIN,
   },
   reviewer: {
     id: "reviewer",
@@ -74,7 +96,7 @@ export const BUILTIN_ROLES: Record<RoleId, RoleConfig> = {
     description: "Reviews the combined change for bugs, security problems and maintainability.",
     instructions:
       "You are the code reviewer. You never edit files. Read the combined diff and the surrounding code, and report only real, concrete problems with their location and severity.",
-    tools: { write: false, exec: false, mcp: "none" },
+    tools: { write: false, exec: false, mcp: "none", browser: false },
     skills: ["code-review", "security-audit"],
     maxSteps: 16,
     timeoutMs: 10 * MIN,
@@ -90,6 +112,7 @@ export function narrowTools(base: RoleTools, o?: Partial<RoleTools>): RoleTools 
     write: base.write && (o.write ?? true),
     exec: base.exec && (o.exec ?? true),
     mcp: o.mcp && MCP_ORDER[o.mcp] < MCP_ORDER[base.mcp] ? o.mcp : base.mcp,
+    browser: base.browser && (o.browser ?? true),
   };
 }
 

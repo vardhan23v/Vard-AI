@@ -4,7 +4,7 @@
  */
 import { useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Loader2, RotateCcw } from "lucide-react";
+import { Check, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
 import { Switch } from "@/components/ui/switch";
@@ -41,17 +41,21 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState<RoleOverride>(override ?? {});
   const [saving, setSaving] = useState(false);
+  // Bumped on each successful save so the check icon remounts and scales in again.
+  const [saved, setSaved] = useState(0);
   const base = role; // effective (already narrowed); the switches below can only turn things off
   const tools = { ...base.tools, ...(draft.tools ?? {}) };
 
   const save = async (next: RoleOverride | null) => {
     setSaving(true);
+    setSaved(0);
     try {
       const r = next
         ? await agentRoles.save("global", role.id, next)
         : await agentRoles.reset("global", role.id);
       qc.setQueryData(["agent-roles"], r);
       if (!next) setDraft({});
+      setSaved((n) => n + 1);
       toast.success(`${ROLE_LABEL[role.id]} role ${next ? "saved" : "reset"}`);
     } catch (e) {
       toast.error("Couldn't save the role", {
@@ -119,15 +123,25 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
         </fieldset>
         <fieldset className="space-y-2">
           <legend className="mb-1 text-xs font-medium text-muted-foreground">Tools</legend>
-          {(["write", "exec"] as const).map((k) => (
+          {(["write", "exec", "browser"] as const).map((k) => (
             <label key={k} className="flex items-center gap-2">
               <Switch
                 checked={tools[k]}
                 disabled={!base.tools[k] && !draft.tools?.[k]}
                 onCheckedChange={(v) => setDraft((d) => ({ ...d, tools: { ...d.tools, [k]: v } }))}
-                aria-label={k === "write" ? "Edit files" : "Run commands"}
+                aria-label={
+                  k === "write"
+                    ? "Edit files"
+                    : k === "exec"
+                      ? "Run commands"
+                      : "Use the test browser"
+                }
               />
-              {k === "write" ? "Edit files" : "Run commands (still asks unless allowed)"}
+              {k === "write"
+                ? "Edit files"
+                : k === "exec"
+                  ? "Run commands (still asks unless allowed)"
+                  : "Use the test browser and dev servers"}
             </label>
           ))}
           <label className="flex items-center gap-2">
@@ -204,7 +218,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
               })
             }
             disabled={saving}
-            className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
+            className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-50"
           >
             {saving && <Loader2 className="size-4 animate-spin" />} Save
           </button>
@@ -216,6 +230,15 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
             >
               <RotateCcw className="size-4" /> Reset to default
             </button>
+          )}
+          {saved > 0 && !saving && (
+            <span
+              key={saved}
+              role="status"
+              className="inline-flex animate-scale-in items-center gap-1 text-xs text-diff-add"
+            >
+              <Check className="size-4" aria-hidden /> Saved
+            </span>
           )}
         </div>
       </div>

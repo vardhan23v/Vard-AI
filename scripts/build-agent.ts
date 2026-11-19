@@ -38,7 +38,7 @@ await $`bun install`.cwd(join(root, "harness")).quiet();
 for (const triple of wanted) {
   const out = join(outDir, `vard-${triple}`);
   console.log(`Building ${out}`);
-  await $`bun build ${entry} --compile --minify --target=${targets[triple]} --outfile ${out}`.cwd(
+  await $`bun build ${entry} --compile --minify --external chromium-bidi --external ${"chromium-bidi/*"} --target=${targets[triple]} --outfile ${out}`.cwd(
     join(root, "harness"),
   );
 }

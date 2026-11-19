@@ -51,21 +51,22 @@ export function AgentsPage() {
             ) : !runs.length ? (
               <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
                 <StarField seed={41} />
-                <div className="relative space-y-2">
+                <div className="relative animate-enter space-y-2">
+                  <Users className="mx-auto size-8 text-agent-foreground" aria-hidden />
                   <p className="text-lg">No team runs yet</p>
                   <p className="mx-auto max-w-md text-sm text-muted-foreground">
                     Open a project, describe a larger task, and turn on Team before starting it.
                   </p>
                   <Link
                     to="/projects"
-                    className="inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                    className="press inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
                   >
                     Go to projects
                   </Link>
                 </div>
               </div>
             ) : (
-              <ul className="space-y-2">
+              <ul className="stagger space-y-2">
                 {runs.map((t) => {
                   const team = live.find((l) => l.taskId === t.id)?.team;
                   return (
@@ -74,7 +75,7 @@ export function AgentsPage() {
                         to="/projects/$projectId"
                         params={{ projectId: t.project_id }}
                         search={{ task: t.id }}
-                        className="block rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent"
+                        className="lift block rounded-lg border border-border bg-card p-3 transition-colors hover:bg-accent"
                       >
                         <div className="flex flex-wrap items-center justify-between gap-2">
                           <span className="line-clamp-1 text-sm font-medium">{t.prompt}</span>

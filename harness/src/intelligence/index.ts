@@ -1,0 +1,12 @@
+export * from "./schema";
+export { IntelError } from "./errors";
+export { loadIndexConfig, saveIndexConfig, indexDir } from "./config";
+export { CodeIndex, type BuildResult } from "./indexer";
+export { CodeGraph } from "./graph";
+export { searchCode } from "./search";
+export { analyzeImpact, renderImpact } from "./impact";
+export { architecture, renderArchitecture } from "./overview";
+export { embeddingProvider, updateEmbeddings, vectorSearch, type EmbeddingProvider } from "./embeddings";
+export { CodeIntel } from "./manager";
+export { codeTools, CODE_TOOL_NAMES } from "./tools";
+export { deleteIndex } from "./store";

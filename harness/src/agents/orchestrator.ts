@@ -11,13 +11,14 @@ import { reflectOnTask, type ApprovalRequest, type ApprovalResponse, type LoopRe
 import { applyAuto, type MemoryStore, type Proposal } from "../memory";
 import type { EventBody, Usage } from "../protocol";
 import { runCommand } from "../tools/command";
+import { textOf } from "../tools/types";
 import { git, truncateMiddle } from "../util";
 import { createWorktree, discardWorktree, type Worktree } from "../worktree";
 import { MessageBus } from "./communication";
 import { addFileEdges, allDeps, validateGraph, dedupeGraph } from "./dependencies";
 import { OrchestrationError } from "./errors";
 import { Integrator } from "./integrator";
-import { planGraph, renderGraph } from "./planner";
+import { extractJson, planGraph, renderGraph } from "./planner";
 import { compactSummary, dependencyContext, runSummary } from "./results";
 import { runReview } from "./reviewer";
 import { type Outcome, Scheduler } from "./scheduler";
@@ -148,6 +149,7 @@ export class Orchestrator {
         maxSubtasks: this.d.options.maxSubtasks,
         retries: this.d.options.retries,
         review: this.d.options.review,
+        retestRounds: this.d.options.retestRounds,
         tokenBudget: this.tokenBudget,
       },
       integrationBranch: this.d.integration.branch,
@@ -413,6 +415,9 @@ export class Orchestrator {
       deps.length ? `Work already done by the agents you depend on (it is in your copy of the code):\n${dependencyContext(deps)}` : "",
       others.length ? `Other agents handle these, so don't do them:\n${others.map((o) => `- ${o.title} (${o.role})`).join("\n")}` : "",
       s.note ? `${s.note}` : "",
+      s.role === "browser"
+        ? `You test in a real browser; you don't edit files. Start the dev server in your folder (dev_server_detect, then dev_server_start), open the page, run browser_test_responsive for the viewports that matter, try the changed flows, and read console and network errors. End your reply with ONLY this JSON in a \`\`\`json block: {"verdict": "pass" or "fail", "findings": [{"severity": "high|medium|low", "message": "what is wrong, with the measured evidence", "viewport": "mobile|tablet|desktop|…", "file": "the source file responsible, if you found it with code_search"}]}. Fail only for real, measured problems.`
+        : "",
       `Work only on your assignment, in your own copy of the repository. When you're done, stop calling tools and reply with a short summary: what you changed, which files, anything the other agents must know (names, API contracts), and how you checked it. If you can't continue without information only the user has, reply with "NEEDS INPUT:" followed by your question.`,
     ]
       .filter(Boolean)
@@ -450,6 +455,7 @@ export class Orchestrator {
       const q = /^\s*NEEDS INPUT:\s*([\s\S]+)/i.exec(text);
       if (q) return { status: "needs_input", question: q[1].trim().slice(0, 1500) };
       if (!ws) {
+        if (s.role === "browser") this.browserCheck(s, text);
         this.bus.post("task_completed", { from: agentId, to: "orchestrator", subtaskId: s.id, text: compactSummary(text) });
         return { status: "completed", result: { summary: compactSummary(text), files: [], stat: "" } };
       }
@@ -472,14 +478,97 @@ export class Orchestrator {
     }
   }
 
+  /**
+   * A finished browser check: read its verdict. A failure with medium or high findings starts fix
+   * subtasks for the code responsible and a re-test after them, up to `retestRounds` times.
+   */
+  private browserCheck(s: SubtaskState, text: string) {
+    let check: SubtaskState["check"] = { verdict: "unknown", findings: [] };
+    try {
+      const raw = extractJson(text) as { verdict?: string; findings?: unknown[] };
+      const findings = (Array.isArray(raw.findings) ? raw.findings : [])
+        .map((f) => f as Record<string, unknown>)
+        .filter((f) => typeof f.message === "string")
+        .slice(0, 30)
+        .map((f) => ({
+          severity: (["high", "medium", "low"].includes(String(f.severity)) ? f.severity : "medium") as "high" | "medium" | "low",
+          message: String(f.message).slice(0, 600),
+          file: typeof f.file === "string" ? f.file.slice(0, 300) : undefined,
+          viewport: typeof f.viewport === "string" ? f.viewport.slice(0, 40) : undefined,
+        }));
+      check = { verdict: raw.verdict === "pass" ? "pass" : raw.verdict === "fail" ? "fail" : "unknown", findings };
+    } catch {
+      // No readable verdict: recorded as unknown, never treated as a pass.
+    }
+    s.check = check;
+    const serious = check.findings.filter((f) => f.severity !== "low");
+    const root = s.retestOf ?? s.id;
+    const round = (s.retestRound ?? 0) + 1;
+    if (check.verdict !== "fail" || !serious.length) return;
+    if (round > this.d.options.retestRounds || this.usage.totalTokens >= this.tokenBudget) {
+      this.bus.post("review_rejected", { from: s.agentId ?? "browser", to: "orchestrator", subtaskId: s.id, text: `browser check still failing after ${round - 1} fix round(s); no more re-tests` });
+      return;
+    }
+    const coding = this.subtasks.filter((x) => x.status === "completed" && !["browser", "analyst"].includes(x.role) && !x.fixOf?.startsWith(root));
+    const owner = (f: (typeof serious)[number]) =>
+      (f.file && coding.find((x) => x.result?.files.some((p) => p === f.file || p.endsWith(`/${f.file}`) || f.file!.endsWith(p)))) ||
+      coding.find((x) => allDeps(s).includes(x.id) && x.role === "frontend") ||
+      coding.find((x) => allDeps(s).includes(x.id)) ||
+      coding.find((x) => x.role === "frontend");
+    const groups = new Map<string, { o: SubtaskState | undefined; items: typeof serious }>();
+    for (const f of serious) {
+      const o = owner(f);
+      const k = o?.id ?? "frontend";
+      const g = groups.get(k) ?? { o, items: [] };
+      g.items.push(f);
+      groups.set(k, g);
+    }
+    const taken = new Set(this.subtasks.map((x) => x.id));
+    const uid = (base: string) => {
+      let id = base.slice(0, 40);
+      for (let n = 2; taken.has(id); n++) id = `${base.slice(0, 36)}-${n}`;
+      taken.add(id);
+      return id;
+    };
+    const fixes: SubtaskState[] = [...groups.values()].map(({ o, items }) => ({
+      id: uid(`${o?.id ?? "ui"}-uifix${round}`),
+      title: `Fix browser findings${o ? ` in "${o.title}"` : ""} (round ${round})`.slice(0, 200),
+      role: (o?.role ?? "frontend") as SubtaskState["role"],
+      description: `A browser check found these problems. Find the responsible code (code_search with the selectors or text helps), fix them, and check your change:\n${items.map((f) => `- [${f.severity}]${f.viewport ? ` ${f.viewport}:` : ""} ${f.message}${f.file ? ` (${f.file})` : ""}`).join("\n")}`.slice(0, 4000),
+      dependsOn: [],
+      files: [...new Set(items.map((f) => f.file).filter((x): x is string => !!x))],
+      status: "pending",
+      attempts: 0,
+      implicitDeps: [],
+      fixOf: o?.id ?? root,
+    }));
+    const original = this.subtasks.find((x) => x.id === root) ?? s;
+    const retest: SubtaskState = {
+      id: uid(`${root}-r${round}`),
+      title: `Re-test: ${original.title}`.slice(0, 200),
+      role: "browser",
+      description: `${original.description}\n\nThis is re-test ${round}. Check that these earlier findings are fixed, and look for new problems:\n${serious.map((f) => `- ${f.message}`).join("\n")}`.slice(0, 4000),
+      dependsOn: fixes.map((f) => f.id),
+      files: [],
+      status: "pending",
+      attempts: 0,
+      implicitDeps: [],
+      retestOf: root,
+      retestRound: round,
+    };
+    this.subtasks.push(...fixes, retest);
+    for (const x of [...fixes, retest]) this.subChanged(x, x.role === "browser" ? `re-test round ${round}` : "created from a browser check");
+    this.bus.post("review_rejected", { from: s.agentId ?? "browser", to: "orchestrator", subtaskId: s.id, text: `${serious.length} browser finding(s); fix round ${round} of ${this.d.options.retestRounds}` });
+  }
+
   private async verify(): Promise<ReviewResult["verify"]> {
     const cmd = this.d.verifyCommand;
     if (!cmd) return undefined;
     this.emit({ type: "verify", status: "running", command: cmd });
-    const out = await runCommand.execute(
+    const out = textOf(await runCommand.execute(
       { command: cmd, timeoutSec: 600 },
       { workRoot: this.d.integration.path, projectRoot: this.d.projectRoot, todos: [], setTodos: () => {}, signal: this.d.signal },
-    );
+    ));
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);
     this.emit({ type: "verify", status: ok ? "passed" : "failed", command: cmd, output });
@@ -529,9 +618,9 @@ export class Orchestrator {
 
   private fixSubtasks(findings: ReviewResult["findings"]): SubtaskState[] {
     const owner = (f: ReviewResult["findings"][number]) =>
-      this.subtasks.find((s) => s.id === f.subtask && s.status === "completed") ??
+      this.subtasks.find((s) => s.id === f.subtask && s.status === "completed" && !["browser", "analyst"].includes(s.role)) ??
       this.subtasks.find((s) => s.status === "completed" && f.file && s.result?.files.includes(f.file)) ??
-      this.subtasks.find((s) => s.status === "completed" && s.role !== "testing");
+      this.subtasks.find((s) => s.status === "completed" && !["testing", "browser", "analyst"].includes(s.role));
     const groups = new Map<string, { s: SubtaskState; items: typeof findings }>();
     for (const f of findings) {
       const s = owner(f);

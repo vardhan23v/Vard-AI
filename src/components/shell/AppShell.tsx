@@ -9,14 +9,25 @@ import {
   Settings,
   Sparkles,
   Users,
+  Globe,
+  Braces,
 } from "lucide-react";
 
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { startTaskStore } from "@/features/agent/store";
 
 type RailItem = {
-  to: "/chat" | "/projects" | "/integrations" | "/skills" | "/agents" | "/settings";
+  to:
+    | "/chat"
+    | "/projects"
+    | "/integrations"
+    | "/skills"
+    | "/agents"
+    | "/code"
+    | "/browser"
+    | "/settings";
   label: string;
   icon: ComponentType<{ className?: string }>;
 };
@@ -26,6 +37,8 @@ const RAIL: RailItem[] = [
   { to: "/projects", label: "Projects", icon: FolderGit2 },
   { to: "/integrations", label: "Integrations", icon: Plug },
   { to: "/agents", label: "Agents", icon: Users },
+  { to: "/code", label: "Code", icon: Braces },
+  { to: "/browser", label: "Browser", icon: Globe },
   { to: "/skills", label: "Skills", icon: Sparkles },
 ];
 
@@ -37,6 +50,9 @@ export function AppShell({ list }: { list?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [listOpen, setListOpen] = useState(true);
+
+  // Collect agent task and browser events app-wide, so pages opened later still have the history.
+  useEffect(() => startTaskStore(), []);
 
   // ⌘N new chat · ⌘\ toggle the list pane
   useEffect(() => {

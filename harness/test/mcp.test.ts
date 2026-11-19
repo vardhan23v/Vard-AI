@@ -279,7 +279,7 @@ describe("untrusted content", () => {
       /^\[MCP server "Server mock", tool "evil"\. Description from the server, unverified:\]/,
     );
     expect(evil.description).not.toMatch(/[\u0000‮]/);
-    const out = await evil.execute({}, ctx(project));
+    const out = (await evil.execute({}, ctx(project))) as string;
     expect(out.match(/<\/untrusted-mcp-output>/g)).toHaveLength(1);
     expect(out).toContain("[tag removed]");
     expect(

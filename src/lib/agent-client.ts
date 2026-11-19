@@ -320,3 +320,90 @@ export const agentRoles = {
       "roles",
     ),
 };
+
+// ---- code intelligence (per-project index in <project>/.vard/index) ----
+
+export type CodeIndexStatus = Extract<AgentEvent, { type: "code_index_status" }>["status"];
+export type CodeResults = Extract<AgentEvent, { type: "code_results" }>;
+export type CodeQuery = Extract<AgentRequest, { type: "code.query" }>["query"];
+export type CodeConfig = Extract<AgentEvent, { type: "code_config" }>["config"];
+export type ImpactReport = NonNullable<CodeResults["impact"]>;
+export type GraphData = NonNullable<CodeResults["graph"]>;
+
+export const code = {
+  status: (projectRoot: string) =>
+    ask({ type: "code.index", projectRoot, action: "status" }, ["code_index_status"], "code"),
+  index: (
+    projectRoot: string,
+    action: "build" | "rebuild" | "cancel" | "clean" | "watch" | "unwatch",
+  ) => ask({ type: "code.index", projectRoot, action }, ["code_index_status"], "code"),
+  query: (projectRoot: string, query: CodeQuery) =>
+    ask({ type: "code.query", projectRoot, query }, ["code_results"], "code"),
+  config: (projectRoot: string, config?: Partial<CodeConfig>) =>
+    ask({ type: "code.config", projectRoot, config }, ["code_config"], "code"),
+};
+
+/** Live index status and progress pushed by the agent (id "code"). */
+export function onCodeIndex(
+  handler: (e: Extract<AgentEvent, { type: "code_index_status" | "code_index_progress" }>) => void,
+): () => void {
+  return onAgentEvent((e) => {
+    if (e.id === "code" && (e.type === "code_index_status" || e.type === "code_index_progress"))
+      handler(e);
+  });
+}
+
+// ---- browser agent ----
+
+export type BrowserStatus = Extract<AgentEvent, { type: "browser_status" }>;
+export type BrowserSessionInfo = BrowserStatus["sessions"][number];
+export type DevServerInfo = BrowserStatus["devServers"][number];
+export type BrowserReport = Extract<AgentEvent, { type: "browser_report" }>["report"];
+export type ArtifactItem = Extract<AgentEvent, { type: "artifacts" }>["items"][number];
+export type ViewportPreset = "mobile" | "mobile-large" | "tablet" | "laptop" | "desktop";
+
+export const browser = {
+  status: () => ask({ type: "browser.status" }, ["browser_status"], "br"),
+  install: () => ask({ type: "browser.install" }, ["browser_status"], "br"),
+  control: (
+    sessionId: string,
+    action: "navigate" | "back" | "reload" | "viewport" | "screenshot" | "stop",
+    extra: { url?: string; viewport?: ViewportPreset } = {},
+  ) => ask({ type: "browser.control", sessionId, action, ...extra }, ["browser_status"], "br"),
+  artifacts: (projectRoot: string, run?: string) =>
+    ask({ type: "artifacts.list", projectRoot, run }, ["artifacts"], "br"),
+  artifact: (projectRoot: string, path: string) =>
+    ask({ type: "artifacts.get", projectRoot, path }, ["artifact"], "br"),
+  cleanArtifacts: (projectRoot: string, o: { run?: string; olderThanDays?: number } = {}) =>
+    ask({ type: "artifacts.clean", projectRoot, ...o }, ["artifacts"], "br"),
+};
+
+/** Live browser events (sessions, actions, reports, dev servers, install progress). */
+export function onBrowser(
+  handler: (
+    e: Extract<
+      AgentEvent,
+      {
+        type:
+          | "browser_session"
+          | "browser_action"
+          | "browser_report"
+          | "dev_server"
+          | "browser_install_progress";
+      }
+    >,
+  ) => void,
+): () => void {
+  return onAgentEvent((e) => {
+    if (
+      [
+        "browser_session",
+        "browser_action",
+        "browser_report",
+        "dev_server",
+        "browser_install_progress",
+      ].includes(e.type)
+    )
+      handler(e as never);
+  });
+}

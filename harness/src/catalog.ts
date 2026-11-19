@@ -112,3 +112,25 @@ export const DEFAULT_CHOICE: ModelChoice = { provider: "groq", model: "openai/gp
 export function modelLabel({ provider, model }: ModelChoice) {
   return providerInfo(provider)?.models.find((m) => m.id === model)?.label ?? model;
 }
+
+/**
+ * Whether a model accepts images (screenshots in tool results). Conservative: unknown models and
+ * OpenAI-compatible endpoints are treated as text-only, and they still get DOM measurements.
+ */
+export function supportsVision(provider: string, model: string): boolean {
+  const m = model.toLowerCase();
+  switch (provider) {
+    case "anthropic":
+      return /claude/.test(m);
+    case "openai":
+      return /gpt-4o|gpt-4\.1|gpt-5|o3|o4/.test(m);
+    case "google":
+      return /gemini/.test(m);
+    case "groq":
+      return /llama-4|scout|maverick|vision/.test(m);
+    case "ollama":
+      return /llava|vision|gemma3|qwen2\.5vl|qwen2\.5-vl|minicpm-v|llama3\.2-vision/.test(m);
+    default:
+      return false;
+  }
+}

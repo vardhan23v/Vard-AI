@@ -13,10 +13,13 @@ import type { SkillRegistry } from "../skills";
 import { skillsForTask } from "../skills/task";
 import type { ProjectSignals } from "../skills/resolver";
 import { ALL_TOOLS, type ToolDef } from "../tools";
+import { supportsVision } from "../catalog";
 import type { AgentRun, RoleConfig } from "./schema";
 
 export interface AgentEnv {
   taskId: string;
+  /** Extra tools for a role (code intelligence for everyone; the browser for roles allowed it). */
+  toolsFor?: (role: RoleConfig, vision: boolean) => ToolDef[];
   projectRoot: string;
   emit: (e: EventBody) => void;
   requestApproval: (a: ApprovalRequest) => Promise<ApprovalResponse>;
@@ -61,7 +64,13 @@ export interface AgentSpec {
 
 /** Vard's built-in tools a role may use: reads always; writes and commands only if the role allows. */
 export function roleTools(role: RoleConfig): ToolDef[] {
-  return ALL_TOOLS.filter((t) => t.risk === "read" || (t.risk === "write" && role.tools.write) || (t.risk === "exec" && role.tools.exec));
+  return ALL_TOOLS.filter(
+    (t) =>
+      t.risk === "read" ||
+      (t.risk === "write" && role.tools.write) ||
+      // The browser tester runs commands only to start dev servers (dev_server_start).
+      (t.risk === "exec" && role.tools.exec && role.id !== "browser"),
+  );
 }
 
 /** MCP tools a role may see (the same shared connections; policy and approvals still apply). */
@@ -79,7 +88,8 @@ const short = (v: unknown, n = 80) => {
 export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result: LoopResult; agent: AgentRun }> {
   const { role } = spec;
   const { model, label } = env.modelFor(role);
-  const base = roleTools(role);
+  const vision = supportsVision(label.split("/")[0], label.split("/").slice(1).join("/"));
+  const base = [...roleTools(role), ...(env.toolsFor?.(role, vision) ?? [])];
   const agent: AgentRun = {
     agentId: spec.agentId,
     role: role.id,
@@ -209,6 +219,7 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
     signal: spec.signal,
     memory: env.memory ?? null,
     skills: skillBlock,
+    vision,
     gate,
     extraInstructions: `# Your role\n${role.name}: ${role.instructions}`,
     ...(mcpTools ? { extraTools: mcpTools, mcpSummary: env.mcp!.summary } : {}),

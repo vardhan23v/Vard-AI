@@ -23,7 +23,8 @@ import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall
 import { Policy } from "./policy";
 import type { TaskGraph } from "./agents/schema";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
-import { ALL_TOOLS, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
+import fs from "node:fs";
+import { ALL_TOOLS, textOf, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
 import { runCommand } from "./tools/command";
 import { DEFAULT_RETRY, isToolCallRejection, type RetryOptions, withRetry } from "./retry";
 import { describeError, truncateMiddle } from "./util";
@@ -85,6 +86,10 @@ export interface LoopOptions {
   gate?: () => Promise<void>;
   /** Text added to the end of the system prompt (a team agent's role and assignment). */
   extraInstructions?: string;
+  /** A short summary of the codebase from the code index (languages, folders, entry points). */
+  codebase?: string;
+  /** The model accepts images: screenshots from tools are attached to tool results. */
+  vision?: boolean;
 }
 
 export interface LoopResult {
@@ -298,6 +303,7 @@ export class AgentLoop {
       repoMap: this.repoMapCache,
       memory: this.memoryCache,
       skills: o.skills?.block,
+      codebase: o.codebase,
       mcp: o.mcpSummary?.(),
       extra: o.extraInstructions,
     });
@@ -362,22 +368,48 @@ export class AgentLoop {
     const parts: any[] = [];
     for (const call of calls) {
       this.checkCancel();
-      const { ok, output } = await this.executeCall(call);
-      this.o.emit({ type: "tool_result", callId: call.toolCallId, tool: call.toolName, ok, output });
+      const { ok, output, images } = await this.executeCall(call);
+      this.o.emit({ type: "tool_result", callId: call.toolCallId, tool: call.toolName, ok, output, ...(images?.length ? { images: images.map((i) => i.path) } : {}) });
       const arg = JSON.stringify(call.input ?? {}).slice(0, 160);
       this.toolLog.push(`${ok ? "ok " : "ERR"} ${call.toolName} ${arg}${ok ? "" : ` -> ${output.split("\n")[0].slice(0, 160)}`}`);
       parts.push({
         type: "tool-result",
         toolCallId: call.toolCallId,
         toolName: call.toolName,
-        output: { type: "text", value: ok ? output : `ERROR: ${output}` },
+        output: ok && images?.length && this.o.vision ? this.withImages(output, images) : { type: "text", value: ok ? output : `ERROR: ${output}` },
       });
     }
+    if (parts.some((p) => p.output.type === "content")) this.dropOldImages();
     this.messages.push({ role: "tool", content: parts });
   }
 
+  /** A tool result with screenshots attached (vision models only). Unreadable images are skipped. */
+  private withImages(text: string, images: { path: string; mediaType: string }[]) {
+    const value: any[] = [{ type: "text", text }];
+    for (const img of images.slice(0, 3)) {
+      try {
+        const data = fs.readFileSync(img.path);
+        if (data.length <= 4 * 1024 * 1024) value.push({ type: "file", mediaType: img.mediaType, data: { type: "data", data: data.toString("base64") } });
+      } catch {}
+    }
+    return { type: "content", value };
+  }
+
+  /** Keeps only the newest screenshots in the transcript; older ones become a short note. */
+  private dropOldImages() {
+    for (const m of this.messages) {
+      if (m.role !== "tool" || !Array.isArray(m.content)) continue;
+      for (const part of m.content as any[]) {
+        const out = part.output;
+        if (out?.type !== "content") continue;
+        const text = out.value.filter((v: any) => v.type === "text").map((v: any) => v.text).join("\n");
+        part.output = { type: "text", value: `${text}\n[earlier screenshot removed from the conversation; it is still saved on disk]` };
+      }
+    }
+  }
+
   /** Validate → policy → (approval) → execute → truncate. Never throws except on cancel. */
-  async executeCall(call: { toolCallId: string; toolName: string; input: unknown }): Promise<{ ok: boolean; output: string }> {
+  async executeCall(call: { toolCallId: string; toolName: string; input: unknown }): Promise<{ ok: boolean; output: string; images?: { path: string; mediaType: string }[] }> {
     const o = this.o;
     const def = toolByName(this.currentTools(), call.toolName);
     o.emit({
@@ -397,7 +429,7 @@ export class AgentLoop {
     if (decision.action === "deny") return { ok: false, output: `blocked by policy: ${decision.reason}` };
     if (decision.action === "ask") {
       const prev = this.state;
-      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}), ...(def.alwaysAsk ? { noAlways: true } : {}) });
+      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}), ...(def.alwaysAsk || decision.noAlways ? { noAlways: true } : {}) });
       this.state = prev;
       if (answer.decision === "deny")
         return { ok: false, output: `the user denied this call${answer.reason ? `: ${answer.reason}` : ""}` };
@@ -413,10 +445,12 @@ export class AgentLoop {
         o.emit({ type: "todos", todos: t });
       },
       signal: o.signal,
+      taskId: o.taskId,
     };
     try {
       const out = await def.execute(input, ctx);
-      return { ok: true, output: def.truncate(out) };
+      if (typeof out === "string") return { ok: true, output: def.truncate(out) };
+      return { ok: true, output: def.truncate(out.text), images: out.images };
     } catch (e) {
       this.checkCancel();
       const msg = e instanceof ToolError ? e.message : `${def.name} failed: ${(e as Error)?.message ?? String(e)}`;
@@ -449,10 +483,10 @@ export class AgentLoop {
   private async verify(command: string): Promise<{ ok: boolean; output: string }> {
     this.setState("verifying");
     this.o.emit({ type: "verify", status: "running", command });
-    const out = await runCommand.execute(
+    const out = textOf(await runCommand.execute(
       { command, timeoutSec: 600 },
       { workRoot: this.o.workRoot, projectRoot: this.o.projectRoot, todos: this.todos, setTodos: () => {}, signal: this.o.signal },
-    );
+    ));
     this.checkCancel();
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);

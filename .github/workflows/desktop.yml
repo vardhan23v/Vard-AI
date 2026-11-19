@@ -19,6 +19,10 @@ jobs:
         working-directory: harness
       - name: Typecheck app
         run: bun run typecheck
+      # The browser agent's tests drive a real headless Chromium (Playwright's Chrome Headless Shell).
+      - name: Install a headless browser for the browser tests
+        run: bunx playwright-core install --with-deps chromium-headless-shell
+        working-directory: harness
       - name: Harness tests
         run: bun test
         working-directory: harness
