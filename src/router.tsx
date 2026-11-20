@@ -1,6 +1,7 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { Splash } from "./components/Splash";
 
 export const getRouter = () => {
   const queryClient = new QueryClient();
@@ -10,6 +11,9 @@ export const getRouter = () => {
     context: { queryClient },
     scrollRestoration: true,
     defaultPreloadStaleTime: 0,
+    // Never a blank window while a route waits (e.g. for the saved session at startup).
+    defaultPendingComponent: Splash,
+    defaultPendingMs: 150,
   });
 
   return router;
