@@ -32,7 +32,11 @@ export async function keysCommand(ctx: Ctx, args: string[]): Promise<number> {
   }
   if (sub === "remove") {
     const ok = ctx.keys.remove(id);
-    ctx.out.write(ok ? `Removed the ${info.label} key from your Keychain.\n` : `No ${info.label} key in your Keychain.\n`);
+    ctx.out.write(
+      ok
+        ? `Removed the ${info.label} key from your Keychain.\n`
+        : `No ${info.label} key in your Keychain.\n`,
+    );
     return 0;
   }
   let key = ctx.stdinText?.trim() ?? "";
@@ -61,9 +65,13 @@ export async function keysCommand(ctx: Ctx, args: string[]): Promise<number> {
     return 1;
   }
   if (r.code !== 0) {
-    ctx.err.write(t.danger(`Couldn't save the key: ${r.stderr.trim() || `security exited ${r.code}`}\n`));
+    ctx.err.write(
+      t.danger(`Couldn't save the key: ${r.stderr.trim() || `security exited ${r.code}`}\n`),
+    );
     return 1;
   }
-  ctx.out.write(`${t.sage("✓")} Saved the ${info.label} key to your Keychain. The Vard AI app uses it too.\n`);
+  ctx.out.write(
+    `${t.sage("✓")} Saved the ${info.label} key to your Keychain. The Vard AI app uses it too.\n`,
+  );
   return 0;
 }

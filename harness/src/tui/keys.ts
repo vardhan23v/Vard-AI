@@ -32,7 +32,8 @@ export function splitKeys(chunk: string): KeyPress[] {
     if (text) out.push({ input: text, key: {} });
     text = "";
   };
-  const printableFollows = (i: number) => /[^\x00-\x1f\x7f]/.test(chunk.slice(i + 1).replace(/\x1b\[[0-9;]*[A-Za-z~]/g, ""));
+  const printableFollows = (i: number) =>
+    /[^\x00-\x1f\x7f]/.test(chunk.slice(i + 1).replace(/\x1b\[[0-9;]*[A-Za-z~]/g, ""));
   for (let i = 0; i < chunk.length; i++) {
     const ch = chunk[i];
     const code = ch.charCodeAt(0);

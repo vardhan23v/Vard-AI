@@ -120,7 +120,8 @@ export function parseFrontmatter(src: string): { data: Record<string, unknown>; 
     if (/^\s*\t/.test(raw)) errors.push(`line ${n}: use spaces, not tabs, for indentation`);
     lines.push({ n, indent: raw.length - raw.trimStart().length, text: raw.replace(/\r$/, "") });
   });
-  if (lines.length > MAX_FRONTMATTER_LINES) return { data, errors: [`frontmatter is longer than ${MAX_FRONTMATTER_LINES} lines`] };
+  if (lines.length > MAX_FRONTMATTER_LINES)
+    return { data, errors: [`frontmatter is longer than ${MAX_FRONTMATTER_LINES} lines`] };
 
   let i = 0;
   const blank = (l: Line) => !stripComment(l.text).trim();
@@ -159,7 +160,12 @@ export function parseFrontmatter(src: string): { data: Record<string, unknown>; 
         i++;
       }
       while (body.length && !body[body.length - 1].trim()) body.pop();
-      data[key] = folded ? body.join("\n").replace(/([^\n])\n(?!\n)/g, "$1 ").trim() : body.join("\n");
+      data[key] = folded
+        ? body
+            .join("\n")
+            .replace(/([^\n])\n(?!\n)/g, "$1 ")
+            .trim()
+        : body.join("\n");
       continue;
     }
     if (rest.trim()) {
@@ -221,11 +227,13 @@ export function parseFrontmatter(src: string): { data: Record<string, unknown>; 
 export function parseSkillFile(text: string): ParsedSkillFile {
   if (Buffer.byteLength(text, "utf8") > MAX_SKILL_BYTES)
     return { data: {}, body: "", errors: [`SKILL.md is larger than ${MAX_SKILL_BYTES / 1024} KB`] };
-  const src = text.replace(/^﻿/, "").replace(/\r\n/g, "\n");
-  if (!src.startsWith("---\n")) return { data: {}, body: src, errors: ["SKILL.md must start with a --- frontmatter block"] };
+  const src = text.replace(/^\uFEFF/, "").replace(/\r\n/g, "\n");
+  if (!src.startsWith("---\n"))
+    return { data: {}, body: src, errors: ["SKILL.md must start with a --- frontmatter block"] };
   const lines = src.split("\n");
   const close = lines.findIndex((l, i) => i > 0 && /^---[ \t]*$/.test(l));
-  if (close === -1) return { data: {}, body: "", errors: ["the frontmatter block is not closed with ---"] };
+  if (close === -1)
+    return { data: {}, body: "", errors: ["the frontmatter block is not closed with ---"] };
   const fm = lines.slice(1, close).join("\n");
   const after = lines.slice(close + 1).join("\n");
   const { data, errors } = parseFrontmatter(fm);
@@ -239,10 +247,12 @@ export function sections(body: string): { title: string; text: string }[] {
   for (const line of body.split("\n")) {
     const m = /^##\s+(.+)$/.exec(line);
     if (m) {
-      if (cur.title || cur.lines.join("").trim()) out.push({ title: cur.title, text: cur.lines.join("\n").trim() });
+      if (cur.title || cur.lines.join("").trim())
+        out.push({ title: cur.title, text: cur.lines.join("\n").trim() });
       cur = { title: m[1].trim(), lines: [] };
     } else cur.lines.push(line);
   }
-  if (cur.title || cur.lines.join("").trim()) out.push({ title: cur.title, text: cur.lines.join("\n").trim() });
+  if (cur.title || cur.lines.join("").trim())
+    out.push({ title: cur.title, text: cur.lines.join("\n").trim() });
   return out;
 }

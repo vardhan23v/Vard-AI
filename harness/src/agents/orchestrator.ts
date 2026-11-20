@@ -7,7 +7,12 @@
  * comes only from real events: agent loop events (tagged with agentId) and the orch_* events here.
  */
 import type { LanguageModel } from "ai";
-import { reflectOnTask, type ApprovalRequest, type ApprovalResponse, type LoopResult } from "../loop";
+import {
+  reflectOnTask,
+  type ApprovalRequest,
+  type ApprovalResponse,
+  type LoopResult,
+} from "../loop";
 import { applyAuto, type MemoryStore, type Proposal } from "../memory";
 import type { EventBody, Usage } from "../protocol";
 import { runCommand } from "../tools/command";
@@ -43,7 +48,10 @@ import { runAgent } from "./worker";
 const DEFAULT_TOKEN_BUDGET = 4_000_000;
 const PER_AGENT_TOKENS = 1_000_000;
 
-export interface OrchestratorDeps extends Omit<AgentEnv, "gate" | "paused" | "onAgent" | "emit" | "taskId"> {
+export interface OrchestratorDeps extends Omit<
+  AgentEnv,
+  "gate" | "paused" | "onAgent" | "emit" | "taskId"
+> {
   taskId: string;
   goal: string;
   integration: Worktree;
@@ -113,7 +121,8 @@ export class Orchestrator {
   }
 
   private emit(e: EventBody) {
-    if (e.type === "tool_call" && e.agentId) this.toolLog.push(`${e.agentId}: ${e.tool} ${JSON.stringify(e.input ?? {}).slice(0, 140)}`);
+    if (e.type === "tool_call" && e.agentId)
+      this.toolLog.push(`${e.agentId}: ${e.tool} ${JSON.stringify(e.input ?? {}).slice(0, 140)}`);
     this.d.emit({ ...e, seq: ++this.seq } as EventBody);
   }
 
@@ -174,7 +183,8 @@ export class Orchestrator {
   control(action: OrchControl, subtaskId?: string, note?: string): string {
     switch (action) {
       case "pause":
-        if (["done", "failed", "cancelled"].includes(this.phase)) throw new OrchestrationError("config", "the run has finished");
+        if (["done", "failed", "cancelled"].includes(this.phase))
+          throw new OrchestrationError("config", "the run has finished");
         this.isPaused = true;
         if (this.phase === "running") this.setPhase("paused", "paused by you");
         return "paused";
@@ -200,13 +210,21 @@ export class Orchestrator {
       case "retry_subtask": {
         const s = this.sub(subtaskId);
         if (!["running", "paused", "attention"].includes(this.phase))
-          throw new OrchestrationError("config", `subtasks can be retried only while the run is going (it is ${this.phase})`);
+          throw new OrchestrationError(
+            "config",
+            `subtasks can be retried only while the run is going (it is ${this.phase})`,
+          );
         if (!["failed", "needs_attention", "cancelled", "blocked", "skipped"].includes(s.status))
-          throw new OrchestrationError("config", `subtask ${s.id} is ${s.status}; only failed, blocked or cancelled subtasks can be retried`);
+          throw new OrchestrationError(
+            "config",
+            `subtask ${s.id} is ${s.status}; only failed, blocked or cancelled subtasks can be retried`,
+          );
         s.status = "pending";
         s.blockedBy = undefined;
         this.accepted.delete(s.id);
-        s.note = note?.trim() ? `Note from the user: ${note.trim()}${s.question ? `\n(Your question was: ${s.question})` : ""}` : s.note;
+        s.note = note?.trim()
+          ? `Note from the user: ${note.trim()}${s.question ? `\n(Your question was: ${s.question})` : ""}`
+          : s.note;
         this.subChanged(s, "retry requested");
         // Subtasks blocked (directly or through others) by this one get another chance.
         const freed = new Set([s.id]);
@@ -293,15 +311,21 @@ export class Orchestrator {
       return {
         status: "done",
         summary,
-        reason: failed.length ? `${failed.length} subtask${failed.length > 1 ? "s" : ""} did not complete` : undefined,
+        reason: failed.length
+          ? `${failed.length} subtask${failed.length > 1 ? "s" : ""} did not complete`
+          : undefined,
         steps: steps(),
         usage: this.usage,
         proposals,
       };
     } catch (e) {
       this.endedAt = Date.now();
-      const cancelled = d.signal.aborted || (e instanceof OrchestrationError && e.code === "cancelled");
-      this.setPhase(cancelled ? "cancelled" : "failed", cancelled ? "cancelled by you" : (e as Error).message);
+      const cancelled =
+        d.signal.aborted || (e instanceof OrchestrationError && e.code === "cancelled");
+      this.setPhase(
+        cancelled ? "cancelled" : "failed",
+        cancelled ? "cancelled by you" : (e as Error).message,
+      );
       this.emit({ type: "orch_snapshot", state: this.snapshot() });
       return {
         status: cancelled ? "cancelled" : "blocked",
@@ -318,7 +342,10 @@ export class Orchestrator {
     if (this.d.signal.aborted) throw new OrchestrationError("cancelled", "cancelled");
   }
 
-  private async approval(req: Omit<ApprovalRequest, "approvalId">, id: string): Promise<ApprovalResponse> {
+  private async approval(
+    req: Omit<ApprovalRequest, "approvalId">,
+    id: string,
+  ): Promise<ApprovalResponse> {
     this.checkCancel();
     const full: ApprovalRequest = { ...req, approvalId: `${this.d.taskId}:${id}` };
     this.emit({ type: "approval_request", ...full });
@@ -352,14 +379,23 @@ export class Orchestrator {
         signal: d.signal,
         round,
       });
-      for (const m of merged) this.bus.post("task_assigned", { from: "orchestrator", text: `Merged duplicate subtask "${m.dropped}" into "${m.into}".` });
-      let proposed = graph;
+      for (const m of merged)
+        this.bus.post("task_assigned", {
+          from: "orchestrator",
+          text: `Merged duplicate subtask "${m.dropped}" into "${m.into}".`,
+        });
+      const proposed = graph;
       for (let ask = 1; ; ask++) {
         this.graph = proposed;
         this.emit({ type: "orch_plan", graph: proposed });
         this.setPhase("awaiting_approval");
         const answer = await this.approval(
-          { kind: "plan", reason: "review the team plan before agents start editing", plan: renderGraph(proposed), graph: proposed },
+          {
+            kind: "plan",
+            reason: "review the team plan before agents start editing",
+            plan: renderGraph(proposed),
+            graph: proposed,
+          },
           `plan${round}.${ask}`,
         );
         if (answer.decision === "deny") {
@@ -369,9 +405,15 @@ export class Orchestrator {
         }
         if (answer.graph === undefined) return this.adopt(proposed);
         const edited = TaskGraph.safeParse(answer.graph);
-        const errors = edited.success ? validateGraph(dedupeGraph(edited.data).graph, { maxSubtasks: 12 }) : edited.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
+        const errors = edited.success
+          ? validateGraph(dedupeGraph(edited.data).graph, { maxSubtasks: 12 })
+          : edited.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`);
         if (!errors.length && edited.success) return this.adopt(dedupeGraph(edited.data).graph);
-        this.emit({ type: "error", message: `The edited plan can't be used: ${errors.join("; ")}`, code: "plan_invalid" });
+        this.emit({
+          type: "error",
+          message: `The edited plan can't be used: ${errors.join("; ")}`,
+          code: "plan_invalid",
+        });
         if (ask >= 3) throw new OrchestrationError("plan_invalid", "the edited plan is invalid");
       }
     }
@@ -381,7 +423,12 @@ export class Orchestrator {
   private adopt(graph: TaskGraphT) {
     this.graph = graph;
     const implicit = addFileEdges(graph.tasks);
-    this.subtasks = graph.tasks.map((t) => ({ ...t, status: "pending" as const, attempts: 0, implicitDeps: implicit.get(t.id) ?? [] }));
+    this.subtasks = graph.tasks.map((t) => ({
+      ...t,
+      status: "pending" as const,
+      attempts: 0,
+      implicitDeps: implicit.get(t.id) ?? [],
+    }));
     this.emit({ type: "orch_plan", graph, approved: true });
     for (const s of this.subtasks) this.subChanged(s, "created");
   }
@@ -396,10 +443,26 @@ export class Orchestrator {
       run: (s, signal) => this.runSubtask(s, signal),
       onChange: (s, why) => {
         this.subChanged(s, why);
-        if (s.status === "blocked") this.bus.post("dependency_blocked", { from: "orchestrator", subtaskId: s.id, text: `${s.title} is blocked by ${s.blockedBy?.join(", ")}` });
-        if (s.status === "failed") this.bus.post("task_failed", { from: s.agentId ?? "orchestrator", to: "orchestrator", subtaskId: s.id, text: s.error ?? "failed" });
+        if (s.status === "blocked")
+          this.bus.post("dependency_blocked", {
+            from: "orchestrator",
+            subtaskId: s.id,
+            text: `${s.title} is blocked by ${s.blockedBy?.join(", ")}`,
+          });
+        if (s.status === "failed")
+          this.bus.post("task_failed", {
+            from: s.agentId ?? "orchestrator",
+            to: "orchestrator",
+            subtaskId: s.id,
+            text: s.error ?? "failed",
+          });
         if (s.status === "needs_attention" && s.question)
-          this.bus.post("clarification_required", { from: s.agentId ?? "orchestrator", to: "user", subtaskId: s.id, text: s.question });
+          this.bus.post("clarification_required", {
+            from: s.agentId ?? "orchestrator",
+            to: "user",
+            subtaskId: s.id,
+            text: s.question,
+          });
       },
       paused: () => this.isPaused,
       resumed: () => this.waitResume(),
@@ -409,9 +472,16 @@ export class Orchestrator {
     for (;;) {
       await this.scheduler.run(this.subtasks);
       this.checkCancel();
-      const stuck = this.subtasks.filter((s) => ["failed", "needs_attention", "blocked", "skipped"].includes(s.status) && !this.accepted.has(s.id));
+      const stuck = this.subtasks.filter(
+        (s) =>
+          ["failed", "needs_attention", "blocked", "skipped"].includes(s.status) &&
+          !this.accepted.has(s.id),
+      );
       if (!stuck.length || d.options.onFailure === "continue") return;
-      this.setPhase("attention", `${stuck.length} subtask${stuck.length > 1 ? "s need" : " needs"} your attention`);
+      this.setPhase(
+        "attention",
+        `${stuck.length} subtask${stuck.length > 1 ? "s need" : " needs"} your attention`,
+      );
       let onAbort = () => {};
       const choice = await new Promise<"retry" | "continue">((resolve, reject) => {
         this.attention = resolve;
@@ -436,15 +506,21 @@ export class Orchestrator {
 
   private workerPrompt(s: SubtaskState): string {
     const byId = new Map(this.subtasks.map((x) => [x.id, x]));
-    const deps = allDeps(s).map((id) => byId.get(id)!).filter((x) => x?.status === "completed");
+    const deps = allDeps(s)
+      .map((id) => byId.get(id)!)
+      .filter((x) => x?.status === "completed");
     const others = this.subtasks.filter((x) => x.id !== s.id && !allDeps(s).includes(x.id));
     return [
       `You are one agent in a team working on this request:\n"""\n${this.d.goal}\n"""`,
       `Your assignment (subtask "${s.id}"): ${s.title}\n\n${s.description}`,
       s.acceptance ? `Done when: ${s.acceptance}` : "",
       s.files.length ? `Files you are expected to change: ${s.files.join(", ")}` : "",
-      deps.length ? `Work already done by the agents you depend on (it is in your copy of the code):\n${dependencyContext(deps)}` : "",
-      others.length ? `Other agents handle these, so don't do them:\n${others.map((o) => `- ${o.title} (${o.role})`).join("\n")}` : "",
+      deps.length
+        ? `Work already done by the agents you depend on (it is in your copy of the code):\n${dependencyContext(deps)}`
+        : "",
+      others.length
+        ? `Other agents handle these, so don't do them:\n${others.map((o) => `- ${o.title} (${o.role})`).join("\n")}`
+        : "",
       s.note ? `${s.note}` : "",
       s.role === "browser"
         ? `You test in a real browser; you don't edit files. Start the dev server in your folder (dev_server_detect, then dev_server_start), open the page, run browser_test_responsive for the viewports that matter, try the changed flows, and read console and network errors. End your reply with ONLY this JSON in a \`\`\`json block: {"verdict": "pass" or "fail", "findings": [{"severity": "high|medium|low", "message": "what is wrong, with the measured evidence", "viewport": "mobile|tablet|desktop|…", "file": "the source file responsible, if you found it with code_search"}]}. Fail only for real, measured problems.`
@@ -461,12 +537,24 @@ export class Orchestrator {
     const agentId = `${s.role}-${s.id}${s.attempts > 1 ? `-${s.attempts}` : ""}`;
     s.agentId = agentId;
     this.subChanged(s);
-    this.bus.post("task_assigned", { from: "orchestrator", to: agentId, subtaskId: s.id, text: `${s.title} → ${role.name} agent` });
+    this.bus.post("task_assigned", {
+      from: "orchestrator",
+      to: agentId,
+      subtaskId: s.id,
+      text: `${s.title} → ${role.name} agent`,
+    });
     let ws: Worktree | undefined;
     try {
       if (role.tools.write)
-        ws = await createWorktree(d.integration.projectRoot, `${d.taskId}--${s.id}-${s.attempts}`, { base: d.integration.branch });
-      this.bus.post("task_started", { from: agentId, to: "orchestrator", subtaskId: s.id, text: ws ? `working on branch ${ws.branch}` : "started (read-only)" });
+        ws = await createWorktree(d.integration.projectRoot, `${d.taskId}--${s.id}-${s.attempts}`, {
+          base: d.integration.branch,
+        });
+      this.bus.post("task_started", {
+        from: agentId,
+        to: "orchestrator",
+        subtaskId: s.id,
+        text: ws ? `working on branch ${ws.branch}` : "started (read-only)",
+      });
       const remaining = Math.max(10_000, this.tokenBudget - this.usage.totalTokens);
       this.loadCodebase();
       const code = await this.subtaskCode(s, signal);
@@ -484,29 +572,66 @@ export class Orchestrator {
         relevantCode: code || undefined,
       });
       if (result.status === "cancelled") return { status: "cancelled" };
-      if (result.status === "blocked") return { status: "failed", error: result.reason ?? "stopped", retryable: true };
+      if (result.status === "blocked")
+        return { status: "failed", error: result.reason ?? "stopped", retryable: true };
       const text = result.summary.trim();
       const q = /^\s*NEEDS INPUT:\s*([\s\S]+)/i.exec(text);
       if (q) return { status: "needs_input", question: q[1].trim().slice(0, 1500) };
       if (!ws) {
         if (s.role === "browser") this.browserCheck(s, text);
-        this.bus.post("task_completed", { from: agentId, to: "orchestrator", subtaskId: s.id, text: compactSummary(text) });
-        return { status: "completed", result: { summary: compactSummary(text), files: [], stat: "" } };
+        this.bus.post("task_completed", {
+          from: agentId,
+          to: "orchestrator",
+          subtaskId: s.id,
+          text: compactSummary(text),
+        });
+        return {
+          status: "completed",
+          result: { summary: compactSummary(text), files: [], stat: "" },
+        };
       }
       s.status = "integrating";
       this.subChanged(s, "integrating");
       const r = await this.integrator.integrate(ws, `vard: ${s.id}: ${s.title}`.slice(0, 200));
-      const rec: IntegrationRecord = { subtaskId: s.id, status: r.status, files: r.files, commit: r.status === "merged" ? r.commit : undefined, at: Date.now() };
+      const rec: IntegrationRecord = {
+        subtaskId: s.id,
+        status: r.status,
+        files: r.files,
+        commit: r.status === "merged" ? r.commit : undefined,
+        at: Date.now(),
+      };
       this.integrations.push(rec);
       this.emit({ type: "orch_integration", record: rec });
       if (r.status === "conflict") {
-        this.bus.post("integration_conflict", { from: "orchestrator", to: agentId, subtaskId: s.id, text: `conflicts in ${r.files.join(", ")}` });
+        this.bus.post("integration_conflict", {
+          from: "orchestrator",
+          to: agentId,
+          subtaskId: s.id,
+          text: `conflicts in ${r.files.join(", ")}`,
+        });
         return { status: "conflict", files: r.files };
       }
-      this.bus.post("task_completed", { from: agentId, to: "orchestrator", subtaskId: s.id, text: compactSummary(text) });
+      this.bus.post("task_completed", {
+        from: agentId,
+        to: "orchestrator",
+        subtaskId: s.id,
+        text: compactSummary(text),
+      });
       if (r.status === "merged")
-        this.bus.post("integration_completed", { from: "orchestrator", subtaskId: s.id, text: `merged ${r.files.length} file${r.files.length === 1 ? "" : "s"} into ${d.integration.branch}` });
-      return { status: "completed", result: { summary: compactSummary(text), files: r.files, stat: r.stat, commit: r.status === "merged" ? r.commit : undefined } };
+        this.bus.post("integration_completed", {
+          from: "orchestrator",
+          subtaskId: s.id,
+          text: `merged ${r.files.length} file${r.files.length === 1 ? "" : "s"} into ${d.integration.branch}`,
+        });
+      return {
+        status: "completed",
+        result: {
+          summary: compactSummary(text),
+          files: r.files,
+          stat: r.stat,
+          commit: r.status === "merged" ? r.commit : undefined,
+        },
+      };
     } finally {
       if (ws) await discardWorktree(ws).catch(() => {});
     }
@@ -525,12 +650,17 @@ export class Orchestrator {
         .filter((f) => typeof f.message === "string")
         .slice(0, 30)
         .map((f) => ({
-          severity: (["high", "medium", "low"].includes(String(f.severity)) ? f.severity : "medium") as "high" | "medium" | "low",
+          severity: (["high", "medium", "low"].includes(String(f.severity))
+            ? f.severity
+            : "medium") as "high" | "medium" | "low",
           message: String(f.message).slice(0, 600),
           file: typeof f.file === "string" ? f.file.slice(0, 300) : undefined,
           viewport: typeof f.viewport === "string" ? f.viewport.slice(0, 40) : undefined,
         }));
-      check = { verdict: raw.verdict === "pass" ? "pass" : raw.verdict === "fail" ? "fail" : "unknown", findings };
+      check = {
+        verdict: raw.verdict === "pass" ? "pass" : raw.verdict === "fail" ? "fail" : "unknown",
+        findings,
+      };
     } catch {
       // No readable verdict: recorded as unknown, never treated as a pass.
     }
@@ -540,12 +670,27 @@ export class Orchestrator {
     const round = (s.retestRound ?? 0) + 1;
     if (check.verdict !== "fail" || !serious.length) return;
     if (round > this.d.options.retestRounds || this.usage.totalTokens >= this.tokenBudget) {
-      this.bus.post("review_rejected", { from: s.agentId ?? "browser", to: "orchestrator", subtaskId: s.id, text: `browser check still failing after ${round - 1} fix round(s); no more re-tests` });
+      this.bus.post("review_rejected", {
+        from: s.agentId ?? "browser",
+        to: "orchestrator",
+        subtaskId: s.id,
+        text: `browser check still failing after ${round - 1} fix round(s); no more re-tests`,
+      });
       return;
     }
-    const coding = this.subtasks.filter((x) => x.status === "completed" && !["browser", "analyst"].includes(x.role) && !x.fixOf?.startsWith(root));
+    const coding = this.subtasks.filter(
+      (x) =>
+        x.status === "completed" &&
+        !["browser", "analyst"].includes(x.role) &&
+        !x.fixOf?.startsWith(root),
+    );
     const owner = (f: (typeof serious)[number]) =>
-      (f.file && coding.find((x) => x.result?.files.some((p) => p === f.file || p.endsWith(`/${f.file}`) || f.file!.endsWith(p)))) ||
+      (f.file &&
+        coding.find((x) =>
+          x.result?.files.some(
+            (p) => p === f.file || p.endsWith(`/${f.file}`) || f.file!.endsWith(p),
+          ),
+        )) ||
       coding.find((x) => allDeps(s).includes(x.id) && x.role === "frontend") ||
       coding.find((x) => allDeps(s).includes(x.id)) ||
       coding.find((x) => x.role === "frontend");
@@ -568,7 +713,11 @@ export class Orchestrator {
       id: uid(`${o?.id ?? "ui"}-uifix${round}`),
       title: `Fix browser findings${o ? ` in "${o.title}"` : ""} (round ${round})`.slice(0, 200),
       role: (o?.role ?? "frontend") as SubtaskState["role"],
-      description: `A browser check found these problems. Find the responsible code (code_search with the selectors or text helps), fix them, and check your change:\n${items.map((f) => `- [${f.severity}]${f.viewport ? ` ${f.viewport}:` : ""} ${f.message}${f.file ? ` (${f.file})` : ""}`).join("\n")}`.slice(0, 4000),
+      description:
+        `A browser check found these problems. Find the responsible code (code_search with the selectors or text helps), fix them, and check your change:\n${items.map((f) => `- [${f.severity}]${f.viewport ? ` ${f.viewport}:` : ""} ${f.message}${f.file ? ` (${f.file})` : ""}`).join("\n")}`.slice(
+          0,
+          4000,
+        ),
       dependsOn: [],
       files: [...new Set(items.map((f) => f.file).filter((x): x is string => !!x))],
       status: "pending",
@@ -581,7 +730,11 @@ export class Orchestrator {
       id: uid(`${root}-r${round}`),
       title: `Re-test: ${original.title}`.slice(0, 200),
       role: "browser",
-      description: `${original.description}\n\nThis is re-test ${round}. Check that these earlier findings are fixed, and look for new problems:\n${serious.map((f) => `- ${f.message}`).join("\n")}`.slice(0, 4000),
+      description:
+        `${original.description}\n\nThis is re-test ${round}. Check that these earlier findings are fixed, and look for new problems:\n${serious.map((f) => `- ${f.message}`).join("\n")}`.slice(
+          0,
+          4000,
+        ),
       dependsOn: fixes.map((f) => f.id),
       files: [],
       status: "pending",
@@ -591,18 +744,35 @@ export class Orchestrator {
       retestRound: round,
     };
     this.subtasks.push(...fixes, retest);
-    for (const x of [...fixes, retest]) this.subChanged(x, x.role === "browser" ? `re-test round ${round}` : "created from a browser check");
-    this.bus.post("review_rejected", { from: s.agentId ?? "browser", to: "orchestrator", subtaskId: s.id, text: `${serious.length} browser finding(s); fix round ${round} of ${this.d.options.retestRounds}` });
+    for (const x of [...fixes, retest])
+      this.subChanged(
+        x,
+        x.role === "browser" ? `re-test round ${round}` : "created from a browser check",
+      );
+    this.bus.post("review_rejected", {
+      from: s.agentId ?? "browser",
+      to: "orchestrator",
+      subtaskId: s.id,
+      text: `${serious.length} browser finding(s); fix round ${round} of ${this.d.options.retestRounds}`,
+    });
   }
 
   private async verify(): Promise<ReviewResult["verify"]> {
     const cmd = this.d.verifyCommand;
     if (!cmd) return undefined;
     this.emit({ type: "verify", status: "running", command: cmd });
-    const out = textOf(await runCommand.execute(
-      { command: cmd, timeoutSec: 600 },
-      { workRoot: this.d.integration.path, projectRoot: this.d.projectRoot, todos: [], setTodos: () => {}, signal: this.d.signal },
-    ));
+    const out = textOf(
+      await runCommand.execute(
+        { command: cmd, timeoutSec: 600 },
+        {
+          workRoot: this.d.integration.path,
+          projectRoot: this.d.projectRoot,
+          todos: [],
+          setTodos: () => {},
+          signal: this.d.signal,
+        },
+      ),
+    );
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);
     this.emit({ type: "verify", status: ok ? "passed" : "failed", command: cmd, output });
@@ -620,7 +790,11 @@ export class Orchestrator {
       this.setPhase("reviewing");
       const verify = await this.verify();
       const { stat } = await this.integrator.diff();
-      this.bus.post("review_requested", { from: "orchestrator", to: `reviewer-${round}`, text: `review round ${round}` });
+      this.bus.post("review_requested", {
+        from: "orchestrator",
+        to: `reviewer-${round}`,
+        text: `review round ${round}`,
+      });
       const { review } = await runReview(this.env, {
         reviewer: d.roles.reviewer,
         goal: d.goal,
@@ -636,10 +810,18 @@ export class Orchestrator {
       this.emit({ type: "orch_review", review });
       const serious = review.findings.filter((f) => f.severity !== "low");
       if (review.verdict !== "changes_requested" || !serious.length) {
-        this.bus.post("review_completed", { from: review.agentId ?? "reviewer", to: "orchestrator", text: `${review.verdict}: ${review.summary.slice(0, 300)}` });
+        this.bus.post("review_completed", {
+          from: review.agentId ?? "reviewer",
+          to: "orchestrator",
+          text: `${review.verdict}: ${review.summary.slice(0, 300)}`,
+        });
         return;
       }
-      this.bus.post("review_rejected", { from: review.agentId ?? "reviewer", to: "orchestrator", text: `${serious.length} finding(s) to fix` });
+      this.bus.post("review_rejected", {
+        from: review.agentId ?? "reviewer",
+        to: "orchestrator",
+        text: `${serious.length} finding(s) to fix`,
+      });
       if (round === 2 || this.usage.totalTokens >= this.tokenBudget) return;
       // One fix round: group findings by the subtask that owns them.
       const fixes = this.fixSubtasks(serious);
@@ -652,9 +834,18 @@ export class Orchestrator {
 
   private fixSubtasks(findings: ReviewResult["findings"]): SubtaskState[] {
     const owner = (f: ReviewResult["findings"][number]) =>
-      this.subtasks.find((s) => s.id === f.subtask && s.status === "completed" && !["browser", "analyst"].includes(s.role)) ??
-      this.subtasks.find((s) => s.status === "completed" && f.file && s.result?.files.includes(f.file)) ??
-      this.subtasks.find((s) => s.status === "completed" && !["testing", "browser", "analyst"].includes(s.role));
+      this.subtasks.find(
+        (s) =>
+          s.id === f.subtask &&
+          s.status === "completed" &&
+          !["browser", "analyst"].includes(s.role),
+      ) ??
+      this.subtasks.find(
+        (s) => s.status === "completed" && f.file && s.result?.files.includes(f.file),
+      ) ??
+      this.subtasks.find(
+        (s) => s.status === "completed" && !["testing", "browser", "analyst"].includes(s.role),
+      );
     const groups = new Map<string, { s: SubtaskState; items: typeof findings }>();
     for (const f of findings) {
       const s = owner(f);
@@ -694,7 +885,14 @@ export class Orchestrator {
     const { stat } = await this.integrator.diff().catch(() => ({ stat: "" }));
     let items = await reflectOnTask(
       src,
-      { memory: d.memory, signal: d.signal, prompt: d.goal, model: d.reflectModel, retry: d.retry, taskId: d.taskId },
+      {
+        memory: d.memory,
+        signal: d.signal,
+        prompt: d.goal,
+        model: d.reflectModel,
+        retry: d.retry,
+        taskId: d.taskId,
+      },
       { summary, diffStat: stat },
     );
     if (items.length && d.learn.mode === "auto") items = applyAuto(d.learn.store, items, d.taskId);

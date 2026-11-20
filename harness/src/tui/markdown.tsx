@@ -25,7 +25,12 @@ export function parseBlocks(src: string): Block[] {
       const body: string[] = [];
       let j = i + 1;
       while (j < lines.length && !/^\s*```/.test(lines[j])) body.push(lines[j++]);
-      out.push({ kind: "code", lang: fence[1] ?? "", text: body.join("\n"), open: j >= lines.length });
+      out.push({
+        kind: "code",
+        lang: fence[1] ?? "",
+        text: body.join("\n"),
+        open: j >= lines.length,
+      });
       i = j;
       continue;
     }
@@ -101,7 +106,13 @@ export function Markdown({ text, color = C.ink }: { text: string; color?: string
         switch (b.kind) {
           case "code":
             return (
-              <Box key={i} flexDirection="column" borderStyle="round" borderColor={C.line} paddingX={1}>
+              <Box
+                key={i}
+                flexDirection="column"
+                borderStyle="round"
+                borderColor={C.line}
+                paddingX={1}
+              >
                 {b.lang ? <Text color={C.muted}>{b.lang}</Text> : null}
                 <Text color={C.sage}>{b.text || " "}</Text>
               </Box>

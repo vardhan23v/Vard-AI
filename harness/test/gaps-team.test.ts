@@ -1,7 +1,14 @@
 import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { Orchestrator, ROLE_IDS, RoleRegistry, TeamOptions, type RoleConfig, type RoleId } from "../src/agents";
+import {
+  Orchestrator,
+  ROLE_IDS,
+  RoleRegistry,
+  TeamOptions,
+  type RoleConfig,
+  type RoleId,
+} from "../src/agents";
 import { HELP, parseCliArgs } from "../src/cli/main";
 import { CodeIntel, codeTools, relevantCode, type EmbeddingProvider } from "../src/intelligence";
 import { MemoryRulesStore, Policy } from "../src/policy";
@@ -26,7 +33,15 @@ describe("team workers get code context", () => {
     const integration = await createWorktree(repo, "gaps1");
     const PLAN = {
       summary: "One subtask.",
-      tasks: [{ id: "api", title: "Extend the health check", role: "backend", description: "Add uptime to healthCheck in the health endpoint", files: ["src/health.ts"] }],
+      tasks: [
+        {
+          id: "api",
+          title: "Extend the health check",
+          role: "backend",
+          description: "Add uptime to healthCheck in the health endpoint",
+          files: ["src/health.ts"],
+        },
+      ],
     };
     const systems: Record<string, string> = {};
     const route = (r: RouteInfo): Turn => {
@@ -36,13 +51,20 @@ describe("team workers get code context", () => {
     };
     const model = routedModel(route, {
       onCall: (r) => {
-        const key = r.task.startsWith("Plan this request") ? "planner" : /subtask "api"/.test(r.task) ? "api" : "other";
+        const key = r.task.startsWith("Plan this request")
+          ? "planner"
+          : /subtask "api"/.test(r.task)
+            ? "api"
+            : "other";
         systems[key] ??= r.system;
       },
     });
     const home = tmpDir("vard-home-");
     const registry = new RoleRegistry({ home, projectRoot: repo });
-    const roles = Object.fromEntries(ROLE_IDS.map((id) => [id, registry.role(id)])) as Record<RoleId, RoleConfig>;
+    const roles = Object.fromEntries(ROLE_IDS.map((id) => [id, registry.role(id)])) as Record<
+      RoleId,
+      RoleConfig
+    >;
     const events: EventBody[] = [];
     const orch = new Orchestrator({
       taskId: "gaps1",
@@ -54,7 +76,8 @@ describe("team workers get code context", () => {
       emit: (e) => events.push(e),
       requestApproval: async () => ({ decision: "allow_once" }),
       modelFor: () => ({ model, label: "anthropic/mock" }),
-      policyFor: (workRoot) => new Policy({ projectRoot: repo, workRoot, store: new MemoryRulesStore() }),
+      policyFor: (workRoot) =>
+        new Policy({ projectRoot: repo, workRoot, store: new MemoryRulesStore() }),
       memory: null,
       signal: new AbortController().signal,
       reflectModel: model,
@@ -83,16 +106,33 @@ describe("team workers get code context", () => {
   test("without a code index, workers run as before (no code sections)", async () => {
     const repo = tmpGitRepo(CODE);
     const integration = await createWorktree(repo, "gaps2");
-    const PLAN = { summary: "x", tasks: [{ id: "api", title: "Extend the health check", role: "backend", description: "d", files: [] }] };
+    const PLAN = {
+      summary: "x",
+      tasks: [
+        {
+          id: "api",
+          title: "Extend the health check",
+          role: "backend",
+          description: "d",
+          files: [],
+        },
+      ],
+    };
     let sys = "";
-    const model = routedModel((r) => (r.task.startsWith("Plan this request") ? { text: json(PLAN) } : { text: "done" }), {
-      onCall: (r) => {
-        if (/subtask "api"/.test(r.task)) sys = r.system;
+    const model = routedModel(
+      (r) => (r.task.startsWith("Plan this request") ? { text: json(PLAN) } : { text: "done" }),
+      {
+        onCall: (r) => {
+          if (/subtask "api"/.test(r.task)) sys = r.system;
+        },
       },
-    });
+    );
     const home = tmpDir("vard-home-");
     const registry = new RoleRegistry({ home, projectRoot: repo });
-    const roles = Object.fromEntries(ROLE_IDS.map((id) => [id, registry.role(id)])) as Record<RoleId, RoleConfig>;
+    const roles = Object.fromEntries(ROLE_IDS.map((id) => [id, registry.role(id)])) as Record<
+      RoleId,
+      RoleConfig
+    >;
     const r = await new Orchestrator({
       taskId: "gaps2",
       goal: "g",
@@ -103,7 +143,8 @@ describe("team workers get code context", () => {
       emit: () => {},
       requestApproval: async () => ({ decision: "allow_once" }),
       modelFor: () => ({ model, label: "anthropic/mock" }),
-      policyFor: (workRoot) => new Policy({ projectRoot: repo, workRoot, store: new MemoryRulesStore() }),
+      policyFor: (workRoot) =>
+        new Policy({ projectRoot: repo, workRoot, store: new MemoryRulesStore() }),
       memory: null,
       signal: new AbortController().signal,
       reflectModel: model,
@@ -117,7 +158,8 @@ describe("team workers get code context", () => {
 
   test("relevantCode is capped by entries and characters", async () => {
     const files: Record<string, string> = {};
-    for (let i = 0; i < 30; i++) files[`src/health${i}.ts`] = `export function healthProbe${i}() { return ${i}; }\n`;
+    for (let i = 0; i < 30; i++)
+      files[`src/health${i}.ts`] = `export function healthProbe${i}() { return ${i}; }\n`;
     const repo = tmpGitRepo(files);
     const intel = new CodeIntel();
     await intel.build(repo);
@@ -150,13 +192,18 @@ describe("embeddings stay fresh", () => {
     await reindex.execute({} as never, toolCtx(repo));
     await intel.refreshEmbeddings(repo);
     expect(sent.some((t) => t.includes("healthCheck"))).toBe(true);
-    const count = () => (intel.get(repo).db().db.query("SELECT COUNT(*) AS n FROM embeddings").get() as { n: number }).n;
+    const count = () =>
+      (intel.get(repo).db().db.query("SELECT COUNT(*) AS n FROM embeddings").get() as { n: number })
+        .n;
     const before = count();
     expect(before).toBeGreaterThan(0);
 
     // A new file: only its chunk is embedded on the next reindex.
     sent.length = 0;
-    fs.writeFileSync(path.join(repo, "src/uptime.ts"), "export function uptimeSeconds() { return 1; }\n");
+    fs.writeFileSync(
+      path.join(repo, "src/uptime.ts"),
+      "export function uptimeSeconds() { return 1; }\n",
+    );
     await reindex.execute({} as never, toolCtx(repo));
     await intel.refreshEmbeddings(repo);
     expect(sent.some((t) => t.includes("uptimeSeconds"))).toBe(true);
@@ -170,7 +217,10 @@ describe("embeddings stay fresh", () => {
     const intel = new CodeIntel();
     await intel.ensure(repo);
     await intel.refreshEmbeddings(repo);
-    expect((intel.get(repo).db().db.query("SELECT COUNT(*) AS n FROM embeddings").get() as { n: number }).n).toBe(0);
+    expect(
+      (intel.get(repo).db().db.query("SELECT COUNT(*) AS n FROM embeddings").get() as { n: number })
+        .n,
+    ).toBe(0);
     intel.closeAll();
   });
 

@@ -34,7 +34,12 @@ export class TtyPrompter implements Prompter {
     private stdin: NodeJS.ReadStream = process.stdin,
     private stdout: NodeJS.WriteStream = process.stdout,
   ) {
-    this.rl = readline.createInterface({ input: stdin, output: stdout, terminal: true, historySize: 200 });
+    this.rl = readline.createInterface({
+      input: stdin,
+      output: stdout,
+      terminal: true,
+      historySize: 200,
+    });
     const write = (this.rl as any)._writeToOutput?.bind(this.rl);
     (this.rl as any)._writeToOutput = (s: string) => {
       if (!this.muted) write?.(s);

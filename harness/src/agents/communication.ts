@@ -12,9 +12,16 @@ export class MessageBus {
   constructor(private onMessage: (m: AgentMessage) => void) {}
 
   post(kind: AgentMessage["kind"], m: Omit<AgentMessage, "seq" | "kind" | "at">): AgentMessage {
-    const msg: AgentMessage = { ...m, kind, seq: ++this.seq, at: Date.now(), text: m.text.slice(0, 2000) };
+    const msg: AgentMessage = {
+      ...m,
+      kind,
+      seq: ++this.seq,
+      at: Date.now(),
+      text: m.text.slice(0, 2000),
+    };
     this.messages.push(msg);
-    if (this.messages.length > MAX_MESSAGES) this.messages.splice(0, this.messages.length - MAX_MESSAGES);
+    if (this.messages.length > MAX_MESSAGES)
+      this.messages.splice(0, this.messages.length - MAX_MESSAGES);
     this.onMessage(msg);
     return msg;
   }

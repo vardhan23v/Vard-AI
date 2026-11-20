@@ -17,18 +17,30 @@ export interface EmbeddingProvider {
 const MAX_CHUNKS = 20_000;
 const BATCH = 32;
 
-export function embeddingProvider(cfg: IndexConfig["embeddings"], apiKey?: string): EmbeddingProvider | null {
+export function embeddingProvider(
+  cfg: IndexConfig["embeddings"],
+  apiKey?: string,
+): EmbeddingProvider | null {
   if (cfg.provider === "none") return null;
   if (cfg.provider === "ollama") {
     const base = cfg.baseUrl ?? "http://127.0.0.1:11434";
     const host = new URL(base).hostname;
-    if (!["127.0.0.1", "localhost", "::1", "[::1]"].includes(host)) throw new IntelError("embeddings", "Ollama must run on this Mac (localhost).");
+    if (!["127.0.0.1", "localhost", "::1", "[::1]"].includes(host))
+      throw new IntelError("embeddings", "Ollama must run on this Mac (localhost).");
     const model = cfg.model ?? "nomic-embed-text";
     return {
       id: `ollama/${model}`,
       async embed(texts, signal) {
-        const r = await fetch(`${base}/api/embed`, { method: "POST", body: JSON.stringify({ model, input: texts }), signal });
-        if (!r.ok) throw new IntelError("embeddings", `Ollama: HTTP ${r.status} (is "${model}" pulled? run: ollama pull ${model})`);
+        const r = await fetch(`${base}/api/embed`, {
+          method: "POST",
+          body: JSON.stringify({ model, input: texts }),
+          signal,
+        });
+        if (!r.ok)
+          throw new IntelError(
+            "embeddings",
+            `Ollama: HTTP ${r.status} (is "${model}" pulled? run: ollama pull ${model})`,
+          );
         return ((await r.json()) as { embeddings: number[][] }).embeddings;
       },
     };
@@ -46,7 +58,9 @@ export function embeddingProvider(cfg: IndexConfig["embeddings"], apiKey?: strin
           signal,
         });
         if (!r.ok) throw new IntelError("embeddings", `OpenAI embeddings: HTTP ${r.status}`);
-        return ((await r.json()) as { data: { embedding: number[] }[] }).data.map((d) => d.embedding);
+        return ((await r.json()) as { data: { embedding: number[] }[] }).data.map(
+          (d) => d.embedding,
+        );
       },
     };
   }
@@ -54,14 +68,24 @@ export function embeddingProvider(cfg: IndexConfig["embeddings"], apiKey?: strin
   return {
     id: `google/${model}`,
     async embed(texts, signal) {
-      const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`, {
-        method: "POST",
-        headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
-        body: JSON.stringify({ requests: texts.map((t) => ({ model: `models/${model}`, content: { parts: [{ text: t }] } })) }),
-        signal,
-      });
+      const r = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/models/${model}:batchEmbedContents`,
+        {
+          method: "POST",
+          headers: { "content-type": "application/json", "x-goog-api-key": apiKey },
+          body: JSON.stringify({
+            requests: texts.map((t) => ({
+              model: `models/${model}`,
+              content: { parts: [{ text: t }] },
+            })),
+          }),
+          signal,
+        },
+      );
       if (!r.ok) throw new IntelError("embeddings", `Google embeddings: HTTP ${r.status}`);
-      return ((await r.json()) as { embeddings: { values: number[] }[] }).embeddings.map((e) => e.values);
+      return ((await r.json()) as { embeddings: { values: number[] }[] }).embeddings.map(
+        (e) => e.values,
+      );
     },
   };
 }
@@ -70,7 +94,11 @@ const toBlob = (v: number[]) => new Uint8Array(new Float32Array(v).buffer);
 const fromBlob = (b: Uint8Array) => new Float32Array(b.buffer, b.byteOffset, b.byteLength / 4);
 
 /** Embeds chunks that have no vector for this provider yet (or whose text changed). */
-export async function updateEmbeddings(ix: CodeIndex, p: EmbeddingProvider, o: { signal?: AbortSignal; onProgress?: (d: number, t: number) => void } = {}) {
+export async function updateEmbeddings(
+  ix: CodeIndex,
+  p: EmbeddingProvider,
+  o: { signal?: AbortSignal; onProgress?: (d: number, t: number) => void } = {},
+) {
   const db = ix.db().db;
   db.query("DELETE FROM embeddings WHERE model != ?").run(p.id);
   const todo = db
@@ -79,7 +107,9 @@ export async function updateEmbeddings(ix: CodeIndex, p: EmbeddingProvider, o: {
        LEFT JOIN embeddings e ON e.chunk_id = c.id WHERE e.chunk_id IS NULL OR e.hash != c.hash LIMIT ?`,
     )
     .all(MAX_CHUNKS) as { id: number; hash: string; content: string }[];
-  const ins = db.query("INSERT OR REPLACE INTO embeddings (chunk_id, model, dims, hash, vec) VALUES (?, ?, ?, ?, ?)");
+  const ins = db.query(
+    "INSERT OR REPLACE INTO embeddings (chunk_id, model, dims, hash, vec) VALUES (?, ?, ?, ?, ?)",
+  );
   let done = 0;
   let skipped = 0;
   for (let i = 0; i < todo.length; i += BATCH) {
@@ -90,8 +120,13 @@ export async function updateEmbeddings(ix: CodeIndex, p: EmbeddingProvider, o: {
       return !bad;
     });
     if (batch.length) {
-      const vecs = await p.embed(batch.map((c) => c.content.slice(0, 2_000)), o.signal);
-      db.transaction(() => batch.forEach((c, j) => ins.run(c.id, p.id, vecs[j].length, c.hash, toBlob(vecs[j]))))();
+      const vecs = await p.embed(
+        batch.map((c) => c.content.slice(0, 2_000)),
+        o.signal,
+      );
+      db.transaction(() =>
+        batch.forEach((c, j) => ins.run(c.id, p.id, vecs[j].length, c.hash, toBlob(vecs[j]))),
+      )();
     }
     done += batch.length;
     o.onProgress?.(done, todo.length);
@@ -100,13 +135,22 @@ export async function updateEmbeddings(ix: CodeIndex, p: EmbeddingProvider, o: {
 }
 
 /** Cosine similarity of the query against stored vectors (brute force; fine up to ~20k chunks). */
-export async function vectorSearch(ix: CodeIndex, p: EmbeddingProvider, query: string, limit = 50, signal?: AbortSignal) {
+export async function vectorSearch(
+  ix: CodeIndex,
+  p: EmbeddingProvider,
+  query: string,
+  limit = 50,
+  signal?: AbortSignal,
+) {
   const [q] = await p.embed([query], signal);
   const qv = Float32Array.from(q);
   let qn = 0;
   for (const x of qv) qn += x * x;
   qn = Math.sqrt(qn) || 1;
-  const rows = ix.db().db.query("SELECT chunk_id, vec FROM embeddings WHERE model = ?").all(p.id) as { chunk_id: number; vec: Uint8Array }[];
+  const rows = ix
+    .db()
+    .db.query("SELECT chunk_id, vec FROM embeddings WHERE model = ?")
+    .all(p.id) as { chunk_id: number; vec: Uint8Array }[];
   const scored: { chunkId: number; score: number }[] = [];
   for (const r of rows) {
     const v = fromBlob(r.vec);

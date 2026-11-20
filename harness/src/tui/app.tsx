@@ -11,7 +11,13 @@ import { newId } from "../cli/client";
 import { chooseModel, providerName, providerWithKey, type Ctx } from "../cli/context";
 import { mask } from "../cli/keys";
 import { describeToolInput, explainError } from "../cli/render";
-import { append, listSessions, loadSession, newSession, type SessionFile } from "../cli/commands/session";
+import {
+  append,
+  listSessions,
+  loadSession,
+  newSession,
+  type SessionFile,
+} from "../cli/commands/session";
 import { gitRoot } from "../cli/commands/task";
 import {
   ChoiceModal,
@@ -52,7 +58,11 @@ const STATE_LABEL: Record<string, string> = {
 };
 
 function gitBranch(cwd: string): string | null {
-  const r = Bun.spawnSync(["git", "rev-parse", "--abbrev-ref", "HEAD"], { cwd, stdout: "pipe", stderr: "pipe" });
+  const r = Bun.spawnSync(["git", "rev-parse", "--abbrev-ref", "HEAD"], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   return r.exitCode === 0 ? r.stdout.toString().trim() : null;
 }
 
@@ -97,7 +107,14 @@ export function App(props: AppProps) {
     version: VERSION,
   });
   const historyItems = (s: SessionFile): Item[] =>
-    s.messages.map((m) => ({ id: idRef.current++, kind: m.role === "user" ? "user" : "assistant", text: m.content }) as Item);
+    s.messages.map(
+      (m) =>
+        ({
+          id: idRef.current++,
+          kind: m.role === "user" ? "user" : "assistant",
+          text: m.content,
+        }) as Item,
+    );
 
   const [items, setItems] = useState<Item[]>(() => [banner(), ...historyItems(sessionRef.current)]);
   const [epoch, setEpoch] = useState(0); // remounts <Static> after a screen clear
@@ -107,7 +124,9 @@ export function App(props: AppProps) {
   const [busy, setBusy] = useState<Busy>(null);
   const [label, setLabel] = useState("");
   /** Team runs: one line per agent, and the run being controlled by /pause, /retry, … */
-  const [teamAgents, setTeamAgents] = useState<Extract<Event, { type: "orch_agent" }>["agent"][]>([]);
+  const [teamAgents, setTeamAgents] = useState<Extract<Event, { type: "orch_agent" }>["agent"][]>(
+    [],
+  );
   const teamTaskRef = useRef<string | null>(null);
   const [tokens, setTokens] = useState(0);
   const [branch, setBranch] = useState(() => gitBranch(ctx.cwd));
@@ -138,7 +157,8 @@ export function App(props: AppProps) {
   const commit = useCallback((...bodies: ItemBody[]) => {
     setItems((prev) => [...prev, ...bodies.map((b) => ({ ...b, id: idRef.current++ }) as Item)]);
   }, []);
-  const note = (text: string, tone: "muted" | "error" | "ok" | "star" = "muted") => commit({ kind: "notice", text, tone });
+  const note = (text: string, tone: "muted" | "error" | "ok" | "star" = "muted") =>
+    commit({ kind: "notice", text, tone });
 
   // Streamed text is batched so a fast model doesn't re-render per token.
   const pushToken = (t: string) => {
@@ -240,7 +260,10 @@ export function App(props: AppProps) {
   const runTask = async (prompt: string, opts: { team?: boolean } = {}) => {
     const root = gitRoot(ctx.cwd);
     if (!root) {
-      note("This folder isn't a git repository. The agent works on its own branch, so run `git init` first.", "error");
+      note(
+        "This folder isn't a git repository. The agent works on its own branch, so run `git init` first.",
+        "error",
+      );
       return;
     }
     let provider;
@@ -250,7 +273,8 @@ export function App(props: AppProps) {
       note((e as Error).message, "error");
       return;
     }
-    if (kept) note(`Leaving ${kept.branch} as it is; merge it later with git merge ${kept.branch}.`);
+    if (kept)
+      note(`Leaving ${kept.branch} as it is; merge it later with git merge ${kept.branch}.`);
     setKept(null);
     const taskId = newId("tui");
     let worktree: { branch: string; path: string } | undefined;
@@ -258,7 +282,11 @@ export function App(props: AppProps) {
     // Retry notices replace the spinner label until work resumes; then the state label returns.
     let stateLabel = "Starting…";
     const resume = () => setLabel(stateLabel);
-    commit({ kind: "task", text: opts.team ? `[team] ${prompt}` : prompt, model: choiceRef.current.model });
+    commit({
+      kind: "task",
+      text: opts.team ? `[team] ${prompt}` : prompt,
+      model: choiceRef.current.model,
+    });
     if (opts.team) {
       teamTaskRef.current = taskId;
       setTeamAgents([]);
@@ -278,7 +306,8 @@ export function App(props: AppProps) {
     /** Team runs: agents' events and the orchestrator's. Returns true when handled. */
     const onTeamEvent = (e: Event): boolean => {
       if (e.agentId && e.type !== "approval_request") {
-        if (e.type === "tool_call" && e.tool !== "todo_write") agentCalls.set(e.callId, describeToolInput(e.tool, e.input));
+        if (e.type === "tool_call" && e.tool !== "todo_write")
+          agentCalls.set(e.callId, describeToolInput(e.tool, e.input));
         if (e.type === "tool_result" && e.tool !== "todo_write")
           commit({
             kind: "tool",
@@ -301,18 +330,36 @@ export function App(props: AppProps) {
           return true;
         case "orch_phase":
           stateLabel =
-            e.phase === "planning" ? "Planning the work…" : e.phase === "running" ? "Agents working…" : e.phase === "reviewing" ? "Reviewing…" : e.phase === "paused" ? "Paused (/resume)" : "Waiting for you";
+            e.phase === "planning"
+              ? "Planning the work…"
+              : e.phase === "running"
+                ? "Agents working…"
+                : e.phase === "reviewing"
+                  ? "Reviewing…"
+                  : e.phase === "paused"
+                    ? "Paused (/resume)"
+                    : "Waiting for you";
           resume();
-          if (e.phase === "attention") note(`${e.reason ?? "Some subtasks need you"}. /retry <id> [note] · /continue · Esc to stop`, "star");
+          if (e.phase === "attention")
+            note(
+              `${e.reason ?? "Some subtasks need you"}. /retry <id> [note] · /continue · Esc to stop`,
+              "star",
+            );
           return true;
         case "orch_task": {
           const s = e.subtask;
           if (subStatus.get(s.id) === s.status) return true;
           subStatus.set(s.id, s.status);
           if (s.status === "completed") note(`✓ ${s.title} (${s.role})`, "ok");
-          else if (s.status === "failed") note(`✗ ${s.title}: ${s.error ?? "failed"} (/retry ${s.id})`, "error");
-          else if (s.status === "needs_attention") note(`? ${s.title}: ${s.question ?? s.error ?? "needs you"} (/retry ${s.id} <answer>)`, "star");
-          else if (s.status === "blocked") note(`– ${s.title} is blocked by ${s.blockedBy?.join(", ")}`);
+          else if (s.status === "failed")
+            note(`✗ ${s.title}: ${s.error ?? "failed"} (/retry ${s.id})`, "error");
+          else if (s.status === "needs_attention")
+            note(
+              `? ${s.title}: ${s.question ?? s.error ?? "needs you"} (/retry ${s.id} <answer>)`,
+              "star",
+            );
+          else if (s.status === "blocked")
+            note(`– ${s.title} is blocked by ${s.blockedBy?.join(", ")}`);
           return true;
         }
         case "orch_review":
@@ -322,7 +369,11 @@ export function App(props: AppProps) {
           );
           return true;
         case "orch_integration":
-          if (e.record.status === "conflict") note(`! ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}`, "error");
+          if (e.record.status === "conflict")
+            note(
+              `! ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}`,
+              "error",
+            );
           return true;
         case "orch_plan":
         case "orch_snapshot":
@@ -350,7 +401,12 @@ export function App(props: AppProps) {
           streamedPlan = "";
           flushText();
           if (e.tool !== "todo_write")
-            setPendingTool({ id: -1, kind: "tool", tool: e.tool, detail: describeToolInput(e.tool, e.input) });
+            setPendingTool({
+              id: -1,
+              kind: "tool",
+              tool: e.tool,
+              detail: describeToolInput(e.tool, e.input),
+            });
           break;
         case "tool_result":
           resume();
@@ -445,12 +501,15 @@ export function App(props: AppProps) {
     setPendingTool(null);
     flushText(done.summary);
     if (opts.team && done.summary) note(done.summary);
-    const usage = done.usage ? ` · ${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens` : "";
+    const usage = done.usage
+      ? ` · ${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens`
+      : "";
     if (done.usage) setTokens((n) => n + done.usage!.totalTokens);
     if (done.status === "done") {
       // Show the summary unless it was just streamed.
       note(`✓ Done${usage}`, "ok");
-    } else if (done.status === "blocked") note(`■ Stopped: ${done.reason ?? done.summary}${usage}`, "error");
+    } else if (done.status === "blocked")
+      note(`■ Stopped: ${done.reason ?? done.summary}${usage}`, "error");
     else note("Task cancelled.");
     setBusy(null);
     setBranch(gitBranch(ctx.cwd));
@@ -498,14 +557,18 @@ export function App(props: AppProps) {
           return setModal({ type: "picker", kind: "model", filter: "" });
         }
         setChoice(chooseModel(ctx, { model: rest[0], provider: rest[1] }));
-        return note(`Using ${modelLabel(choiceRef.current)} (${providerName(choiceRef.current.provider)})`, "ok");
+        return note(
+          `Using ${modelLabel(choiceRef.current)} (${providerName(choiceRef.current.provider)})`,
+          "ok",
+        );
       case "/sessions":
-      case "/resume":
         setSelected(0);
         return setModal({ type: "picker", kind: "session", filter: "" });
       case "/plan":
         if (arg === "on" || arg === "off") setPlanFirst(arg === "on");
-        return note(`Plan first: ${arg === "on" || arg === "off" ? arg : planFirst ? "on" : "off"}`);
+        return note(
+          `Plan first: ${arg === "on" || arg === "off" ? arg : planFirst ? "on" : "off"}`,
+        );
       case "/memory": {
         const store = memoryFor(ctx.cwd);
         if (arg === "analyze" || arg === "rebuild") {
@@ -516,17 +579,29 @@ export function App(props: AppProps) {
         const query = arg.startsWith("search") ? arg.slice(6).trim() : arg;
         const entries = store.list({ query: query || undefined });
         if (!store.exists())
-          return note("No memory for this project yet. It starts with your first /task, or run /memory analyze.");
+          return note(
+            "No memory for this project yet. It starts with your first /task, or run /memory analyze.",
+          );
         if (!entries.length) return note(`No notes match "${query}".`);
-        commit({ kind: "memory", entries, path: store.path, total: store.active().length, query: query || undefined });
+        commit({
+          kind: "memory",
+          entries,
+          path: store.path,
+          total: store.active().length,
+          query: query || undefined,
+        });
         return;
       }
       case "/mcp": {
         const list = ctx.client.server.mcp.status(gitRoot(ctx.cwd) ?? ctx.cwd);
-        if (!list.length) return note("No MCP servers. Add them in the app (Integrations) or with `vard mcp add`.");
+        if (!list.length)
+          return note("No MCP servers. Add them in the app (Integrations) or with `vard mcp add`.");
         return note(
           list
-            .map((s) => `${s.state === "connected" ? "●" : "○"} ${s.id.padEnd(18)} ${s.state}${s.state === "connected" ? ` · ${s.toolCount} tools` : ""}${s.error ? ` · ${s.error}` : ""}`)
+            .map(
+              (s) =>
+                `${s.state === "connected" ? "●" : "○"} ${s.id.padEnd(18)} ${s.state}${s.state === "connected" ? ` · ${s.toolCount} tools` : ""}${s.error ? ` · ${s.error}` : ""}`,
+            )
             .join("\n") + "\nServers connect when a /task starts. Manage them with `vard mcp`.",
         );
       }
@@ -534,15 +609,33 @@ export function App(props: AppProps) {
         const reg = ctx.client.server.skillRegistry(gitRoot(ctx.cwd) ?? ctx.cwd);
         const list = reg.all();
         const mark = (r: (typeof list)[number]) =>
-          r.errors.length ? "invalid" : r.shadowedBy ? `shadowed by ${r.shadowedBy}` : !r.trusted ? "needs trust" : !r.enabled ? "off" : "on";
+          r.errors.length
+            ? "invalid"
+            : r.shadowedBy
+              ? `shadowed by ${r.shadowedBy}`
+              : !r.trusted
+                ? "needs trust"
+                : !r.enabled
+                  ? "off"
+                  : "on";
         return note(
-          list.map((r) => `${r.usable ? "●" : "○"} ${r.name.padEnd(24)} ${r.source.padEnd(8)} ${mark(r)}`).join("\n") +
+          list
+            .map(
+              (r) =>
+                `${r.usable ? "●" : "○"} ${r.name.padEnd(24)} ${r.source.padEnd(8)} ${mark(r)}`,
+            )
+            .join("\n") +
             "\nRelevant skills are picked for each /task. Manage them with `vard skills` or in the app.",
         );
       }
       case "/code":
       case "/impact": {
-        if (!arg) return note(cmd === "/code" ? "Usage: /code <what you're looking for>" : "Usage: /impact <file or symbol>");
+        if (!arg)
+          return note(
+            cmd === "/code"
+              ? "Usage: /code <what you're looking for>"
+              : "Usage: /impact <file or symbol>",
+          );
         const root = gitRoot(ctx.cwd) ?? ctx.cwd;
         const intel = ctx.client.server.intel;
         try {
@@ -554,9 +647,22 @@ export function App(props: AppProps) {
           if (cmd === "/impact") return note(renderImpact(analyzeImpact(ix, arg)));
           // Semantic search too when embeddings are set up (the key comes from env or the Keychain).
           const emb = loadIndexConfig(root).embeddings;
-          if (emb.provider === "openai" || emb.provider === "google") intel.setEmbeddingKey(root, ctx.keys.resolve(emb.provider === "google" ? "google" : "openai")?.key);
+          if (emb.provider === "openai" || emb.provider === "google")
+            intel.setEmbeddingKey(
+              root,
+              ctx.keys.resolve(emb.provider === "google" ? "google" : "openai")?.key,
+            );
           const hits = await searchCode(ix, arg, { limit: 8, embeddings: intel.embeddings(root) });
-          return note(hits.length ? hits.map((h) => `${h.path}:${h.line}${h.symbol ? ` ${h.symbol}` : ""}  · ${h.reasons.join(", ")}`).join("\n") : "No matches.");
+          return note(
+            hits.length
+              ? hits
+                  .map(
+                    (h) =>
+                      `${h.path}:${h.line}${h.symbol ? ` ${h.symbol}` : ""}  · ${h.reasons.join(", ")}`,
+                  )
+                  .join("\n")
+              : "No matches.",
+          );
         } catch (e) {
           return note((e as Error).message, "error");
         }
@@ -582,6 +688,11 @@ export function App(props: AppProps) {
       case "/continue":
       case "/retry": {
         const id = teamTaskRef.current;
+        // /resume also reopens a past session when no team run is in progress.
+        if (!id && cmd === "/resume") {
+          setSelected(0);
+          return setModal({ type: "picker", kind: "session", filter: "" });
+        }
         if (!id) return note("No team run in progress. Start one with /team <task>.");
         const [sub, ...noteWords] = arg.split(/\s+/).filter(Boolean);
         if (cmd === "/retry" && !sub) return note("Usage: /retry <subtask id> [note or answer]");
@@ -592,7 +703,14 @@ export function App(props: AppProps) {
             cmd === "/retry" ? sub : undefined,
             noteWords.join(" ") || undefined,
           );
-          if (cmd !== "/retry") note(cmd === "/pause" ? "Pausing: agents stop at their next step." : cmd === "/resume" ? "Resumed." : "Continuing with what finished.");
+          if (cmd !== "/retry")
+            note(
+              cmd === "/pause"
+                ? "Pausing: agents stop at their next step."
+                : cmd === "/resume"
+                  ? "Resumed."
+                  : "Continuing with what finished.",
+            );
         } catch (e) {
           note((e as Error).message, "error");
         }
@@ -603,7 +721,8 @@ export function App(props: AppProps) {
       case "/discard": {
         if (!kept) return note("No kept task. Run /task first.");
         try {
-          if (cmd === "/diff") return commit({ kind: "diff", diff: (await ctx.client.diff(kept.taskId)).diff });
+          if (cmd === "/diff")
+            return commit({ kind: "diff", diff: (await ctx.client.diff(kept.taskId)).diff });
           if (cmd === "/merge") {
             await ctx.client.merge(kept.taskId);
             note(`✓ Merged ${kept.branch}`, "ok");
@@ -644,21 +763,21 @@ export function App(props: AppProps) {
           { key: "n", label: "Ask for a new plan", tone: "danger" },
         ]
       : ev.kind === "plan"
-      ? [
-          { key: "y", label: "Approve", tone: "ok" },
-          { key: "e", label: "Edit plan" },
-          { key: "n", label: "Reject", tone: "danger" },
-        ]
-      : ev.mcp?.destructive || ev.noAlways
         ? [
-            { key: "a", label: "Allow once", tone: "ok" },
-            { key: "d", label: "Deny", tone: "danger" },
+            { key: "y", label: "Approve", tone: "ok" },
+            { key: "e", label: "Edit plan" },
+            { key: "n", label: "Reject", tone: "danger" },
           ]
-        : [
-            { key: "a", label: "Allow once", tone: "ok" },
-            { key: "A", label: ev.mcp ? "Always for this tool here" : "Always in this project" },
-            { key: "d", label: "Deny", tone: "danger" },
-          ];
+        : ev.mcp?.destructive || ev.noAlways
+          ? [
+              { key: "a", label: "Allow once", tone: "ok" },
+              { key: "d", label: "Deny", tone: "danger" },
+            ]
+          : [
+              { key: "a", label: "Allow once", tone: "ok" },
+              { key: "A", label: ev.mcp ? "Always for this tool here" : "Always in this project" },
+              { key: "d", label: "Deny", tone: "danger" },
+            ];
 
   const answerApproval = (m: Extract<Modal, { type: "approval" }>, key: string) => {
     const { taskId, ev } = m;
@@ -675,7 +794,11 @@ export function App(props: AppProps) {
         return;
       }
     } else {
-      void ctx.client.approve(taskId, ev.approvalId, key === "a" ? "allow_once" : key === "A" ? "always" : "deny");
+      void ctx.client.approve(
+        taskId,
+        ev.approvalId,
+        key === "a" ? "allow_once" : key === "A" ? "always" : "deny",
+      );
       if (key === "d") note(`Denied ${ev.tool}`);
     }
     nextApproval();
@@ -694,7 +817,10 @@ export function App(props: AppProps) {
     proposalsRef.current = [];
     const auto = all.filter((p) => p.autoSaved);
     if (auto.length) {
-      note(`Added to project memory (inferred, check with /memory):\n${auto.map((p) => "  • " + itemLabel(p)).join("\n")}`, "star");
+      note(
+        `Added to project memory (inferred, check with /memory):\n${auto.map((p) => "  • " + itemLabel(p)).join("\n")}`,
+        "star",
+      );
       setMemCount(memoryFor(ctx.cwd).active().length);
     }
     const items = all.filter((p) => !p.autoSaved);
@@ -711,19 +837,30 @@ export function App(props: AppProps) {
     let added = 0;
     for (const p of chosen) {
       try {
-        const r = store.add({ category: p.category, text: p.text, status: "verified", source: "task", taskId: taskIdRef.current, replaces: p.replaces });
+        const r = store.add({
+          category: p.category,
+          text: p.text,
+          status: "verified",
+          source: "task",
+          taskId: taskIdRef.current,
+          replaces: p.replaces,
+        });
         if (r.entry) added++;
       } catch (e) {
         note((e as Error).message, "error");
       }
     }
     setMemCount(store.active().length);
-    note(`✓ Remembered ${added} ${added === 1 ? "note" : "notes"} for this project (/memory to see them)`, "ok");
+    note(
+      `✓ Remembered ${added} ${added === 1 ? "note" : "notes"} for this project (/memory to see them)`,
+      "ok",
+    );
   };
 
   const answerMerge = async (m: Extract<Modal, { type: "merge" }>, key: string) => {
     try {
-      if (key === "v") return commit({ kind: "diff", diff: (await ctx.client.diff(m.taskId)).diff });
+      if (key === "v")
+        return commit({ kind: "diff", diff: (await ctx.client.diff(m.taskId)).diff });
       setModal(null);
       if (key === "m") {
         await ctx.client.merge(m.taskId);
@@ -774,7 +911,10 @@ export function App(props: AppProps) {
       const [provider, model] = row.id.split("\u0000") as [ModelChoice["provider"], string];
       setChoice({ provider, model });
       ctx.config.save({ ...ctx.config.load(), provider, model });
-      note(`Using ${modelLabel({ provider, model })} (${providerName(provider)}), saved as the default`, "ok");
+      note(
+        `Using ${modelLabel({ provider, model })} (${providerName(provider)}), saved as the default`,
+        "ok",
+      );
     } else {
       sessionRef.current = loadSession(row.id);
       clearScreen([banner(), ...historyItems(sessionRef.current)]);
@@ -783,7 +923,9 @@ export function App(props: AppProps) {
 
   // ---------- autocomplete ----------
   const acFor = (value: string) =>
-    acHidden || mode.kind !== "normal" || !/^\/\S*$/.test(value) ? [] : COMMANDS.filter((c) => c.name.startsWith(value));
+    acHidden || mode.kind !== "normal" || !/^\/\S*$/.test(value)
+      ? []
+      : COMMANDS.filter((c) => c.name.startsWith(value));
   const acMatches = useMemo(() => acFor(ed.value), [ed.value, acHidden, mode.kind]);
   useEffect(() => setAcIndex(0), [ed.value]);
 
@@ -820,12 +962,15 @@ export function App(props: AppProps) {
     // Pop-ups take the keyboard while open.
     if (modal?.type === "approval" || modal?.type === "merge") {
       const opts = modal.type === "approval" ? approvalOptions(modal.ev) : mergeOptions;
-      const pick = (k: string) => (modal.type === "approval" ? answerApproval(modal, k) : void answerMerge(modal, k));
+      const pick = (k: string) =>
+        modal.type === "approval" ? answerApproval(modal, k) : void answerMerge(modal, k);
       if (key.leftArrow) return setSelected((s) => (s + opts.length - 1) % opts.length);
       if (key.rightArrow || key.tab) return setSelected((s) => (s + 1) % opts.length);
       if (key.return) return pick(opts[selected].key);
       if (key.escape && modal.type === "merge") return pick("k");
-      const exact = opts.find((o) => o.key === input) ?? opts.find((o) => o.key.toLowerCase() === input.toLowerCase());
+      const exact =
+        opts.find((o) => o.key === input) ??
+        opts.find((o) => o.key.toLowerCase() === input.toLowerCase());
       if (exact) pick(exact.key);
       return;
     }
@@ -900,7 +1045,8 @@ export function App(props: AppProps) {
     }
 
     // New line: Ctrl+J, Alt/Shift+Enter.
-    if ((key.ctrl && input === "j") || ((key.meta || key.shift) && key.return)) return setEd((e) => E.insert(e, "\n"));
+    if ((key.ctrl && input === "j") || ((key.meta || key.shift) && key.return))
+      return setEd((e) => E.insert(e, "\n"));
 
     if (key.return) {
       const value = edRef.current.value;
@@ -986,7 +1132,14 @@ export function App(props: AppProps) {
             ? "The agent is working · Esc to stop"
             : "Message vard, or / for commands";
 
-  const state = modal?.type === "approval" || mode.kind !== "normal" ? "needs you" : busy ? (busy === "chat" ? "thinking" : "working") : "idle";
+  const state =
+    modal?.type === "approval" || mode.kind !== "normal"
+      ? "needs you"
+      : busy
+        ? busy === "chat"
+          ? "thinking"
+          : "working"
+        : "idle";
 
   return (
     <Box flexDirection="column">
@@ -1011,28 +1164,49 @@ export function App(props: AppProps) {
       {modal?.type === "approval" ? (
         <ChoiceModal
           title={
-            modal.ev.kind === "plan" ? "Approve this plan?" : modal.ev.mcp ? `Allow ${modal.ev.mcp.serverName} to run ${modal.ev.mcp.tool}?` : `Allow ${modal.ev.tool}?`
+            modal.ev.kind === "plan"
+              ? "Approve this plan?"
+              : modal.ev.mcp
+                ? `Allow ${modal.ev.mcp.serverName} to run ${modal.ev.mcp.tool}?`
+                : `Allow ${modal.ev.tool}?`
           }
           options={approvalOptions(modal.ev)}
           selected={selected}
         >
           {modal.ev.kind === "plan" ? (
-            <Text color={C.muted}>The plan is shown above. Approve it, edit it, or say what to change.</Text>
+            <Text color={C.muted}>
+              The plan is shown above. Approve it, edit it, or say what to change.
+            </Text>
           ) : (
             <Box flexDirection="column">
               <Text color={C.ink}>
-                {modal.ev.mcp ? JSON.stringify(modal.ev.input ?? {}).slice(0, 300) : describeToolInput(modal.ev.tool ?? "", modal.ev.input)}
+                {modal.ev.mcp
+                  ? JSON.stringify(modal.ev.input ?? {}).slice(0, 300)
+                  : describeToolInput(modal.ev.tool ?? "", modal.ev.input)}
               </Text>
-              <Text color={modal.ev.mcp?.destructive ? C.danger : C.muted}>{modal.ev.mcp ? `MCP · ${modal.ev.mcp.access}` : modal.ev.reason}</Text>
+              <Text color={modal.ev.mcp?.destructive ? C.danger : C.muted}>
+                {modal.ev.mcp ? `MCP · ${modal.ev.mcp.access}` : modal.ev.reason}
+              </Text>
             </Box>
           )}
         </ChoiceModal>
       ) : null}
       {modal?.type === "merge" ? (
-        <ChoiceModal title={`Merge ${modal.branch}?`} options={mergeOptions} selected={selected} hint="Press a key, or ←→ and Enter · Esc keeps it" />
+        <ChoiceModal
+          title={`Merge ${modal.branch}?`}
+          options={mergeOptions}
+          selected={selected}
+          hint="Press a key, or ←→ and Enter · Esc keeps it"
+        />
       ) : null}
       {modal?.type === "memory" ? (
-        <Box flexDirection="column" borderStyle="round" borderColor={C.star} paddingX={1} marginTop={1}>
+        <Box
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={C.star}
+          paddingX={1}
+          marginTop={1}
+        >
           <Text bold color={C.star}>
             Remember for next time?
           </Text>
@@ -1040,12 +1214,18 @@ export function App(props: AppProps) {
           {modal.items.map((it, i) => (
             <Text key={i} wrap="wrap">
               <Text color={i === selected ? C.star : C.line}>{i === selected ? "❯ " : "  "}</Text>
-              <Text color={modal.checked[i] ? C.sage : C.muted}>{modal.checked[i] ? "[x] " : "[ ] "}</Text>
+              <Text color={modal.checked[i] ? C.sage : C.muted}>
+                {modal.checked[i] ? "[x] " : "[ ] "}
+              </Text>
               <Text color={C.ink}>{itemLabel(it)}</Text>
-              {it.replacesText ? <Text color={C.muted}>{`\n      updates: ${it.replacesText}`}</Text> : null}
+              {it.replacesText ? (
+                <Text color={C.muted}>{`\n      updates: ${it.replacesText}`}</Text>
+              ) : null}
             </Text>
           ))}
-          <Text color={C.muted}>Space toggles · a all/none · Enter saves the checked notes · Esc skips</Text>
+          <Text color={C.muted}>
+            Space toggles · a all/none · Enter saves the checked notes · Esc skips
+          </Text>
         </Box>
       ) : null}
       {modal?.type === "picker" ? (
@@ -1104,7 +1284,15 @@ export function App(props: AppProps) {
   );
 }
 
-function EditorView({ ed, placeholder, active }: { ed: E.Ed; placeholder: string; active: boolean }) {
+function EditorView({
+  ed,
+  placeholder,
+  active,
+}: {
+  ed: E.Ed;
+  placeholder: string;
+  active: boolean;
+}) {
   if (!ed.value)
     return (
       <Text>
@@ -1118,7 +1306,7 @@ function EditorView({ ed, placeholder, active }: { ed: E.Ed; placeholder: string
   return (
     <Text color={C.ink}>
       {before}
-      {active ? <Text inverse>{at === undefined || at === "\n" ? " " : at}</Text> : at ?? ""}
+      {active ? <Text inverse>{at === undefined || at === "\n" ? " " : at}</Text> : (at ?? "")}
       {at === "\n" ? "\n" : ""}
       {after}
     </Text>
@@ -1126,12 +1314,20 @@ function EditorView({ ed, placeholder, active }: { ed: E.Ed; placeholder: string
 }
 
 /** Starts the TUI and resolves with the exit code when it closes. */
-export async function runTui(ctx: Ctx, opts: { continue?: boolean; model?: string; provider?: string }): Promise<number> {
+export async function runTui(
+  ctx: Ctx,
+  opts: { continue?: boolean; model?: string; provider?: string },
+): Promise<number> {
   const { render } = await import("ink");
   const { PassThrough } = await import("node:stream");
   const stdin = process.stdin;
   // Ink gets an idle stand-in for stdin; the real keyboard is read here with "data" events.
-  const fakeIn = Object.assign(new PassThrough(), { isTTY: true, setRawMode: () => fakeIn, ref: () => fakeIn, unref: () => fakeIn });
+  const fakeIn = Object.assign(new PassThrough(), {
+    isTTY: true,
+    setRawMode: () => fakeIn,
+    ref: () => fakeIn,
+    unref: () => fakeIn,
+  });
   const listeners = new Set<(c: string) => void>();
   const onData = (d: Buffer | string) => {
     const chunk = typeof d === "string" ? d : d.toString("utf8");

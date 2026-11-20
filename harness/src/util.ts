@@ -68,7 +68,12 @@ export function killTree(pid: number) {
 
 export async function run(
   cmd: string[],
-  opts: { cwd: string; timeoutMs?: number; signal?: AbortSignal; env?: Record<string, string | undefined> },
+  opts: {
+    cwd: string;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+    env?: Record<string, string | undefined>;
+  },
 ): Promise<{ code: number; stdout: string; stderr: string; timedOut: boolean }> {
   const proc = Bun.spawn(cmd, {
     cwd: opts.cwd,
@@ -105,7 +110,8 @@ export async function git(cwd: string, args: string[], timeoutMs = 60_000) {
 
 export async function gitOk(cwd: string, args: string[]): Promise<string> {
   const r = await git(cwd, args);
-  if (r.code !== 0) throw new Error(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
+  if (r.code !== 0)
+    throw new Error(`git ${args.join(" ")} failed: ${(r.stderr || r.stdout).trim()}`);
   return r.stdout;
 }
 
@@ -120,7 +126,8 @@ export function describeError(e: unknown): string {
   const status = inner?.statusCode;
   let detail: string | undefined;
   try {
-    const body = typeof inner?.responseBody === "string" ? JSON.parse(inner.responseBody) : undefined;
+    const body =
+      typeof inner?.responseBody === "string" ? JSON.parse(inner.responseBody) : undefined;
     detail = body?.error?.metadata?.raw ?? body?.error?.message;
   } catch {}
   if (status) msg += ` (HTTP ${status})`;

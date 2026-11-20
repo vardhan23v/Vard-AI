@@ -27,7 +27,8 @@ export interface ScanResult {
 
 function excluded(rel: string, extra: string[]): boolean {
   const withSlash = `/${rel}`;
-  for (const d of DEFAULT_EXCLUDES) if (rel.startsWith(d) || withSlash.includes(`/${d}`)) return true;
+  for (const d of DEFAULT_EXCLUDES)
+    if (rel.startsWith(d) || withSlash.includes(`/${d}`)) return true;
   if (DEFAULT_EXCLUDED_FILES.some((re) => re.test(rel))) return true;
   for (const e of extra) {
     const p = e.replace(/^\.?\//, "");
@@ -42,7 +43,11 @@ function excluded(rel: string, extra: string[]): boolean {
 }
 
 async function listPaths(root: string): Promise<string[]> {
-  const r = await git(root, ["ls-files", "--cached", "--others", "--exclude-standard", "-z"], 30_000).catch(() => null);
+  const r = await git(
+    root,
+    ["ls-files", "--cached", "--others", "--exclude-standard", "-z"],
+    30_000,
+  ).catch(() => null);
   if (r && r.code === 0) return r.stdout.split("\0").filter(Boolean);
   const out: string[] = [];
   const walk = (dir: string, rel: string) => {

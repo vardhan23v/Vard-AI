@@ -20,13 +20,16 @@ export const SkillName = z
 const SEMVER = /^\d+\.\d+\.\d+(?:-[0-9A-Za-z.-]+)?$/;
 
 export const SkillScript = z.object({
-  name: z.string().regex(/^[a-z0-9][a-z0-9_-]{0,39}$/, "script names are lowercase, digits, '-' or '_'"),
+  name: z
+    .string()
+    .regex(/^[a-z0-9][a-z0-9_-]{0,39}$/, "script names are lowercase, digits, '-' or '_'"),
   file: z.string().min(1).max(200),
   description: z.string().max(300).default(""),
 });
 export type SkillScript = z.infer<typeof SkillScript>;
 
-const shortList = (max: number, len: number) => z.array(z.string().min(1).max(len)).max(max).default([]);
+const shortList = (max: number, len: number) =>
+  z.array(z.string().min(1).max(len)).max(max).default([]);
 
 /** SKILL.md frontmatter. Unknown keys (license, metadata, …) are ignored so other formats import. */
 export const SkillFrontmatter = z.object({
@@ -115,7 +118,12 @@ const scope = z.enum(["global", "project"]);
 const skillId = z.string().min(3).max(200);
 
 export const SkillChange = z.discriminatedUnion("op", [
-  z.object({ op: z.literal("create"), scope, name: SkillName, description: z.string().min(1).max(500) }),
+  z.object({
+    op: z.literal("create"),
+    scope,
+    name: SkillName,
+    description: z.string().min(1).max(500),
+  }),
   /** Write a skill's SKILL.md (creates the folder when new). */
   z.object({ op: z.literal("save"), scope, name: SkillName, text: z.string().min(1).max(70_000) }),
   /** Copy a skill folder (or a SKILL.md file) from disk. Imported skills start disabled. */

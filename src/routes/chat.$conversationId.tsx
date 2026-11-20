@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { ChatThread } from "@/features/chat/ChatThread";
 
 export const Route = createFileRoute("/chat/$conversationId")({
-  validateSearch: (s: Record<string, unknown>): { reply?: boolean } => (s.reply ? { reply: true } : {}),
+  validateSearch: (s: Record<string, unknown>): { reply?: boolean } =>
+    s.reply ? { reply: true } : {},
   component: ConversationPage,
 });
 

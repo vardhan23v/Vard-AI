@@ -51,7 +51,12 @@ export class FileRulesStore implements RulesStore {
   load(): ProjectRules {
     try {
       const raw = JSON.parse(fs.readFileSync(this.file, "utf8"));
-      return { allowlist: raw.allowlist ?? [], tools: raw.tools ?? [], mcp: raw.mcp ?? {}, ...(raw.browserOrigins ? { browserOrigins: raw.browserOrigins } : {}) };
+      return {
+        allowlist: raw.allowlist ?? [],
+        tools: raw.tools ?? [],
+        mcp: raw.mcp ?? {},
+        ...(raw.browserOrigins ? { browserOrigins: raw.browserOrigins } : {}),
+      };
     } catch {
       return { allowlist: [], tools: [] };
     }
@@ -109,24 +114,37 @@ export function classifyCommand(cmd: string): { action: "deny" | "ask" | null; r
     const w = words(seg);
     if (!w.length) continue;
     const bin = path.basename(w[0]);
-    if (["sudo", "doas", "su", "pkexec"].includes(bin)) return { action: "deny", reason: `${bin} is never allowed` };
+    if (["sudo", "doas", "su", "pkexec"].includes(bin))
+      return { action: "deny", reason: `${bin} is never allowed` };
     if (/^mkfs/.test(bin) || ["shutdown", "reboot", "halt", "diskutil", "launchctl"].includes(bin))
       return { action: "deny", reason: `${bin} is never allowed` };
-    if (bin === "git" && w.slice(1).includes("push")) return { action: "deny", reason: "git push is never allowed" };
-    if (bin === "dd" && w.some((a) => /^of=\/dev\//.test(a))) return { action: "deny", reason: "writing to a device" };
+    if (bin === "git" && w.slice(1).includes("push"))
+      return { action: "deny", reason: "git push is never allowed" };
+    if (bin === "dd" && w.some((a) => /^of=\/dev\//.test(a)))
+      return { action: "deny", reason: "writing to a device" };
     if (bin === "chmod" || bin === "chown") {
-      if (w.slice(1).some((a) => a === "/" || a === "~" || /^\/(etc|usr|bin|System|Library)\b/.test(a)))
+      if (
+        w
+          .slice(1)
+          .some((a) => a === "/" || a === "~" || /^\/(etc|usr|bin|System|Library)\b/.test(a))
+      )
         return { action: "deny", reason: `${bin} on system paths` };
     }
     if (bin === "rm") {
       const flags = w.slice(1).filter((a) => a.startsWith("-"));
-      const recursive = flags.some((f) => f === "--recursive" || (/^-[a-zA-Z]+$/.test(f) && /[rR]/.test(f)));
+      const recursive = flags.some(
+        (f) => f === "--recursive" || (/^-[a-zA-Z]+$/.test(f) && /[rR]/.test(f)),
+      );
       const targets = w.slice(1).filter((a) => !a.startsWith("-"));
       if (recursive && targets.some((t) => DANGEROUS_TARGET.test(t)))
-        return { action: "deny", reason: "recursive rm outside the project (absolute, home, '..', '.' or '*' target)" };
+        return {
+          action: "deny",
+          reason: "recursive rm outside the project (absolute, home, '..', '.' or '*' target)",
+        };
       if (recursive) return { action: "ask", reason: "recursive delete" };
     }
-    if (/>\s*\/dev\/(disk|sd|nvme)/.test(seg)) return { action: "deny", reason: "writing to a device" };
+    if (/>\s*\/dev\/(disk|sd|nvme)/.test(seg))
+      return { action: "deny", reason: "writing to a device" };
   }
   return { action: null };
 }
@@ -177,7 +195,11 @@ export class Policy {
 
   checkPath(p: string): { inWork: boolean; inProject: boolean; abs: string } {
     const abs = this.resolvePath(p);
-    return { abs, inWork: isInside(abs, this.workRoot), inProject: isInside(abs, this.projectRoot) };
+    return {
+      abs,
+      inWork: isInside(abs, this.workRoot),
+      inProject: isInside(abs, this.projectRoot),
+    };
   }
 
   decide(tool: ToolDef, input: Record<string, unknown>): Decision {
@@ -187,12 +209,16 @@ export class Policy {
       const v = input[field];
       if (typeof v !== "string") continue;
       const { abs, inWork, inProject } = this.checkPath(v);
-      if (!inWork && !inProject) return { action: "deny", reason: `path escapes the project: ${v}` };
+      if (!inWork && !inProject)
+        return { action: "deny", reason: `path escapes the project: ${v}` };
       if (tool.risk === "write") {
         const relToWork = path.relative(inWork ? this.workRoot : this.projectRoot, abs);
         if (relToWork.split(path.sep).includes(".git"))
           return { action: "deny", reason: `writes into .git are not allowed: ${v}` };
-        if ((!inWork && isInside(abs, path.join(this.projectRoot, ".vard"))) || isInside(abs, path.join(this.workRoot, ".vard")))
+        if (
+          (!inWork && isInside(abs, path.join(this.projectRoot, ".vard"))) ||
+          isInside(abs, path.join(this.workRoot, ".vard"))
+        )
           return { action: "deny", reason: `writes into .vard are not allowed: ${v}` };
         if (!inWork) writeOutsideWork = true;
       }
@@ -212,7 +238,10 @@ export class Policy {
       case "browser":
         return decideBrowser(tool, input, this.rules);
       case "mcp":
-        return decideMcp(tool, input, (this.rules.mcp ??= {}), { workRoot: this.workRoot, projectRoot: this.projectRoot });
+        return decideMcp(tool, input, (this.rules.mcp ??= {}), {
+          workRoot: this.workRoot,
+          projectRoot: this.projectRoot,
+        });
       case "read":
         return { action: "allow", reason: "read-only" };
       case "write":
@@ -223,14 +252,16 @@ export class Policy {
         const c = classifyCommand(cmd);
         if (c.action === "deny") return { action: "deny", reason: c.reason! };
         if (c.action === "ask") return { action: "ask", reason: c.reason! };
-        if (matchesAllowlist(cmd, this.allowlist)) return { action: "allow", reason: "matches project allowlist" };
+        if (matchesAllowlist(cmd, this.allowlist))
+          return { action: "allow", reason: "matches project allowlist" };
         return { action: "ask", reason: "command is not on the project allowlist" };
       }
     }
   }
 
   private askUnlessAlways(tool: ToolDef, reason: string): Decision {
-    if (this.rules.tools.includes(tool.name)) return { action: "allow", reason: `${tool.name} approved for this project` };
+    if (this.rules.tools.includes(tool.name))
+      return { action: "allow", reason: `${tool.name} approved for this project` };
     return { action: "ask", reason };
   }
 
@@ -238,7 +269,8 @@ export class Policy {
   remember(tool: ToolDef, input: Record<string, unknown>): boolean {
     if (tool.alwaysAsk) return false;
     if (tool.risk === "browser") {
-      if (input.confirm_sensitive === true || !rememberBrowser(tool, input, this.rules)) return false;
+      if (input.confirm_sensitive === true || !rememberBrowser(tool, input, this.rules))
+        return false;
       this.store.save(this.rules);
       return true;
     }
@@ -272,7 +304,8 @@ export class Policy {
 
   /** Clears MCP permissions: one tool, one server ("<server>/"), or all. */
   revokeMcp(prefix = "") {
-    for (const k of Object.keys(this.rules.mcp ?? {})) if (k.startsWith(prefix)) delete this.rules.mcp![k];
+    for (const k of Object.keys(this.rules.mcp ?? {}))
+      if (k.startsWith(prefix)) delete this.rules.mcp![k];
     this.store.save(this.rules);
   }
 }

@@ -41,7 +41,9 @@ export function loadSession(file: string): SessionFile {
 }
 
 /** Saved conversations, newest first. */
-export function listSessions(ctx: Ctx): { file: string; mtime: number; title: string; count: number }[] {
+export function listSessions(
+  ctx: Ctx,
+): { file: string; mtime: number; title: string; count: number }[] {
   const dir = sessionsDir(ctx);
   if (!fs.existsSync(dir)) return [];
   return fs
@@ -51,7 +53,12 @@ export function listSessions(ctx: Ctx): { file: string; mtime: number; title: st
       const file = path.join(dir, f);
       const s = loadSession(file);
       const first = s.messages.find((m) => m.role === "user")?.content ?? "";
-      return { file, mtime: fs.statSync(file).mtimeMs, title: first.replace(/\s+/g, " ").slice(0, 70), count: s.messages.length };
+      return {
+        file,
+        mtime: fs.statSync(file).mtimeMs,
+        title: first.replace(/\s+/g, " ").slice(0, 70),
+        count: s.messages.length,
+      };
     })
     .filter((s) => s.count > 0)
     .sort((a, b) => b.mtime - a.mtime);
@@ -81,7 +88,10 @@ const HELP = `
   Ctrl+C stops a reply or task; press it twice to quit.
 `;
 
-export async function session(ctx: Ctx, opts: { continue?: boolean; model?: string; provider?: string }) {
+export async function session(
+  ctx: Ctx,
+  opts: { continue?: boolean; model?: string; provider?: string },
+) {
   const t = ctx.theme;
   let choice: ModelChoice = chooseModel(ctx, opts);
   let planFirst = ctx.config.load().planFirst;
@@ -93,7 +103,8 @@ export async function session(ctx: Ctx, opts: { continue?: boolean; model?: stri
       t.muted(`${modelLabel(choice)} (${providerName(choice.provider)}) · ${ctx.cwd}\n`) +
       t.muted(`Chat below, /task to run the agent, /help for more.\n`),
   );
-  if (opts.continue && s.messages.length) ctx.out.write(t.muted(`Continuing a conversation of ${s.messages.length} messages.\n`));
+  if (opts.continue && s.messages.length)
+    ctx.out.write(t.muted(`Continuing a conversation of ${s.messages.length} messages.\n`));
 
   for (;;) {
     const line = await ctx.prompter.line(`\n${t.star("›")} `);
@@ -126,10 +137,13 @@ export async function session(ctx: Ctx, opts: { continue?: boolean; model?: stri
           ctx.out.write(t.muted("New conversation.\n"));
           break;
         case "/model":
-          if (!arg) ctx.out.write(`${choice.model} ${t.muted(`(${providerName(choice.provider)})`)}\n`);
+          if (!arg)
+            ctx.out.write(`${choice.model} ${t.muted(`(${providerName(choice.provider)})`)}\n`);
           else {
             choice = chooseModel(ctx, { model: rest[0], provider: rest[1] });
-            ctx.out.write(`${t.sage("✓")} Using ${modelLabel(choice)} ${t.muted(`(${providerName(choice.provider)})`)}\n`);
+            ctx.out.write(
+              `${t.sage("✓")} Using ${modelLabel(choice)} ${t.muted(`(${providerName(choice.provider)})`)}\n`,
+            );
           }
           break;
         case "/plan":
@@ -143,7 +157,11 @@ export async function session(ctx: Ctx, opts: { continue?: boolean; model?: stri
             break;
           }
           if (kept) {
-            ctx.out.write(t.muted(`(Leaving ${kept.branch} as it is; merge it later with git merge ${kept.branch}.)\n`));
+            ctx.out.write(
+              t.muted(
+                `(Leaving ${kept.branch} as it is; merge it later with git merge ${kept.branch}.)\n`,
+              ),
+            );
             kept = undefined;
           }
           const r = await runTask(ctx, arg, { ...choice, plan: planFirst });

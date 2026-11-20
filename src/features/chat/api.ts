@@ -43,14 +43,19 @@ export type Message = {
 
 const conversationsCol = () => collection(db, "users", requireUid(), "conversations");
 const conversationDoc = (id: string) => doc(db, "users", requireUid(), "conversations", id);
-const messagesCol = (conversationId: string) => collection(conversationDoc(conversationId), "messages");
+const messagesCol = (conversationId: string) =>
+  collection(conversationDoc(conversationId), "messages");
 
 export const conversationsQuery = () =>
   queryOptions({
     queryKey: ["conversations"],
     queryFn: async () => {
-      const snap = await getDocs(query(conversationsCol(), orderBy("updated_at", "desc"), limit(200)));
-      const rows = snap.docs.map((d) => ({ id: d.id, ...d.data() }) as Conversation).filter((c) => !c.archived);
+      const snap = await getDocs(
+        query(conversationsCol(), orderBy("updated_at", "desc"), limit(200)),
+      );
+      const rows = snap.docs
+        .map((d) => ({ id: d.id, ...d.data() }) as Conversation)
+        .filter((c) => !c.archived);
       // Pinned first, then most recent.
       return rows.sort((a, b) => Number(b.pinned) - Number(a.pinned));
     },
@@ -65,7 +70,11 @@ export const messagesQuery = (conversationId: string) =>
     },
   });
 
-export async function createConversation(input: { title: string; provider: string; model: string }) {
+export async function createConversation(input: {
+  title: string;
+  provider: string;
+  model: string;
+}) {
   const now = nowIso();
   const data = { ...input, pinned: false, archived: false, created_at: now, updated_at: now };
   const ref = await addDoc(conversationsCol(), data);
@@ -102,7 +111,9 @@ export async function addMessage(input: {
 }
 
 export async function deleteMessagesAfter(conversationId: string, createdAt: string) {
-  const snap = await getDocs(query(messagesCol(conversationId), where("created_at", ">=", createdAt)));
+  const snap = await getDocs(
+    query(messagesCol(conversationId), where("created_at", ">=", createdAt)),
+  );
   const batch = writeBatch(db);
   snap.docs.forEach((d) => batch.delete(d.ref));
   await batch.commit();
@@ -129,11 +140,13 @@ export function useConversationActions() {
   const qc = useQueryClient();
   const refresh = () => qc.invalidateQueries({ queryKey: ["conversations"] });
   const rename = useMutation({
-    mutationFn: ({ id, title }: { id: string; title: string }) => updateDoc(conversationDoc(id), { title }),
+    mutationFn: ({ id, title }: { id: string; title: string }) =>
+      updateDoc(conversationDoc(id), { title }),
     onSettled: refresh,
   });
   const togglePin = useMutation({
-    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) => updateDoc(conversationDoc(id), { pinned }),
+    mutationFn: ({ id, pinned }: { id: string; pinned: boolean }) =>
+      updateDoc(conversationDoc(id), { pinned }),
     onSettled: refresh,
   });
   const remove = useMutation({ mutationFn: deleteConversation, onSettled: refresh });

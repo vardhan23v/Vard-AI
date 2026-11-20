@@ -63,14 +63,34 @@ export function loadSkillDir(dir: string, source: SkillSource): LoadedSkill {
   let text = "";
   try {
     const st = fs.lstatSync(file);
-    if (st.isSymbolicLink()) return { ...base, text, body: "", errors: ["SKILL.md is a symlink; copy the file instead"], warnings: [] };
-    if (st.size > MAX_SKILL_BYTES) return { ...base, text, body: "", errors: [`SKILL.md is larger than ${MAX_SKILL_BYTES / 1024} KB`], warnings: [] };
+    if (st.isSymbolicLink())
+      return {
+        ...base,
+        text,
+        body: "",
+        errors: ["SKILL.md is a symlink; copy the file instead"],
+        warnings: [],
+      };
+    if (st.size > MAX_SKILL_BYTES)
+      return {
+        ...base,
+        text,
+        body: "",
+        errors: [`SKILL.md is larger than ${MAX_SKILL_BYTES / 1024} KB`],
+        warnings: [],
+      };
     text = fs.readFileSync(file, "utf8");
   } catch {
     return { ...base, text, body: "", errors: ["SKILL.md is missing"], warnings: [] };
   }
   const v = validateSkillText(text, { dir, folderName: folder });
-  return { ...base, name: v.frontmatter?.name ?? folder, text, ...v, resources: listResources(dir) };
+  return {
+    ...base,
+    name: v.frontmatter?.name ?? folder,
+    text,
+    ...v,
+    resources: listResources(dir),
+  };
 }
 
 /** Every skill folder directly under `root` (a folder containing SKILL.md). Symlinked folders are skipped. */
@@ -87,7 +107,16 @@ export function loadRoot(root: string, source: SkillSource): LoadedSkill[] {
     if (e.name.startsWith(".") || !isSafeRelPath(e.name)) continue;
     const dir = path.join(root, e.name);
     if (e.isSymbolicLink()) {
-      out.push({ name: e.name, source, dir, text: "", body: "", errors: ["skill folders must not be symlinks"], warnings: [], resources: emptyResources() });
+      out.push({
+        name: e.name,
+        source,
+        dir,
+        text: "",
+        body: "",
+        errors: ["skill folders must not be symlinks"],
+        warnings: [],
+        resources: emptyResources(),
+      });
       continue;
     }
     if (!e.isDirectory() || !fs.existsSync(path.join(dir, "SKILL.md"))) continue;
@@ -99,7 +128,13 @@ export function loadRoot(root: string, source: SkillSource): LoadedSkill[] {
 export function loadBuiltins(): LoadedSkill[] {
   return Object.entries(BUILTIN_SKILLS).map(([folder, text]) => {
     const v = validateSkillText(text, { folderName: folder });
-    return { name: v.frontmatter?.name ?? folder, source: "builtin" as const, text, ...v, resources: emptyResources() };
+    return {
+      name: v.frontmatter?.name ?? folder,
+      source: "builtin" as const,
+      text,
+      ...v,
+      resources: emptyResources(),
+    };
   });
 }
 

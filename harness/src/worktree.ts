@@ -26,12 +26,20 @@ export async function isGitRepo(dir: string): Promise<boolean> {
  * `opts.base` starts the branch from another commit or branch (team runs branch each agent's
  * worktree from the integration branch).
  */
-export async function createWorktree(projectRoot: string, taskId: string, opts: { base?: string } = {}): Promise<Worktree> {
+export async function createWorktree(
+  projectRoot: string,
+  taskId: string,
+  opts: { base?: string } = {},
+): Promise<Worktree> {
   if (!/^[A-Za-z0-9._-]+$/.test(taskId)) throw new Error(`invalid task id: ${taskId}`);
   const top = (await gitOk(projectRoot, ["rev-parse", "--show-toplevel"])).trim();
   const head = await git(top, ["rev-parse", "--verify", `${opts.base ?? "HEAD"}^{commit}`]);
   if (head.code !== 0)
-    throw new Error(opts.base ? `unknown base ${opts.base}` : "the project has no commits yet; make an initial commit first");
+    throw new Error(
+      opts.base
+        ? `unknown base ${opts.base}`
+        : "the project has no commits yet; make an initial commit first",
+    );
   const base = head.stdout.trim();
   const dir = path.join(ensureVardDir(top), "worktrees", taskId);
   const branch = `vard/${taskId}`;
@@ -69,7 +77,10 @@ export async function commitWorktree(wt: Worktree, message: string): Promise<boo
 }
 
 /** Commit the task's work and merge its branch into whatever the main checkout has checked out. */
-export async function mergeWorktree(wt: Worktree, message = `vard: task ${wt.taskId}`): Promise<string> {
+export async function mergeWorktree(
+  wt: Worktree,
+  message = `vard: task ${wt.taskId}`,
+): Promise<string> {
   await commitWorktree(wt, message);
   const r = await git(wt.projectRoot, [
     "-c",

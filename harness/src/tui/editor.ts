@@ -6,12 +6,18 @@ export const set = (value: string): Ed => ({ value, cursor: value.length });
 
 export function insert(ed: Ed, s: string): Ed {
   const text = s.replace(/\r\n?/g, "\n");
-  return { value: ed.value.slice(0, ed.cursor) + text + ed.value.slice(ed.cursor), cursor: ed.cursor + text.length };
+  return {
+    value: ed.value.slice(0, ed.cursor) + text + ed.value.slice(ed.cursor),
+    cursor: ed.cursor + text.length,
+  };
 }
 
 export function backspace(ed: Ed): Ed {
   if (ed.cursor === 0) return ed;
-  return { value: ed.value.slice(0, ed.cursor - 1) + ed.value.slice(ed.cursor), cursor: ed.cursor - 1 };
+  return {
+    value: ed.value.slice(0, ed.cursor - 1) + ed.value.slice(ed.cursor),
+    cursor: ed.cursor - 1,
+  };
 }
 
 export function deleteWordBack(ed: Ed): Ed {

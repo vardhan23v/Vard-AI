@@ -25,7 +25,9 @@ document.querySelectorAll("[data-copy]").forEach((btn) => {
 });
 
 // Latest release version (falls back to the version in the HTML).
-fetch("https://api.github.com/repos/vardhan23v/Vard-AI/releases/latest", { headers: { Accept: "application/vnd.github+json" } })
+fetch("https://api.github.com/repos/vardhan23v/Vard-AI/releases/latest", {
+  headers: { Accept: "application/vnd.github+json" },
+})
   .then((r) => (r.ok ? r.json() : null))
   .then((rel) => {
     if (!rel?.tag_name) return;
@@ -71,7 +73,7 @@ fetch("https://api.github.com/repos/vardhan23v/Vard-AI/releases/latest", { heade
     ctx.clearRect(0, 0, width, height);
     const dim = light.matches ? 0.35 : 1;
     for (const s of stars) {
-      const tw = reduce.matches ? 0.8 : 0.55 + 0.45 * Math.sin(t / 1000 * s.speed + s.phase);
+      const tw = reduce.matches ? 0.8 : 0.55 + 0.45 * Math.sin((t / 1000) * s.speed + s.phase);
       ctx.globalAlpha = tw * dim;
       ctx.fillStyle = s.gold ? "#c2b75d" : light.matches ? "#3a4670" : "#cfcfbb";
       ctx.beginPath();

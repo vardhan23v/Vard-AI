@@ -9,7 +9,13 @@ export const runCommand: ToolDef<{ command: string; timeoutSec?: number }> = {
     "use relative paths. Returns exit code, stdout and stderr (long output is truncated in the middle).",
   inputSchema: z.object({
     command: z.string().min(1).describe("Shell command"),
-    timeoutSec: z.number().int().positive().max(1800).default(120).describe("Kill after this many seconds"),
+    timeoutSec: z
+      .number()
+      .int()
+      .positive()
+      .max(1800)
+      .default(120)
+      .describe("Kill after this many seconds"),
   }),
   risk: "exec",
   maxOutput: 16_000,

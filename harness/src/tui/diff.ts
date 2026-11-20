@@ -11,6 +11,7 @@ export function colorDiffLines(diff: string, max = 400) {
     if (text.startsWith("@@")) return { text, color: C.cerulean };
     return { text, color: C.muted };
   });
-  if (lines.length > max) shown.push({ text: `… ${lines.length - max} more lines (use git diff)`, color: C.muted });
+  if (lines.length > max)
+    shown.push({ text: `… ${lines.length - max} more lines (use git diff)`, color: C.muted });
   return shown as { text: string; color: string; bold?: boolean }[];
 }

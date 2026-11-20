@@ -35,24 +35,45 @@ export async function freePort(): Promise<number> {
 }
 
 /** Suggests how to start a project's dev server on `port` (from package.json), or null. */
-export function detectDevCommand(dir: string, port: number): { command: string; framework: string } | null {
-  let pkg: { scripts?: Record<string, string>; dependencies?: Record<string, string>; devDependencies?: Record<string, string> };
+export function detectDevCommand(
+  dir: string,
+  port: number,
+): { command: string; framework: string } | null {
+  let pkg: {
+    scripts?: Record<string, string>;
+    dependencies?: Record<string, string>;
+    devDependencies?: Record<string, string>;
+  };
   try {
     pkg = JSON.parse(fs.readFileSync(path.join(dir, "package.json"), "utf8"));
   } catch {
     return null;
   }
   const deps = { ...pkg.dependencies, ...pkg.devDependencies };
-  const pm = fs.existsSync(path.join(dir, "bun.lock")) || fs.existsSync(path.join(dir, "bun.lockb")) ? "bun" : fs.existsSync(path.join(dir, "pnpm-lock.yaml")) ? "pnpm" : fs.existsSync(path.join(dir, "yarn.lock")) ? "yarn" : "npm";
+  const pm =
+    fs.existsSync(path.join(dir, "bun.lock")) || fs.existsSync(path.join(dir, "bun.lockb"))
+      ? "bun"
+      : fs.existsSync(path.join(dir, "pnpm-lock.yaml"))
+        ? "pnpm"
+        : fs.existsSync(path.join(dir, "yarn.lock"))
+          ? "yarn"
+          : "npm";
   const script = pkg.scripts?.dev ? "dev" : pkg.scripts?.start ? "start" : null;
   if (!script) return null;
   const runner = `${pm} run ${script}`;
   const body = pkg.scripts![script];
   const sep = pm === "npm" ? " --" : "";
-  if (deps.vite || /\bvite\b/.test(body)) return { command: `${runner}${sep} --port ${port} --strictPort --host 127.0.0.1`, framework: "vite" };
-  if (deps.next || /\bnext\b/.test(body)) return { command: `${runner}${sep} -p ${port} -H 127.0.0.1`, framework: "next" };
-  if (deps.astro || /\bastro\b/.test(body)) return { command: `${runner}${sep} --port ${port} --host 127.0.0.1`, framework: "astro" };
-  if (deps["react-scripts"]) return { command: `PORT=${port} BROWSER=none ${runner}`, framework: "create-react-app" };
+  if (deps.vite || /\bvite\b/.test(body))
+    return {
+      command: `${runner}${sep} --port ${port} --strictPort --host 127.0.0.1`,
+      framework: "vite",
+    };
+  if (deps.next || /\bnext\b/.test(body))
+    return { command: `${runner}${sep} -p ${port} -H 127.0.0.1`, framework: "next" };
+  if (deps.astro || /\bastro\b/.test(body))
+    return { command: `${runner}${sep} --port ${port} --host 127.0.0.1`, framework: "astro" };
+  if (deps["react-scripts"])
+    return { command: `PORT=${port} BROWSER=none ${runner}`, framework: "create-react-app" };
   return { command: `PORT=${port} ${runner}`, framework: "node" };
 }
 
@@ -61,16 +82,35 @@ function devEnv(port: number, binDirs: string[] = []): Record<string, string> {
   const env: Record<string, string> = {};
   for (const [k, v] of Object.entries(process.env)) {
     if (v === undefined) continue;
-    if (/(KEY|TOKEN|SECRET|PASSW|PWD$|CREDENTIAL|PRIVATE|_PAT$|AUTH|COOKIE|SESSION|DATABASE_URL|_DSN$|_URI$|CONNECTION_STRING)/i.test(k) && k !== "PATH") continue;
+    if (
+      /(KEY|TOKEN|SECRET|PASSW|PWD$|CREDENTIAL|PRIVATE|_PAT$|AUTH|COOKIE|SESSION|DATABASE_URL|_DSN$|_URI$|CONNECTION_STRING)/i.test(
+        k,
+      ) &&
+      k !== "PATH"
+    )
+      continue;
     env[k] = v;
   }
   // Worktrees have no node_modules of their own; the project's bin folder (and Node's normal lookup
   // up the folder tree) lets `vite`, `next` etc. run there.
-  const PATH = [...binDirs.filter((d) => fs.existsSync(d)), env.PATH ?? ""].filter(Boolean).join(":");
-  return { ...env, PATH, PORT: String(port), BROWSER: "none", HOST: "127.0.0.1", FORCE_COLOR: "0", CI: "1" };
+  const PATH = [...binDirs.filter((d) => fs.existsSync(d)), env.PATH ?? ""]
+    .filter(Boolean)
+    .join(":");
+  return {
+    ...env,
+    PATH,
+    PORT: String(port),
+    BROWSER: "none",
+    HOST: "127.0.0.1",
+    FORCE_COLOR: "0",
+    CI: "1",
+  };
 }
 
-const redactLine = (l: string) => (findSecret(l) ? "[line hidden: looks like it contains a secret]" : l.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 300));
+const redactLine = (l: string) =>
+  findSecret(l)
+    ? "[line hidden: looks like it contains a secret]"
+    : l.replace(/\x1b\[[0-9;]*m/g, "").slice(0, 300);
 
 interface Running {
   info: DevServerInfo;
@@ -84,10 +124,18 @@ interface Running {
  * would otherwise keep running. The watcher notices by being re-parented away from Vard, which
  * also holds if Vard lingers as a zombie or its pid is reused.
  */
-export function startGuard(pgid: number, ownerPid = process.pid): ReturnType<typeof Bun.spawn> | undefined {
+export function startGuard(
+  pgid: number,
+  ownerPid = process.pid,
+): ReturnType<typeof Bun.spawn> | undefined {
   try {
     const script = `while [ "$(ps -o ppid= -p $$ | tr -d ' ')" = "${ownerPid}" ]; do sleep 1; done; kill -9 -${pgid} 2>/dev/null`;
-    const guard = Bun.spawn(["/bin/sh", "-c", script], { stdin: "ignore", stdout: "ignore", stderr: "ignore", detached: true });
+    const guard = Bun.spawn(["/bin/sh", "-c", script], {
+      stdin: "ignore",
+      stdout: "ignore",
+      stderr: "ignore",
+      detached: true,
+    });
     guard.unref();
     return guard;
   } catch {
@@ -106,22 +154,58 @@ export class DevServers {
   }
 
   list(taskId?: string): DevServerInfo[] {
-    return [...this.servers.values()].map((s) => s.info).filter((s) => !taskId || s.taskId === taskId);
+    return [...this.servers.values()]
+      .map((s) => s.info)
+      .filter((s) => !taskId || s.taskId === taskId);
   }
 
   /** Starts `command` in `cwd` and waits until `url` answers (or the process exits, or time runs out). */
-  async start(o: { command: string; cwd: string; port: number; taskId?: string; timeoutMs?: number; signal?: AbortSignal; binDirs?: string[] }): Promise<DevServerInfo> {
+  async start(o: {
+    command: string;
+    cwd: string;
+    port: number;
+    taskId?: string;
+    timeoutMs?: number;
+    signal?: AbortSignal;
+    binDirs?: string[];
+  }): Promise<DevServerInfo> {
     const id = `dev${++this.seq}`;
     const url = `http://127.0.0.1:${o.port}`;
     // Something already listening there would answer the readiness probe instead of this server.
     if (!(await portFree(o.port))) {
-      const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "failed", log: [], error: `port ${o.port} is already in use; pick another (dev_server_detect suggests a free one)` };
+      const info: DevServerInfo = {
+        id,
+        taskId: o.taskId,
+        command: o.command,
+        cwd: o.cwd,
+        url,
+        port: o.port,
+        state: "failed",
+        log: [],
+        error: `port ${o.port} is already in use; pick another (dev_server_detect suggests a free one)`,
+      };
       this.notify(info);
       return info;
     }
-    const info: DevServerInfo = { id, taskId: o.taskId, command: o.command, cwd: o.cwd, url, port: o.port, state: "starting", log: [] };
+    const info: DevServerInfo = {
+      id,
+      taskId: o.taskId,
+      command: o.command,
+      cwd: o.cwd,
+      url,
+      port: o.port,
+      state: "starting",
+      log: [],
+    };
     // Its own process group, so stopping it also stops anything it forked.
-    const proc = Bun.spawn(["/bin/sh", "-c", o.command], { cwd: o.cwd, env: devEnv(o.port, o.binDirs), stdout: "pipe", stderr: "pipe", stdin: "ignore", detached: true });
+    const proc = Bun.spawn(["/bin/sh", "-c", o.command], {
+      cwd: o.cwd,
+      env: devEnv(o.port, o.binDirs),
+      stdout: "pipe",
+      stderr: "pipe",
+      stdin: "ignore",
+      detached: true,
+    });
     this.servers.set(id, { info, proc, guard: startGuard(proc.pid) });
     this.notify(info);
     let announced: string | undefined;
@@ -135,7 +219,9 @@ export class DevServers {
         for (const l of lines) {
           info.log.push(redactLine(l));
           if (info.log.length > MAX_LOG) info.log.splice(0, info.log.length - MAX_LOG);
-          const m = /(https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d+)/.exec(l.replace(/\x1b\[[0-9;]*m/g, ""));
+          const m = /(https?:\/\/(?:localhost|127\.0\.0\.1|\[::1\]):\d+)/.exec(
+            l.replace(/\x1b\[[0-9;]*m/g, ""),
+          );
           if (m && !announced) announced = m[1].replace("localhost", "127.0.0.1");
         }
       }
@@ -158,7 +244,10 @@ export class DevServers {
       }
       for (const candidate of [url, announced].filter(Boolean) as string[]) {
         try {
-          const r = await fetch(candidate, { signal: AbortSignal.timeout(2_000), redirect: "manual" });
+          const r = await fetch(candidate, {
+            signal: AbortSignal.timeout(2_000),
+            redirect: "manual",
+          });
           if (r.status > 0) {
             info.url = candidate;
             info.state = "ready";

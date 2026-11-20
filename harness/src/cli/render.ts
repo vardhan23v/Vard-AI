@@ -11,7 +11,8 @@ export type Theme = ReturnType<typeof makeTheme>;
 export function makeTheme(color: boolean) {
   const rgb = (r: number, g: number, b: number) => (s: string) =>
     color ? `\x1b[38;2;${r};${g};${b}m${s}\x1b[39m` : s;
-  const sgr = (on: number, off: number) => (s: string) => (color ? `\x1b[${on}m${s}\x1b[${off}m` : s);
+  const sgr = (on: number, off: number) => (s: string) =>
+    color ? `\x1b[${on}m${s}\x1b[${off}m` : s;
   return {
     color,
     star: rgb(0xc2, 0xb7, 0x5d),
@@ -25,7 +26,7 @@ export function makeTheme(color: boolean) {
   };
 }
 
-export function useColor(isTTY: boolean, env: Record<string, string | undefined>) {
+export function colorEnabled(isTTY: boolean, env: Record<string, string | undefined>) {
   return isTTY && !env.NO_COLOR && env.TERM !== "dumb";
 }
 
@@ -84,7 +85,9 @@ export class Spinner {
 
   private draw() {
     const frames = "⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏";
-    this.err.write(`\r\x1b[2K${this.theme.star(frames[this.frame++ % frames.length])} ${this.theme.muted(this.label)}`);
+    this.err.write(
+      `\r\x1b[2K${this.theme.star(frames[this.frame++ % frames.length])} ${this.theme.muted(this.label)}`,
+    );
   }
 
   stop() {

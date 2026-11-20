@@ -7,7 +7,15 @@ import { MemoryStore } from "../src/memory";
 import { MemorySecrets } from "../src/mcp";
 import { NonInteractivePrompter, ScriptedPrompter } from "../src/cli/prompt";
 import { TokenPrinter, makeTheme } from "../src/cli/render";
-import { routedModel, scriptedModel, sh, tmpDir, tmpGitRepo, type Turn, withReflection } from "./helpers";
+import {
+  routedModel,
+  scriptedModel,
+  sh,
+  tmpDir,
+  tmpGitRepo,
+  type Turn,
+  withReflection,
+} from "./helpers";
 
 class Buf {
   text = "";
@@ -17,12 +25,25 @@ class Buf {
   }
 }
 
-function io(over: { turns?: Turn[]; answers?: string[]; cwd?: string; stdin?: string; env?: Record<string, string> } = {}) {
+function io(
+  over: {
+    turns?: Turn[];
+    answers?: string[];
+    cwd?: string;
+    stdin?: string;
+    env?: Record<string, string>;
+  } = {},
+) {
   const out = new Buf();
   const err = new Buf();
   const home = tmpDir("vard-home-");
   const prompter = new ScriptedPrompter(over.answers ?? []);
-  const env = { VARD_HOME: home, OPENROUTER_API_KEY: "sk-or-test", GROQ_API_KEY: "gsk_test", ...over.env };
+  const env = {
+    VARD_HOME: home,
+    OPENROUTER_API_KEY: "sk-or-test",
+    GROQ_API_KEY: "gsk_test",
+    ...over.env,
+  };
   const keys = new KeyStore(env, () => ({ code: 44, stdout: "", stderr: "" }), "darwin");
   return {
     out,
@@ -50,10 +71,27 @@ describe("argument parsing", () => {
   });
 
   test("run flags", () => {
-    const p = parseCliArgs(["run", "fix", "the", "bug", "--no-plan", "--verify", "bun test", "-m", "gpt-5", "--max-steps", "12"]);
+    const p = parseCliArgs([
+      "run",
+      "fix",
+      "the",
+      "bug",
+      "--no-plan",
+      "--verify",
+      "bun test",
+      "-m",
+      "gpt-5",
+      "--max-steps",
+      "12",
+    ]);
     expect(p.command).toBe("run");
     expect(p.rest.join(" ")).toBe("fix the bug");
-    expect(p.flags).toMatchObject({ plan: false, verify: "bun test", model: "gpt-5", maxSteps: 12 });
+    expect(p.flags).toMatchObject({
+      plan: false,
+      verify: "bun test",
+      model: "gpt-5",
+      maxSteps: 12,
+    });
     expect(parseCliArgs(["run", "x", "--no-worktree"]).flags.worktree).toBe(false);
   });
 
@@ -78,16 +116,29 @@ describe("key resolution", () => {
       return { code: 0, stdout: "from-keychain\n", stderr: "" };
     };
     const ks = new KeyStore({ OPENROUTER_API_KEY: "from-env" }, run, "darwin");
-    expect(ks.resolve("openai-compatible")).toEqual({ key: "from-env", source: "env", envVar: "OPENROUTER_API_KEY" });
+    expect(ks.resolve("openai-compatible")).toEqual({
+      key: "from-env",
+      source: "env",
+      envVar: "OPENROUTER_API_KEY",
+    });
     expect(calls).toHaveLength(0);
     expect(ks.resolve("anthropic")).toEqual({ key: "from-keychain", source: "keychain" });
-    expect(calls[0]).toEqual(["find-generic-password", "-s", "ai.vard.desktop", "-a", "anthropic", "-w"]);
+    expect(calls[0]).toEqual([
+      "find-generic-password",
+      "-s",
+      "ai.vard.desktop",
+      "-a",
+      "anthropic",
+      "-w",
+    ]);
   });
 
   test("missing everywhere returns null; Gemini accepts either variable", () => {
     const none: SecurityRunner = () => ({ code: 44, stdout: "", stderr: "not found" });
     expect(new KeyStore({}, none, "darwin").resolve("openai")).toBeNull();
-    expect(new KeyStore({ GOOGLE_GENERATIVE_AI_API_KEY: "g" }, none, "darwin").resolve("google")?.key).toBe("g");
+    expect(
+      new KeyStore({ GOOGLE_GENERATIVE_AI_API_KEY: "g" }, none, "darwin").resolve("google")?.key,
+    ).toBe("g");
     expect(new KeyStore({}, none, "linux").resolve("openai")).toBeNull();
   });
 
@@ -116,7 +167,11 @@ describe("key resolution", () => {
   test("keys set reads a piped key", async () => {
     const calls: { args: string[]; input?: string }[] = [];
     const h = io({ stdin: "sk-or-piped\n" });
-    h.opts.keys = new KeyStore({}, (args, input) => (calls.push({ args, input }), { code: 0, stdout: "", stderr: "" }), "darwin");
+    h.opts.keys = new KeyStore(
+      {},
+      (args, input) => (calls.push({ args, input }), { code: 0, stdout: "", stderr: "" }),
+      "darwin",
+    );
     expect(await runCli(["keys", "set", "openrouter"], h.opts)).toBe(0);
     expect(calls.find((c) => c.args[0] === "-i")?.input).toContain('-w "sk-or-piped"');
     expect(h.out.text).not.toContain("sk-or-piped");
@@ -162,7 +217,14 @@ describe("run", () => {
   const turns: Turn[] = [
     { calls: [{ name: "read_file", input: { path: "hello.txt" } }] },
     { text: "1. Change world to vard in hello.txt" },
-    { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+    {
+      calls: [
+        {
+          name: "edit_file",
+          input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+        },
+      ],
+    },
     { calls: [{ name: "run_command", input: { command: "cat hello.txt" } }] },
     { text: "Changed hello.txt." },
   ];
@@ -175,7 +237,9 @@ describe("run", () => {
     expect(h.err.text).toBe("");
     expect(code).toBe(0);
     expect(fs.readFileSync(path.join(repo, "hello.txt"), "utf8")).toBe("hello vard\n");
-    expect(sh(repo, ["git", "log", "--oneline"]).split("\n").filter(Boolean).length).toBeGreaterThan(1);
+    expect(
+      sh(repo, ["git", "log", "--oneline"]).split("\n").filter(Boolean).length,
+    ).toBeGreaterThan(1);
     // the streamed plan and summary are shown once, not repeated
     expect(h.out.text.split("Change world to vard").length - 1).toBe(1);
     expect(h.out.text.split("Changed hello.txt.").length - 1).toBe(1);
@@ -198,13 +262,23 @@ describe("run", () => {
   test("recovers when the provider rejects a malformed tool call", async () => {
     const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
     const good = scriptedModel([
-      { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+      {
+        calls: [
+          {
+            name: "edit_file",
+            input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+          },
+        ],
+      },
       { text: "Fixed." },
     ]);
     let calls = 0;
     const flaky = scriptedModel([]);
     flaky.doStream = async (o: any) => {
-      if (calls++ === 0) throw new Error("Tool call validation failed: parameters for tool search did not match schema");
+      if (calls++ === 0)
+        throw new Error(
+          "Tool call validation failed: parameters for tool search did not match schema",
+        );
       return good.doStream(o);
     };
     const h = io({ cwd: repo, answers: ["m"] });
@@ -219,17 +293,30 @@ describe("run", () => {
     h.opts.modelFactory = () =>
       withReflection(
         scriptedModel([
-          { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+          {
+            calls: [
+              {
+                name: "edit_file",
+                input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+              },
+            ],
+          },
           { text: "Done." },
         ]),
         '[{"category":"architecture","text":"Greetings live in hello.txt"},{"category":"preferences","text":"Keep greetings lowercase always"}]',
       );
     expect(await runCli(["run", "fix it", "--no-plan"], h.opts)).toBe(0);
     expect(h.out.text).toContain("Remember for next time?");
-    const mem = new MemoryStore(repo).active().map((e) => e.text).join("\n");
+    const mem = new MemoryStore(repo)
+      .active()
+      .map((e) => e.text)
+      .join("\n");
     expect(mem).toContain("Greetings live in hello.txt");
     expect(mem).not.toContain("lowercase");
-    expect(new MemoryStore(repo).active().find((e) => e.text.includes("hello.txt"))).toMatchObject({ status: "verified", source: "task" });
+    expect(new MemoryStore(repo).active().find((e) => e.text.includes("hello.txt"))).toMatchObject({
+      status: "verified",
+      source: "task",
+    });
     // memory command shows it
     const show = io({ cwd: repo });
     expect(await runCli(["memory"], show.opts)).toBe(0);
@@ -241,7 +328,14 @@ describe("run", () => {
     const make = () =>
       withReflection(
         scriptedModel([
-          { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+          {
+            calls: [
+              {
+                name: "edit_file",
+                input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+              },
+            ],
+          },
           { text: "Done." },
         ]),
         '[{"category":"architecture","text":"Greetings live in hello.txt"}]',
@@ -255,7 +349,9 @@ describe("run", () => {
     h2.opts.prompter = new NonInteractivePrompter(true) as any;
     h2.opts.modelFactory = make;
     await runCli(["run", "fix it again", "--no-plan", "--yes", "--remember"], h2.opts);
-    expect(new MemoryStore(repo).active().some((e) => e.text === "Greetings live in hello.txt")).toBe(true);
+    expect(
+      new MemoryStore(repo).active().some((e) => e.text === "Greetings live in hello.txt"),
+    ).toBe(true);
   });
 
   test("outside a git repo it explains instead of editing in place", async () => {
@@ -280,12 +376,16 @@ describe("vard mcp", () => {
       return { code, out: o.out.text, err: o.err.text };
     };
     expect((await run("list")).out).toContain("No MCP servers yet");
-    expect((await run("add", "mock", "--", process.execPath, mock)).out).toContain("Added mock (global)");
+    expect((await run("add", "mock", "--", process.execPath, mock)).out).toContain(
+      "Added mock (global)",
+    );
     expect((await run("list")).out).toMatch(/mock\s+not connected/);
     const t = await run("test", "mock");
     expect(t.code).toBe(0);
     expect(t.out).toContain("mock 1.2.3 · protocol 2025-11-25 · 12 tools, 2 resources, 1 prompts");
-    expect((await run("tools", "mock")).out).toContain("delete_all mcp__mock__delete_all (destructive)");
+    expect((await run("tools", "mock")).out).toContain(
+      "delete_all mcp__mock__delete_all (destructive)",
+    );
     expect((await run("prompts", "mock")).out).toContain("review topic");
     expect((await run("permissions", "allow", "mock/echo")).out).toContain("allow mock/echo");
     expect((await run("revoke", "mock/")).out).toContain("every call asks");
@@ -306,7 +406,15 @@ describe("models and config", () => {
 
 describe("vard skills", () => {
   test("parses --skill (repeatable) and --no-skills", () => {
-    const p = parseCliArgs(["run", "x", "--skill", "react-development", "--skill", "testing-strategy", "--no-skills"]);
+    const p = parseCliArgs([
+      "run",
+      "x",
+      "--skill",
+      "react-development",
+      "--skill",
+      "testing-strategy",
+      "--no-skills",
+    ]);
     expect(p.flags.skill).toEqual(["react-development", "testing-strategy"]);
     expect(p.flags.skills).toBe(false);
     expect(parseCliArgs(["skills", "list"]).command).toBe("skills");
@@ -319,7 +427,9 @@ describe("vard skills", () => {
     expect(h.out.text).toContain("Built-in");
     expect(h.out.text).toContain("react-development");
 
-    expect(await runCli(["skills", "new", "team-style", "--description", "Our team style"], h.opts)).toBe(0);
+    expect(
+      await runCli(["skills", "new", "team-style", "--description", "Our team style"], h.opts),
+    ).toBe(0);
     expect(fs.existsSync(path.join(h.home, "skills", "team-style", "SKILL.md"))).toBe(true);
     expect(await runCli(["skills", "validate", "team-style"], h.opts)).toBe(0);
     expect(await runCli(["skills", "disable", "team-style"], h.opts)).toBe(0);
@@ -330,7 +440,10 @@ describe("vard skills", () => {
 
     const src = tmpDir();
     fs.mkdirSync(path.join(src, "ext"));
-    fs.writeFileSync(path.join(src, "ext", "SKILL.md"), "---\nname: ext\ndescription: External\n---\nDo it.\n");
+    fs.writeFileSync(
+      path.join(src, "ext", "SKILL.md"),
+      "---\nname: ext\ndescription: External\n---\nDo it.\n",
+    );
     h.out.text = "";
     expect(await runCli(["skills", "import", path.join(src, "ext")], h.opts)).toBe(0);
     expect(h.out.text).toContain("Imported global:ext");
@@ -345,11 +458,25 @@ describe("vard skills", () => {
   test("vard run --skill shows the skills in use", async () => {
     const repo = tmpGitRepo();
     const h = io({ cwd: repo, stdin: "", turns: [{ text: "Nothing to change." }] });
-    const code = await runCli(["run", "check things", "--no-plan", "--no-worktree", "--no-memory", "--skill", "code-review", "-y"], h.opts);
+    const code = await runCli(
+      [
+        "run",
+        "check things",
+        "--no-plan",
+        "--no-worktree",
+        "--no-memory",
+        "--skill",
+        "code-review",
+        "-y",
+      ],
+      h.opts,
+    );
     expect(code).toBe(0);
     expect(h.out.text).toContain("Skills: code-review");
     const bad = io({ cwd: repo, stdin: "" });
-    expect(await runCli(["run", "x", "--no-plan", "--skill", "missing", "-y"], bad.opts)).not.toBe(0);
+    expect(await runCli(["run", "x", "--no-plan", "--skill", "missing", "-y"], bad.opts)).not.toBe(
+      0,
+    );
     expect(bad.err.text).toContain("missing");
   });
 });
@@ -366,15 +493,32 @@ describe("vard run --team", () => {
     const plan = {
       summary: "two parts",
       tasks: [
-        { id: "api", title: "Add the API", role: "backend", description: "write api.txt", files: ["api.txt"] },
-        { id: "ui", title: "Add the UI", role: "frontend", description: "write ui.txt", dependsOn: ["api"], files: ["ui.txt"] },
+        {
+          id: "api",
+          title: "Add the API",
+          role: "backend",
+          description: "write api.txt",
+          files: ["api.txt"],
+        },
+        {
+          id: "ui",
+          title: "Add the UI",
+          role: "frontend",
+          description: "write ui.txt",
+          dependsOn: ["api"],
+          files: ["ui.txt"],
+        },
       ],
     };
     const model = routedModel((r) => {
-      if (r.task.startsWith("Plan this request")) return { text: "```json\n" + JSON.stringify(plan) + "\n```" };
-      if (r.task.startsWith("Review the combined")) return { text: '```json\n{"verdict":"approve","summary":"Fine.","findings":[]}\n```' };
+      if (r.task.startsWith("Plan this request"))
+        return { text: "```json\n" + JSON.stringify(plan) + "\n```" };
+      if (r.task.startsWith("Review the combined"))
+        return { text: '```json\n{"verdict":"approve","summary":"Fine.","findings":[]}\n```' };
       const sub = /subtask "([^"]+)"/.exec(r.task)?.[1];
-      return r.step === 0 ? { calls: [{ name: "write_file", input: { path: `${sub}.txt`, content: `${sub}\n` } }] } : { text: `${sub} done` };
+      return r.step === 0
+        ? { calls: [{ name: "write_file", input: { path: `${sub}.txt`, content: `${sub}\n` } }] }
+        : { text: `${sub} done` };
     });
     const h = io({ cwd: repo, stdin: "" });
     h.opts.modelFactory = () => model;

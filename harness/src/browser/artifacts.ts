@@ -13,7 +13,8 @@ export const MAX_ARTIFACT_READ = 8 * 1024 * 1024;
 export const artifactsRoot = (projectRoot: string) => path.join(projectRoot, ".vard", "artifacts");
 
 /** The folder name a run's artifacts are saved under. */
-export const runFolder = (run: string) => run.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "browser";
+export const runFolder = (run: string) =>
+  run.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "browser";
 
 export function runDir(projectRoot: string, run: string): string {
   ensureVardDir(projectRoot);
@@ -24,7 +25,8 @@ export function runDir(projectRoot: string, run: string): string {
 
 /** A run folder name: one path segment, nothing that could leave .vard/artifacts. */
 function safeRun(run: string): string {
-  if (!/^[A-Za-z0-9._-]{1,120}$/.test(run) || run === "." || run === "..") throw new BrowserError("blocked", `invalid artifact folder: ${run}`);
+  if (!/^[A-Za-z0-9._-]{1,120}$/.test(run) || run === "." || run === "..")
+    throw new BrowserError("blocked", `invalid artifact folder: ${run}`);
   return run;
 }
 
@@ -66,7 +68,10 @@ export function listArtifacts(projectRoot: string, run?: string): ArtifactInfo[]
 }
 
 /** Reads an artifact for the UI: only files under .vard/artifacts, never through symlinks, max 8 MB. */
-export function readArtifact(projectRoot: string, file: string): { data: string; mediaType: string; bytes: number } {
+export function readArtifact(
+  projectRoot: string,
+  file: string,
+): { data: string; mediaType: string; bytes: number } {
   const root = fs.realpathSync(artifactsRoot(projectRoot));
   let real: string;
   try {
@@ -74,22 +79,35 @@ export function readArtifact(projectRoot: string, file: string): { data: string;
   } catch {
     throw new BrowserError("not_found", "no such artifact");
   }
-  if (!real.startsWith(root + path.sep)) throw new BrowserError("blocked", "only files in .vard/artifacts can be read");
+  if (!real.startsWith(root + path.sep))
+    throw new BrowserError("blocked", "only files in .vard/artifacts can be read");
   const st = fs.statSync(real);
   if (!st.isFile()) throw new BrowserError("not_found", "not a file");
-  if (st.size > MAX_ARTIFACT_READ) throw new BrowserError("blocked", "artifact is larger than 8 MB");
+  if (st.size > MAX_ARTIFACT_READ)
+    throw new BrowserError("blocked", "artifact is larger than 8 MB");
   const ext = path.extname(real).toLowerCase();
-  const mediaType = ext === ".png" ? "image/png" : ext === ".jpg" || ext === ".jpeg" ? "image/jpeg" : ext === ".json" ? "application/json" : "text/plain";
+  const mediaType =
+    ext === ".png"
+      ? "image/png"
+      : ext === ".jpg" || ext === ".jpeg"
+        ? "image/jpeg"
+        : ext === ".json"
+          ? "application/json"
+          : "text/plain";
   return { data: fs.readFileSync(real).toString("base64"), mediaType, bytes: st.size };
 }
 
 /** Deletes artifacts the user chose: one run, runs older than N days, or everything (except `keepRuns`). */
-export function cleanArtifacts(projectRoot: string, o: { run?: string; olderThanDays?: number; keepRuns?: string[] } = {}): { removed: number; bytes: number } {
+export function cleanArtifacts(
+  projectRoot: string,
+  o: { run?: string; olderThanDays?: number; keepRuns?: string[] } = {},
+): { removed: number; bytes: number } {
   if (o.run) safeRun(o.run);
   const root = path.resolve(artifactsRoot(projectRoot));
   let removed = 0;
   let bytes = 0;
-  const cutoff = o.olderThanDays !== undefined ? Date.now() - o.olderThanDays * 86_400_000 : Infinity;
+  const cutoff =
+    o.olderThanDays !== undefined ? Date.now() - o.olderThanDays * 86_400_000 : Infinity;
   for (const a of listArtifacts(projectRoot, o.run)) {
     if (o.olderThanDays !== undefined && a.at > cutoff) continue;
     if (o.keepRuns?.includes(a.run)) continue;

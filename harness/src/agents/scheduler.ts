@@ -60,7 +60,8 @@ export class Scheduler {
     h.signal.addEventListener("abort", onAbort);
     try {
       for (;;) {
-        for (const b of propagateBlocked(subs)) h.onChange(b, `blocked by ${b.blockedBy?.join(", ")}`);
+        for (const b of propagateBlocked(subs))
+          h.onChange(b, `blocked by ${b.blockedBy?.join(", ")}`);
         if (h.signal.aborted) {
           for (const s of subs) if (s.status === "pending") this.set(s, { status: "cancelled" });
           await Promise.allSettled(active.values());
@@ -69,11 +70,15 @@ export class Scheduler {
         if (!h.paused()) {
           if (!h.budgetLeft()) {
             for (const s of subs)
-              if (s.status === "pending") this.set(s, { status: "skipped", error: "the run's token budget is used up" });
+              if (s.status === "pending")
+                this.set(s, { status: "skipped", error: "the run's token budget is used up" });
           } else
             for (const s of readySubtasks(subs)) {
               if (active.size >= h.maxAgents) break;
-              active.set(s.id, this.dispatch(s).finally(() => active.delete(s.id)));
+              active.set(
+                s.id,
+                this.dispatch(s).finally(() => active.delete(s.id)),
+              );
               this.peak = Math.max(this.peak, active.size);
             }
         }
@@ -110,16 +115,26 @@ export class Scheduler {
     const ms = h.timeoutMs(s);
     let used = 0;
     let last = Date.now();
-    const timer = setInterval(() => {
-      const now = Date.now();
-      if (!h.paused()) used += now - last;
-      last = now;
-      if (used >= ms) {
-        entry.reason = "timeout";
-        ctrl.abort();
-      }
-    }, Math.min(1_000, Math.max(10, Math.floor(ms / 4))));
-    this.set(s, { status: "running", attempts: s.attempts + 1, startedAt: Date.now(), endedAt: undefined, error: undefined, question: undefined });
+    const timer = setInterval(
+      () => {
+        const now = Date.now();
+        if (!h.paused()) used += now - last;
+        last = now;
+        if (used >= ms) {
+          entry.reason = "timeout";
+          ctrl.abort();
+        }
+      },
+      Math.min(1_000, Math.max(10, Math.floor(ms / 4))),
+    );
+    this.set(s, {
+      status: "running",
+      attempts: s.attempts + 1,
+      startedAt: Date.now(),
+      endedAt: undefined,
+      error: undefined,
+      question: undefined,
+    });
     let out: Outcome;
     try {
       out = await h.run(s, AbortSignal.any([h.signal, ctrl.signal]));
@@ -130,24 +145,53 @@ export class Scheduler {
       this.controllers.delete(s.id);
     }
     if (out.status === "cancelled" && entry.reason === "timeout")
-      out = { status: "failed", error: `timed out after ${Math.round(ms / 60_000) || 1} min`, retryable: true };
+      out = {
+        status: "failed",
+        error: `timed out after ${Math.round(ms / 60_000) || 1} min`,
+        retryable: true,
+      };
     const canRetry = s.attempts <= h.retries && !h.signal.aborted;
     const ended = { endedAt: Date.now() };
     switch (out.status) {
       case "completed":
         return this.set(s, { status: "completed", result: out.result, note: undefined, ...ended });
       case "cancelled":
-        return this.set(s, { status: "cancelled", error: entry.reason === "user" ? "cancelled by you" : "cancelled", ...ended });
+        return this.set(s, {
+          status: "cancelled",
+          error: entry.reason === "user" ? "cancelled by you" : "cancelled",
+          ...ended,
+        });
       case "needs_input":
-        return this.set(s, { status: "needs_attention", question: out.question, ...ended }, "needs input");
+        return this.set(
+          s,
+          { status: "needs_attention", question: out.question, ...ended },
+          "needs input",
+        );
       case "conflict": {
         const note = `Your previous attempt conflicted with work merged meanwhile (${out.files.join(", ")}). Start again from the current code and make your change fit it.`;
-        if (canRetry) return this.set(s, { status: "pending", note, error: `merge conflict in ${out.files.join(", ")}` }, "retrying after a merge conflict");
-        return this.set(s, { status: "needs_attention", error: `merge conflict in ${out.files.join(", ")}`, ...ended });
+        if (canRetry)
+          return this.set(
+            s,
+            { status: "pending", note, error: `merge conflict in ${out.files.join(", ")}` },
+            "retrying after a merge conflict",
+          );
+        return this.set(s, {
+          status: "needs_attention",
+          error: `merge conflict in ${out.files.join(", ")}`,
+          ...ended,
+        });
       }
       case "failed":
         if (canRetry && out.retryable)
-          return this.set(s, { status: "pending", note: `Your previous attempt failed: ${out.error}`, error: out.error }, "retrying");
+          return this.set(
+            s,
+            {
+              status: "pending",
+              note: `Your previous attempt failed: ${out.error}`,
+              error: out.error,
+            },
+            "retrying",
+          );
         return this.set(s, { status: "failed", error: out.error, ...ended });
     }
   }

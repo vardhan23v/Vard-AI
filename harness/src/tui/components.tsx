@@ -14,10 +14,23 @@ export type Item =
   | { id: number; kind: "tool"; tool: string; detail: string; ok?: boolean; error?: string }
   | { id: number; kind: "plan"; text: string }
   | { id: number; kind: "todos"; todos: { content: string; status: string }[] }
-  | { id: number; kind: "verify"; status: "running" | "passed" | "failed"; command: string; output?: string }
+  | {
+      id: number;
+      kind: "verify";
+      status: "running" | "passed" | "failed";
+      command: string;
+      output?: string;
+    }
   | { id: number; kind: "notice"; text: string; tone?: "muted" | "error" | "ok" | "star" }
   | { id: number; kind: "diff"; diff: string }
-  | { id: number; kind: "memory"; entries: MemoryEntry[]; path: string; total: number; query?: string }
+  | {
+      id: number;
+      kind: "memory";
+      entries: MemoryEntry[];
+      path: string;
+      total: number;
+      query?: string;
+    }
   | { id: number; kind: "help" };
 
 const LOGO = [
@@ -42,12 +55,18 @@ export function fitPath(p: string, max: number) {
  * columns), logo above it in medium windows, and no logo in narrow ones. Nothing ever wraps
  * mid-logo.
  */
-export function Banner({ item, columns }: { item: Extract<Item, { kind: "banner" }>; columns: number }) {
+export function Banner({
+  item,
+  columns,
+}: {
+  item: Extract<Item, { kind: "banner" }>;
+  columns: number;
+}) {
   const showLogo = columns >= LOGO_WIDTH + 4;
   const sideBySide = columns >= LOGO_WIDTH + 3 + 44 + 2;
   const title = (
     <Box flexDirection="column" justifyContent="center" flexShrink={1}>
-      <Text color={C.star}>✦ ·  ✧   ·  ✦</Text>
+      <Text color={C.star}>✦ · ✧ · ✦</Text>
       <Text bold color={C.ink}>
         Vard AI <Text color={C.muted}>v{item.version}</Text>
       </Text>
@@ -82,7 +101,13 @@ export function Banner({ item, columns }: { item: Extract<Item, { kind: "banner"
           {title}
         </Box>
       )}
-      <Box borderStyle="round" borderColor={C.line} paddingX={1} marginTop={1} flexDirection="column">
+      <Box
+        borderStyle="round"
+        borderColor={C.line}
+        paddingX={1}
+        marginTop={1}
+        flexDirection="column"
+      >
         <Text color={C.ink} wrap="truncate-end">
           {fitPath(item.cwd, inner)}
         </Text>
@@ -144,7 +169,8 @@ function Help() {
         Keys
       </Text>
       <Text color={C.ink2}>
-        Enter send · Ctrl+J or Alt+Enter new line · ↑↓ history · Tab complete · Esc stop · Ctrl+C twice quit
+        Enter send · Ctrl+J or Alt+Enter new line · ↑↓ history · Tab complete · Esc stop · Ctrl+C
+        twice quit
       </Text>
     </Box>
   );
@@ -211,7 +237,13 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
       );
     case "plan":
       return (
-        <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor={C.star} paddingX={1}>
+        <Box
+          marginTop={1}
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={C.star}
+          paddingX={1}
+        >
           <Text bold color={C.star}>
             Plan
           </Text>
@@ -223,10 +255,17 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
         <Box flexDirection="column" paddingLeft={2}>
           {item.todos.map((t, i) => (
             <Text key={i}>
-              <Text color={t.status === "completed" ? C.sage : t.status === "in_progress" ? C.star : C.muted}>
+              <Text
+                color={
+                  t.status === "completed" ? C.sage : t.status === "in_progress" ? C.star : C.muted
+                }
+              >
                 {t.status === "completed" ? "✓" : t.status === "in_progress" ? "●" : "○"}{" "}
               </Text>
-              <Text color={t.status === "completed" ? C.muted : C.ink} strikethrough={t.status === "completed"}>
+              <Text
+                color={t.status === "completed" ? C.muted : C.ink}
+                strikethrough={t.status === "completed"}
+              >
                 {t.content}
               </Text>
             </Text>
@@ -237,7 +276,11 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
       return (
         <Box flexDirection="column" paddingLeft={2}>
           <Text>
-            <Text color={item.status === "failed" ? C.danger : item.status === "passed" ? C.sage : C.cerulean}>
+            <Text
+              color={
+                item.status === "failed" ? C.danger : item.status === "passed" ? C.sage : C.cerulean
+              }
+            >
               {item.status === "failed" ? "✗" : item.status === "passed" ? "✓" : "⟳"}{" "}
             </Text>
             <Text color={C.ink}>verify </Text>
@@ -252,7 +295,13 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
       );
     case "notice": {
       const color =
-        item.tone === "error" ? C.danger : item.tone === "ok" ? C.sage : item.tone === "star" ? C.star : C.muted;
+        item.tone === "error"
+          ? C.danger
+          : item.tone === "ok"
+            ? C.sage
+            : item.tone === "star"
+              ? C.star
+              : C.muted;
       return (
         <Box paddingLeft={2} marginTop={item.tone === "ok" || item.tone === "error" ? 1 : 0}>
           <Text color={color}>{item.text}</Text>
@@ -261,11 +310,20 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
     }
     case "memory":
       return (
-        <Box marginTop={1} flexDirection="column" borderStyle="round" borderColor={C.cerulean} paddingX={1}>
+        <Box
+          marginTop={1}
+          flexDirection="column"
+          borderStyle="round"
+          borderColor={C.cerulean}
+          paddingX={1}
+        >
           <Text bold color={C.cerulean}>
             Project memory{" "}
             <Text color={C.muted}>
-              · {item.query ? `${item.entries.length} of ${item.total} match "${item.query}"` : `${item.total} notes`}
+              ·{" "}
+              {item.query
+                ? `${item.entries.length} of ${item.total} match "${item.query}"`
+                : `${item.total} notes`}
             </Text>
           </Text>
           {CATEGORIES.map((c) => {
@@ -279,7 +337,9 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
                 {rows.map((e) => (
                   <Box key={e.id}>
                     <Box width={2} flexShrink={0}>
-                      <Text color={e.status === "verified" ? C.sage : C.star}>{e.status === "verified" ? "✓" : "?"}</Text>
+                      <Text color={e.status === "verified" ? C.sage : C.star}>
+                        {e.status === "verified" ? "✓" : "?"}
+                      </Text>
                     </Box>
                     <Box flexShrink={1}>
                       <Text color={C.ink}>
@@ -293,8 +353,9 @@ export function ItemView({ item, columns = 100 }: { item: Item; columns?: number
             );
           })}
           <Text color={C.muted}>
-            {"\n"}✓ verified · ? inferred (unconfirmed) · manage with <Text color={C.star}>vard memory</Text> (list, edit, rm,
-            verify) · /memory analyze · /memory search …
+            {"\n"}✓ verified · ? inferred (unconfirmed) · manage with{" "}
+            <Text color={C.star}>vard memory</Text> (list, edit, rm, verify) · /memory analyze ·
+            /memory search …
           </Text>
           <Text color={C.muted} wrap="truncate-start">
             {item.path}
@@ -338,7 +399,9 @@ const AGENT_MARK: Record<string, [string, string]> = {
 
 /** One line per agent of a team run: status, role, current activity, steps. */
 export function TeamPanel({ agents }: { agents: TeamAgent[] }) {
-  const shown = agents.filter((a) => !["completed", "cancelled"].includes(a.status) || agents.length <= 6).slice(-8);
+  const shown = agents
+    .filter((a) => !["completed", "cancelled"].includes(a.status) || agents.length <= 6)
+    .slice(-8);
   return (
     <Box flexDirection="column" paddingLeft={2} marginTop={1}>
       {shown.map((a) => {
@@ -347,9 +410,14 @@ export function TeamPanel({ agents }: { agents: TeamAgent[] }) {
           <Box key={a.agentId}>
             <Text color={color}>{mark} </Text>
             <Text bold>{a.agentId.padEnd(22).slice(0, 22)}</Text>
-            <Text color={C.muted}> {String(a.steps).padStart(2)}/{a.maxSteps} </Text>
+            <Text color={C.muted}>
+              {" "}
+              {String(a.steps).padStart(2)}/{a.maxSteps}{" "}
+            </Text>
             <Text color={C.muted} wrap="truncate-end">
-              {a.status === "running" || a.status === "created" ? (a.activity ?? "starting") : a.status.replace("_", " ")}
+              {a.status === "running" || a.status === "created"
+                ? (a.activity ?? "starting")
+                : a.status.replace("_", " ")}
             </Text>
           </Box>
         );
@@ -456,7 +524,13 @@ export function ChoiceModal(p: {
 
 export type PickerRow = { id: string; label: string; detail?: string; current?: boolean };
 
-export function Picker(p: { title: string; rows: PickerRow[]; filter: string; selected: number; empty?: string }) {
+export function Picker(p: {
+  title: string;
+  rows: PickerRow[];
+  filter: string;
+  selected: number;
+  empty?: string;
+}) {
   const max = 10;
   const start = Math.max(0, Math.min(p.selected - Math.floor(max / 2), p.rows.length - max));
   const visible = p.rows.slice(start, start + max);

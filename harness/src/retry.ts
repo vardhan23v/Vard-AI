@@ -15,7 +15,11 @@ export interface RetryOptions {
   maxDelayMs: number;
 }
 
-export const DEFAULT_RETRY: RetryOptions = { maxAttempts: 8, baseDelayMs: 2_000, maxDelayMs: 60_000 };
+export const DEFAULT_RETRY: RetryOptions = {
+  maxAttempts: 8,
+  baseDelayMs: 2_000,
+  maxDelayMs: 60_000,
+};
 
 const RETRYABLE_STATUS = new Set([408, 409, 425, 429, 500, 502, 503, 504, 529]);
 
@@ -35,7 +39,9 @@ export function isRetryable(e: unknown): boolean {
 export function isToolCallRejection(e: unknown): boolean {
   const err = apiError(e);
   const text = `${err?.responseBody ?? ""} ${(e as Error)?.message ?? ""}`;
-  return /tool call validation failed|tool_use_failed|failed to call a function|failed_generation/i.test(text);
+  return /tool call validation failed|tool_use_failed|failed to call a function|failed_generation/i.test(
+    text,
+  );
 }
 
 /** Delay the provider asked for, in ms, if any. */
@@ -54,7 +60,12 @@ export function retryAfterMs(e: unknown, now = Date.now()): number | undefined {
 }
 
 /** Delay before attempt `attempt + 1` (attempt is 1-based), or undefined to give up. */
-export function nextDelay(e: unknown, attempt: number, opts: RetryOptions, rand = Math.random): number | undefined {
+export function nextDelay(
+  e: unknown,
+  attempt: number,
+  opts: RetryOptions,
+  rand = Math.random,
+): number | undefined {
   if (attempt >= opts.maxAttempts || !isRetryable(e)) return undefined;
   const asked = retryAfterMs(e);
   if (asked != null) return Math.min(asked, opts.maxDelayMs);

@@ -24,7 +24,9 @@ export function ModelPicker() {
         {PROVIDERS.map((p, i) => (
           <div key={p.id}>
             {i > 0 && <DropdownMenuSeparator />}
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">{p.label}</DropdownMenuLabel>
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              {p.label}
+            </DropdownMenuLabel>
             {p.models.map((m) => {
               const selected = choice.provider === p.id && choice.model === m.id;
               return (

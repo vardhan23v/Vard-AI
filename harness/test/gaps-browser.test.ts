@@ -1,7 +1,17 @@
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { applyRetention, BrowserManager, browserSettingsPath, browserTools, detectBrowser, DevServers, listArtifacts, loadBrowserSettings, saveBrowserSettings } from "../src/browser";
+import {
+  applyRetention,
+  BrowserManager,
+  browserSettingsPath,
+  browserTools,
+  detectBrowser,
+  DevServers,
+  listArtifacts,
+  loadBrowserSettings,
+  saveBrowserSettings,
+} from "../src/browser";
 import { MemoryRulesStore } from "../src/policy";
 import { type Event, parseRequest } from "../src/protocol";
 import { Server } from "../src/server";
@@ -10,7 +20,10 @@ import { textOf } from "../src/tools/types";
 import { tmpDir, tmpGitRepo } from "./helpers";
 
 const HAS_BROWSER = detectBrowser().installed;
-if (!HAS_BROWSER) console.warn("[browser gap tests] No Chromium found; browser tests are skipped. Run: vard browser install");
+if (!HAS_BROWSER)
+  console.warn(
+    "[browser gap tests] No Chromium found; browser tests are skipped. Run: vard browser install",
+  );
 
 const head = `<meta name="viewport" content="width=device-width,initial-scale=1"><style>body{margin:0;font:16px sans-serif} a,button{display:inline-block;padding:12px;min-width:44px;min-height:44px}`;
 const PAGES: Record<string, string> = {
@@ -39,7 +52,9 @@ beforeAll(() => {
     hostname: "127.0.0.1",
     fetch(req) {
       const body = PAGES[new URL(req.url).pathname];
-      return body === undefined ? new Response("not found", { status: 404 }) : new Response(body, { headers: { "content-type": "text/html" } });
+      return body === undefined
+        ? new Response("not found", { status: 404 })
+        : new Response(body, { headers: { "content-type": "text/html" } });
     },
   });
   base = `http://127.0.0.1:${server.port}`;
@@ -51,12 +66,23 @@ function setup() {
   const mgr = new BrowserManager();
   const tools = browserTools({ mgr, dev: new DevServers() });
   const t = (n: string) => tools.find((x) => x.name === n)! as ToolDef<any>;
-  const ctx: ToolContext = { workRoot: project, projectRoot: project, todos: [], setTodos() {}, taskId: "g1" };
-  const run = async (n: string, input: object) => textOf(await t(n).execute(t(n).inputSchema.parse(input), ctx));
+  const ctx: ToolContext = {
+    workRoot: project,
+    projectRoot: project,
+    todos: [],
+    setTodos() {},
+    taskId: "g1",
+  };
+  const run = async (n: string, input: object) =>
+    textOf(await t(n).execute(t(n).inputSchema.parse(input), ctx));
   const responsive = async (page: string) => {
     await run("browser_navigate", { url: `${base}${page}` });
     const r = await run("browser_test_responsive", { viewports: ["mobile", "desktop"] });
-    return { all: r, mobile: r.split("## mobile")[1]?.split("##")[0] ?? "", desktop: r.split("## desktop")[1]?.split("##")[0] ?? "" };
+    return {
+      all: r,
+      mobile: r.split("## mobile")[1]?.split("##")[0] ?? "",
+      desktop: r.split("## desktop")[1]?.split("##")[0] ?? "",
+    };
   };
   return { mgr, responsive };
 }
@@ -102,42 +128,117 @@ describe.skipIf(!HAS_BROWSER)("inspect gaps (real Chromium, local pages)", () =>
 
 function server_(o: { store?: MemoryRulesStore; home?: string } = {}) {
   const events: Event[] = [];
-  const s = new Server({ write: (e) => events.push(e), ...(o.store ? { rulesStoreFor: () => o.store! } : {}), skillsHome: o.home ?? tmpDir() });
-  return { s, events, last: <T extends Event["type"]>(type: T) => events.filter((e) => e.type === type).at(-1) as Extract<Event, { type: T }> | undefined };
+  const s = new Server({
+    write: (e) => events.push(e),
+    ...(o.store ? { rulesStoreFor: () => o.store! } : {}),
+    skillsHome: o.home ?? tmpDir(),
+  });
+  return {
+    s,
+    events,
+    last: <T extends Event["type"]>(type: T) =>
+      events.filter((e) => e.type === type).at(-1) as Extract<Event, { type: T }> | undefined,
+  };
 }
 
 describe("remembered browser origins", () => {
   test("protocol shapes parse", () => {
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.origins", projectRoot: "/p" })).ok).toBe(true);
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.origins", projectRoot: "/p", remove: "https://a.example" })).ok).toBe(true);
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.origins", projectRoot: "" })).ok).toBe(false);
+    expect(
+      parseRequest(JSON.stringify({ id: "1", type: "browser.origins", projectRoot: "/p" })).ok,
+    ).toBe(true);
+    expect(
+      parseRequest(
+        JSON.stringify({
+          id: "1",
+          type: "browser.origins",
+          projectRoot: "/p",
+          remove: "https://a.example",
+        }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      parseRequest(JSON.stringify({ id: "1", type: "browser.origins", projectRoot: "" })).ok,
+    ).toBe(false);
     expect(parseRequest(JSON.stringify({ id: "1", type: "browser.settings" })).ok).toBe(true);
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.settings", settings: { artifactRetentionDays: 30 } })).ok).toBe(true);
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.settings", settings: { artifactRetentionDays: 366 } })).ok).toBe(false);
-    expect(parseRequest(JSON.stringify({ id: "1", type: "browser.settings", settings: { artifactRetentionDays: 1.5 } })).ok).toBe(false);
+    expect(
+      parseRequest(
+        JSON.stringify({
+          id: "1",
+          type: "browser.settings",
+          settings: { artifactRetentionDays: 30 },
+        }),
+      ).ok,
+    ).toBe(true);
+    expect(
+      parseRequest(
+        JSON.stringify({
+          id: "1",
+          type: "browser.settings",
+          settings: { artifactRetentionDays: 366 },
+        }),
+      ).ok,
+    ).toBe(false);
+    expect(
+      parseRequest(
+        JSON.stringify({
+          id: "1",
+          type: "browser.settings",
+          settings: { artifactRetentionDays: 1.5 },
+        }),
+      ).ok,
+    ).toBe(false);
   });
 
   test("list and remove through Server.handle (rules store)", async () => {
-    const store = new MemoryRulesStore({ allowlist: ["bun test"], tools: [], browserOrigins: ["https://staging.example.com", "https://preview.example.com"] });
+    const store = new MemoryRulesStore({
+      allowlist: ["bun test"],
+      tools: [],
+      browserOrigins: ["https://staging.example.com", "https://preview.example.com"],
+    });
     const { s, last } = server_({ store });
     await s.handle({ id: "o1", type: "browser.origins", projectRoot: "/proj" });
-    expect(last("browser_origins")).toMatchObject({ id: "o1", projectRoot: "/proj", origins: ["https://staging.example.com", "https://preview.example.com"] });
-    await s.handle({ id: "o2", type: "browser.origins", projectRoot: "/proj", remove: "https://staging.example.com/" });
+    expect(last("browser_origins")).toMatchObject({
+      id: "o1",
+      projectRoot: "/proj",
+      origins: ["https://staging.example.com", "https://preview.example.com"],
+    });
+    await s.handle({
+      id: "o2",
+      type: "browser.origins",
+      projectRoot: "/proj",
+      remove: "https://staging.example.com/",
+    });
     expect(last("browser_origins")!.origins).toEqual(["https://preview.example.com"]);
     expect(store.rules.browserOrigins).toEqual(["https://preview.example.com"]);
     expect(store.rules.allowlist).toEqual(["bun test"]);
-    await s.handle({ id: "o3", type: "browser.origins", projectRoot: "/proj", remove: "https://unknown.example" });
+    await s.handle({
+      id: "o3",
+      type: "browser.origins",
+      projectRoot: "/proj",
+      remove: "https://unknown.example",
+    });
     expect(last("browser_origins")!.origins).toEqual(["https://preview.example.com"]);
   });
 
   test("a project's policy.json on disk", async () => {
     const project = tmpDir();
     fs.mkdirSync(path.join(project, ".vard"), { recursive: true });
-    fs.writeFileSync(path.join(project, ".vard", "policy.json"), JSON.stringify({ allowlist: [], tools: [], browserOrigins: ["https://a.example"] }));
+    fs.writeFileSync(
+      path.join(project, ".vard", "policy.json"),
+      JSON.stringify({ allowlist: [], tools: [], browserOrigins: ["https://a.example"] }),
+    );
     const { s, last } = server_();
-    await s.handle({ id: "o", type: "browser.origins", projectRoot: project, remove: "https://a.example" });
+    await s.handle({
+      id: "o",
+      type: "browser.origins",
+      projectRoot: project,
+      remove: "https://a.example",
+    });
     expect(last("browser_origins")!.origins).toEqual([]);
-    expect(JSON.parse(fs.readFileSync(path.join(project, ".vard", "policy.json"), "utf8")).browserOrigins).toEqual([]);
+    expect(
+      JSON.parse(fs.readFileSync(path.join(project, ".vard", "policy.json"), "utf8"))
+        .browserOrigins,
+    ).toEqual([]);
   });
 });
 
@@ -158,10 +259,15 @@ describe("browser settings and artifact retention", () => {
     expect(loadBrowserSettings(home)).toEqual({ artifactRetentionDays: 0 });
     const { s, last } = server_({ home });
     await s.handle({ id: "g", type: "browser.settings" });
-    expect(last("browser_settings")).toMatchObject({ id: "g", settings: { artifactRetentionDays: 0 } });
+    expect(last("browser_settings")).toMatchObject({
+      id: "g",
+      settings: { artifactRetentionDays: 0 },
+    });
     await s.handle({ id: "p", type: "browser.settings", settings: { artifactRetentionDays: 14 } });
     expect(last("browser_settings")!.settings).toEqual({ artifactRetentionDays: 14 });
-    expect(JSON.parse(fs.readFileSync(browserSettingsPath(home), "utf8"))).toEqual({ artifactRetentionDays: 14 });
+    expect(JSON.parse(fs.readFileSync(browserSettingsPath(home), "utf8"))).toEqual({
+      artifactRetentionDays: 14,
+    });
     const again = server_({ home });
     await again.s.handle({ id: "g2", type: "browser.settings" });
     expect(again.last("browser_settings")!.settings.artifactRetentionDays).toBe(14);
@@ -174,7 +280,9 @@ describe("browser settings and artifact retention", () => {
     makeRun(project, "fresh-run", 1);
     const { s, last } = server_({ home });
     await s.handle({ id: "l0", type: "artifacts.list", projectRoot: project });
-    expect(new Set(last("artifacts")!.items.map((i) => i.run))).toEqual(new Set(["old-run", "fresh-run"]));
+    expect(new Set(last("artifacts")!.items.map((i) => i.run))).toEqual(
+      new Set(["old-run", "fresh-run"]),
+    );
     saveBrowserSettings({ artifactRetentionDays: 30 }, home);
     await s.handle({ id: "l1", type: "artifacts.list", projectRoot: project });
     expect(last("artifacts")!.items.map((i) => i.run)).toEqual(["fresh-run"]);
@@ -189,12 +297,22 @@ describe("browser settings and artifact retention", () => {
     makeRun(project, "ended-task", 30);
     makeRun(project, "older", 30);
     makeRun(project, "fresh", 0);
-    expect(applyRetention(project, { home, keepRuns: ["running-task", "ended-task"] }).removed).toBe(1);
+    expect(
+      applyRetention(project, { home, keepRuns: ["running-task", "ended-task"] }).removed,
+    ).toBe(1);
     expect(runs(project)).toEqual(["ended-task", "fresh", "running-task"]);
 
     const { s } = server_({ home });
-    const tasks = (s as unknown as { tasks: Map<string, { taskId: string; projectRoot: string; running: boolean }> }).tasks;
-    tasks.set("running-task", { taskId: "running-task", projectRoot: project, running: true } as any);
+    const tasks = (
+      s as unknown as {
+        tasks: Map<string, { taskId: string; projectRoot: string; running: boolean }>;
+      }
+    ).tasks;
+    tasks.set("running-task", {
+      taskId: "running-task",
+      projectRoot: project,
+      running: true,
+    } as any);
     tasks.set("ended-task", { taskId: "ended-task", projectRoot: project, running: false } as any);
     await s.endBrowserWork("ended-task");
     expect(runs(project)).toEqual(["fresh", "running-task"]);

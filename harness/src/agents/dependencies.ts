@@ -7,7 +7,8 @@ import { type SubTask, type SubtaskState, type TaskGraph } from "./schema";
 
 export function validateGraph(g: TaskGraph, opts: { maxSubtasks: number }): string[] {
   const errors: string[] = [];
-  if (g.tasks.length > opts.maxSubtasks) errors.push(`too many subtasks: ${g.tasks.length} (limit ${opts.maxSubtasks})`);
+  if (g.tasks.length > opts.maxSubtasks)
+    errors.push(`too many subtasks: ${g.tasks.length} (limit ${opts.maxSubtasks})`);
   const ids = new Set<string>();
   for (const t of g.tasks) {
     if (ids.has(t.id)) errors.push(`duplicate subtask id "${t.id}"`);
@@ -58,17 +59,26 @@ function similarity(a: SubTask, b: SubTask): number {
   return inter / (ta.size + tb.size - inter);
 }
 
-const norm = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, " ").trim();
+const norm = (s: string) =>
+  s
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .trim();
 
 /**
  * Merges subtasks that are the same work (same role and the same title, or near-identical text).
  * Dependencies on a dropped subtask are redirected to the one kept.
  */
-export function dedupeGraph(g: TaskGraph): { graph: TaskGraph; merged: { dropped: string; into: string }[] } {
+export function dedupeGraph(g: TaskGraph): {
+  graph: TaskGraph;
+  merged: { dropped: string; into: string }[];
+} {
   const kept: SubTask[] = [];
   const merged: { dropped: string; into: string }[] = [];
   for (const t of g.tasks) {
-    const dup = kept.find((k) => k.role === t.role && (norm(k.title) === norm(t.title) || similarity(k, t) >= 0.85));
+    const dup = kept.find(
+      (k) => k.role === t.role && (norm(k.title) === norm(t.title) || similarity(k, t) >= 0.85),
+    );
     if (dup) {
       merged.push({ dropped: t.id, into: dup.id });
       dup.files = [...new Set([...dup.files, ...t.files])];
@@ -76,7 +86,8 @@ export function dedupeGraph(g: TaskGraph): { graph: TaskGraph; merged: { dropped
     } else kept.push({ ...t, dependsOn: [...t.dependsOn], files: [...t.files] });
   }
   const map = new Map(merged.map((m) => [m.dropped, m.into]));
-  for (const t of kept) t.dependsOn = [...new Set(t.dependsOn.map((d) => map.get(d) ?? d))].filter((d) => d !== t.id);
+  for (const t of kept)
+    t.dependsOn = [...new Set(t.dependsOn.map((d) => map.get(d) ?? d))].filter((d) => d !== t.id);
   return { graph: { ...g, tasks: kept }, merged };
 }
 
@@ -135,7 +146,10 @@ export const allDeps = (s: SubtaskState) => [...s.dependsOn, ...s.implicitDeps];
 /** Pending subtasks whose dependencies all completed. */
 export function readySubtasks(subs: SubtaskState[]): SubtaskState[] {
   const byId = new Map(subs.map((s) => [s.id, s]));
-  return subs.filter((s) => s.status === "pending" && allDeps(s).every((d) => DONE_OK.has(byId.get(d)?.status ?? "")));
+  return subs.filter(
+    (s) =>
+      s.status === "pending" && allDeps(s).every((d) => DONE_OK.has(byId.get(d)?.status ?? "")),
+  );
 }
 
 /** Marks pending subtasks whose dependencies can no longer complete as blocked. Returns those changed. */
@@ -160,13 +174,17 @@ export function propagateBlocked(subs: SubtaskState[]): SubtaskState[] {
 }
 
 /** Dependency layers for display: layer n holds subtasks whose dependencies are all in earlier layers. */
-export function layers(subs: Pick<SubtaskState, "id" | "dependsOn" | "implicitDeps">[]): string[][] {
+export function layers(
+  subs: Pick<SubtaskState, "id" | "dependsOn" | "implicitDeps">[],
+): string[][] {
   const out: string[][] = [];
   const placed = new Set<string>();
   const ids = new Set(subs.map((s) => s.id));
   let rest = [...subs];
   while (rest.length) {
-    const layer = rest.filter((s) => [...s.dependsOn, ...s.implicitDeps].every((d) => placed.has(d) || !ids.has(d)));
+    const layer = rest.filter((s) =>
+      [...s.dependsOn, ...s.implicitDeps].every((d) => placed.has(d) || !ids.has(d)),
+    );
     if (!layer.length) {
       out.push(rest.map((s) => s.id));
       break;

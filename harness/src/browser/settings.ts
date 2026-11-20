@@ -37,10 +37,16 @@ export function saveBrowserSettings(settings: BrowserSettings, home = vardHome()
  * Applies the retention setting to one project: deletes artifact runs older than N days, except
  * the runs named in `keepRuns` (tasks still running). Does nothing when retention is 0.
  */
-export function applyRetention(projectRoot: string, o: { home?: string; keepRuns?: string[] } = {}): { removed: number; bytes: number } {
+export function applyRetention(
+  projectRoot: string,
+  o: { home?: string; keepRuns?: string[] } = {},
+): { removed: number; bytes: number } {
   const { artifactRetentionDays: days } = loadBrowserSettings(o.home);
   if (!days) return { removed: 0, bytes: 0 };
-  return cleanArtifacts(projectRoot, { olderThanDays: days, keepRuns: (o.keepRuns ?? []).map(runFolder) });
+  return cleanArtifacts(projectRoot, {
+    olderThanDays: days,
+    keepRuns: (o.keepRuns ?? []).map(runFolder),
+  });
 }
 
 /** The origins the user allowed with "always" for this project. */
@@ -56,6 +62,7 @@ export function removeOrigin(store: RulesStore, origin: string): string[] {
     drop.add(new URL(origin).origin);
   } catch {}
   const left = (rules.browserOrigins ?? []).filter((o) => !drop.has(o));
-  if (left.length !== (rules.browserOrigins ?? []).length) store.save({ ...rules, browserOrigins: left });
+  if (left.length !== (rules.browserOrigins ?? []).length)
+    store.save({ ...rules, browserOrigins: left });
   return left;
 }

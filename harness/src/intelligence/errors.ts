@@ -1,4 +1,10 @@
-export type IntelErrorCode = "not_indexed" | "invalid" | "path" | "cancelled" | "too_large" | "embeddings";
+export type IntelErrorCode =
+  | "not_indexed"
+  | "invalid"
+  | "path"
+  | "cancelled"
+  | "too_large"
+  | "embeddings";
 export class IntelError extends Error {
   constructor(
     readonly code: IntelErrorCode,

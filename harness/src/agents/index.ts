@@ -1,7 +1,16 @@
 export * from "./schema";
 export { OrchestrationError } from "./errors";
 export { BUILTIN_ROLES, RoleRegistry, applyOverride, narrowTools } from "./registry";
-export { validateGraph, findCycle, dedupeGraph, addFileEdges, pathsOverlap, readySubtasks, propagateBlocked, layers } from "./dependencies";
+export {
+  validateGraph,
+  findCycle,
+  dedupeGraph,
+  addFileEdges,
+  pathsOverlap,
+  readySubtasks,
+  propagateBlocked,
+  layers,
+} from "./dependencies";
 export { MessageBus } from "./communication";
 export { Integrator } from "./integrator";
 export { Scheduler, type Outcome } from "./scheduler";

@@ -22,7 +22,10 @@ export class IndexWatcher {
         if (this.timer) clearTimeout(this.timer);
         this.timer = setTimeout(() => {
           this.timer = null;
-          void this.index.build().then(() => this.onUpdate?.(), () => {});
+          void this.index.build().then(
+            () => this.onUpdate?.(),
+            () => {},
+          );
         }, this.debounceMs);
       });
       this.watcher.on("error", () => this.stop());

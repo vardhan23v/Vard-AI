@@ -6,7 +6,13 @@
 export * from "./store";
 export { analyzeProject, projectFiles, type Fact } from "./analyze";
 export { recall, type Recall } from "./recall";
-export { applyAuto, isTaskNarration, parseProposals, reflectPrompt, type Proposal } from "./reflect";
+export {
+  applyAuto,
+  isTaskNarration,
+  parseProposals,
+  reflectPrompt,
+  type Proposal,
+} from "./reflect";
 export { findSecret, isSensitivePath } from "./secrets";
 
 import { analyzeProject } from "./analyze";

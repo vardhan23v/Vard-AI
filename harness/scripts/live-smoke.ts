@@ -15,7 +15,12 @@ const key = process.env.VARD_LIVE_KEY;
 if (!key) throw new Error("set VARD_LIVE_KEY");
 const model = process.argv[2] ?? "xingchen-agi/xing4.0-29b-a4b:free";
 if (!model.endsWith(":free")) throw new Error("only :free model ids are allowed");
-const provider = { provider: "openai-compatible", baseUrl: "https://openrouter.ai/api/v1", model, apiKey: key };
+const provider = {
+  provider: "openai-compatible",
+  baseUrl: "https://openrouter.ai/api/v1",
+  model,
+  apiKey: key,
+};
 const scrub = (s: string) => s.split(key).join("***");
 
 const repo = fs.realpathSync(fs.mkdtempSync(path.join(os.tmpdir(), "vard-live-")));
@@ -42,13 +47,19 @@ const timeout = setTimeout(() => {
   proc.kill();
 }, 600_000);
 
-send({ id: "chat1", type: "chat.send", provider, messages: [{ role: "user", content: "Reply with exactly: pong" }] });
+send({
+  id: "chat1",
+  type: "chat.send",
+  provider,
+  messages: [{ role: "user", content: "Reply with exactly: pong" }],
+});
 send({
   id: "task1",
   type: "task.start",
   taskId: "live1",
   projectRoot: repo,
-  prompt: "In hello.txt, change the word 'world' to 'vard'. Use edit_file. Then finish with a one-line summary.",
+  prompt:
+    "In hello.txt, change the word 'world' to 'vard'. Use edit_file. Then finish with a one-line summary.",
   provider,
   planFirst: false,
   useWorktree: true,
@@ -70,7 +81,13 @@ for await (const chunk of proc.stdout) {
     }
     console.log(scrub(JSON.stringify(e)).slice(0, 400));
     if (e.type === "approval_request")
-      send({ id: `a-${e.approvalId}`, type: "task.approve", taskId: e.taskId, approvalId: e.approvalId, decision: "allow_once" });
+      send({
+        id: `a-${e.approvalId}`,
+        type: "task.approve",
+        taskId: e.taskId,
+        approvalId: e.approvalId,
+        decision: "allow_once",
+      });
     if (e.type === "done" || (e.type === "error" && e.id === "chat1")) pendingDone--;
     if (pendingDone === 0) proc.stdin.end();
   }
@@ -78,4 +95,7 @@ for await (const chunk of proc.stdout) {
 clearTimeout(timeout);
 console.log("token events:", JSON.stringify(tokens));
 const wt = path.join(repo, ".vard/worktrees/live1/hello.txt");
-console.log("worktree hello.txt:", fs.existsSync(wt) ? JSON.stringify(fs.readFileSync(wt, "utf8")) : "(missing)");
+console.log(
+  "worktree hello.txt:",
+  fs.existsSync(wt) ? JSON.stringify(fs.readFileSync(wt, "utf8")) : "(missing)",
+);

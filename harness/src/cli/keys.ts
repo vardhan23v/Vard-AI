@@ -27,7 +27,11 @@ export const securityRunner: SecurityRunner = (args, input) => {
     stdout: "pipe",
     stderr: "pipe",
   });
-  return { code: r.exitCode ?? 1, stdout: r.stdout?.toString() ?? "", stderr: r.stderr?.toString() ?? "" };
+  return {
+    code: r.exitCode ?? 1,
+    stdout: r.stdout?.toString() ?? "",
+    stderr: r.stderr?.toString() ?? "",
+  };
 };
 
 export type ResolvedKey = { key: string; source: "env" | "keychain"; envVar?: string };
@@ -87,6 +91,7 @@ export class KeyStore {
   }
 
   private ensureMac() {
-    if (this.platform !== "darwin") throw new Error("Keychain storage needs macOS. Use an environment variable instead.");
+    if (this.platform !== "darwin")
+      throw new Error("Keychain storage needs macOS. Use an environment variable instead.");
   }
 }

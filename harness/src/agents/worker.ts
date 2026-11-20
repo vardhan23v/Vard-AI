@@ -4,7 +4,13 @@
  * skills, its own workspace and an `emit` that tags every event with the agent's id.
  */
 import type { LanguageModel } from "ai";
-import { AgentLoop, type ApprovalRequest, type ApprovalResponse, type LoopOptions, type LoopResult } from "../loop";
+import {
+  AgentLoop,
+  type ApprovalRequest,
+  type ApprovalResponse,
+  type LoopOptions,
+  type LoopResult,
+} from "../loop";
 import type { MemoryStore } from "../memory";
 import type { Policy } from "../policy";
 import type { EventBody } from "../protocol";
@@ -84,7 +90,9 @@ export function roleTools(role: RoleConfig): ToolDef[] {
 export function roleMcpTools(role: RoleConfig, tools: ToolDef[]): ToolDef[] {
   if (role.tools.mcp === "none") return [];
   if (role.tools.mcp === "all") return tools;
-  return tools.filter((t) => t.mcp && (t.mcp.kind === "resource" || (t.mcp.readOnly && !t.mcp.destructive)));
+  return tools.filter(
+    (t) => t.mcp && (t.mcp.kind === "resource" || (t.mcp.readOnly && !t.mcp.destructive)),
+  );
 }
 
 const short = (v: unknown, n = 80) => {
@@ -92,7 +100,10 @@ const short = (v: unknown, n = 80) => {
   return s.length > n ? `${s.slice(0, n - 1)}…` : s;
 };
 
-export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result: LoopResult; agent: AgentRun }> {
+export async function runAgent(
+  env: AgentEnv,
+  spec: AgentSpec,
+): Promise<{ result: LoopResult; agent: AgentRun }> {
   const { role } = spec;
   const { model, label } = env.modelFor(role);
   const vision = supportsVision(label.split("/")[0], label.split("/").slice(1).join("/"));
@@ -119,7 +130,12 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
     const now = Date.now();
     if (!force && now - lastPush < 400) return;
     lastPush = now;
-    env.onAgent({ ...agent, skills: [...agent.skills], tools: [...agent.tools], mcpCalls: { ...agent.mcpCalls } });
+    env.onAgent({
+      ...agent,
+      skills: [...agent.skills],
+      tools: [...agent.tools],
+      mcpCalls: { ...agent.mcpCalls },
+    });
   };
 
   // Skills for this agent only (role affinity + the subtask's own text).
@@ -141,14 +157,24 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
       agent.skills = s.activated;
       if (s.resolved.length) {
         skillBlock = { block: s.block, tools: s.tools };
-        env.emit({ type: "skills_activated", agentId: spec.agentId, skills: s.activated, tokens: s.tokens });
+        env.emit({
+          type: "skills_activated",
+          agentId: spec.agentId,
+          skills: s.activated,
+          tokens: s.tokens,
+        });
       }
     } catch {
       // Skills must never stop an agent.
     }
   }
   const mcpTools = env.mcp ? () => roleMcpTools(role, env.mcp!.tools()) : undefined;
-  agent.tools = [...base, ...(skillBlock?.tools ?? []), ...(spec.extraTools ?? []), ...(mcpTools?.() ?? [])].map((t) => t.name);
+  agent.tools = [
+    ...base,
+    ...(skillBlock?.tools ?? []),
+    ...(spec.extraTools ?? []),
+    ...(mcpTools?.() ?? []),
+  ].map((t) => t.name);
   push(true);
 
   const emit = (e: EventBody) => {
@@ -176,7 +202,8 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
         break;
       case "approval_request":
         agent.status = "waiting_approval";
-        agent.activity = e.kind === "tool" ? `Waiting for approval: ${e.tool}` : "Waiting for approval";
+        agent.activity =
+          e.kind === "tool" ? `Waiting for approval: ${e.tool}` : "Waiting for approval";
         push(true);
         break;
       case "tool_result":
@@ -253,7 +280,8 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
   agent.steps = result.steps;
   agent.endedAt = Date.now();
   agent.summary = result.summary.slice(0, 2_000);
-  agent.status = result.status === "done" ? "completed" : result.status === "cancelled" ? "cancelled" : "failed";
+  agent.status =
+    result.status === "done" ? "completed" : result.status === "cancelled" ? "cancelled" : "failed";
   if (result.status === "blocked") agent.error = result.reason;
   push(true);
   return { result, agent };

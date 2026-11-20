@@ -1,4 +1,11 @@
-export type OrchestrationErrorCode = "plan_invalid" | "cycle" | "budget" | "timeout" | "conflict" | "cancelled" | "config";
+export type OrchestrationErrorCode =
+  | "plan_invalid"
+  | "cycle"
+  | "budget"
+  | "timeout"
+  | "conflict"
+  | "cancelled"
+  | "config";
 
 export class OrchestrationError extends Error {
   constructor(

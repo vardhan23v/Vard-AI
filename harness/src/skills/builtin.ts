@@ -21,17 +21,17 @@ import testingStrategy from "../../skills/testing-strategy/SKILL.md" with { type
 import visualRegressionTesting from "../../skills/visual-regression-testing/SKILL.md" with { type: "text" };
 
 export const BUILTIN_SKILLS: Record<string, string> = {
-  "accessibility": accessibility,
+  accessibility: accessibility,
   "backend-api": backendApi,
   "browser-automation": browserAutomation,
   "change-impact-analysis": changeImpactAnalysis,
   "code-review": codeReview,
   "codebase-exploration": codebaseExploration,
   "database-design": databaseDesign,
-  "debugging": debugging,
+  debugging: debugging,
   "dependency-analysis": dependencyAnalysis,
-  "deployment": deployment,
-  "documentation": documentation,
+  deployment: deployment,
+  documentation: documentation,
   "mcp-server-development": mcpServerDevelopment,
   "nextjs-development": nextjsDevelopment,
   "playwright-testing": playwrightTesting,

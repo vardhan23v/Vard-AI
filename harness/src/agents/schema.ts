@@ -5,11 +5,27 @@
 import { z } from "zod";
 import { ActivatedSkill } from "../skills/schema";
 
-export const ROLE_IDS = ["planner", "frontend", "backend", "database", "testing", "browser", "analyst", "reviewer"] as const;
+export const ROLE_IDS = [
+  "planner",
+  "frontend",
+  "backend",
+  "database",
+  "testing",
+  "browser",
+  "analyst",
+  "reviewer",
+] as const;
 export const RoleId = z.enum(ROLE_IDS);
 export type RoleId = z.infer<typeof RoleId>;
 /** Roles that can be assigned subtasks (the planner and reviewer run on their own). */
-export const WORKER_ROLES = ["frontend", "backend", "database", "testing", "browser", "analyst"] as const;
+export const WORKER_ROLES = [
+  "frontend",
+  "backend",
+  "database",
+  "testing",
+  "browser",
+  "analyst",
+] as const;
 
 const ModelRef = z.object({
   provider: z.enum(["anthropic", "openai", "google", "ollama", "openai-compatible", "groq"]),
@@ -95,7 +111,11 @@ export const SubtaskStatus = z.enum([
 ]);
 export type SubtaskStatus = z.infer<typeof SubtaskStatus>;
 
-const Usage = z.object({ inputTokens: z.number(), outputTokens: z.number(), totalTokens: z.number() });
+const Usage = z.object({
+  inputTokens: z.number(),
+  outputTokens: z.number(),
+  totalTokens: z.number(),
+});
 
 export const SubtaskResult = z.object({
   summary: z.string(),
@@ -123,13 +143,33 @@ export const SubtaskState = SubTask.extend({
   retestOf: z.string().optional(),
   retestRound: z.number().optional(),
   /** Browser checks: pass/fail and what failed. */
-  check: z.object({ verdict: z.enum(["pass", "fail", "unknown"]), findings: z.array(z.object({ severity: z.enum(["high", "medium", "low"]), message: z.string(), file: z.string().optional(), viewport: z.string().optional() })) }).optional(),
+  check: z
+    .object({
+      verdict: z.enum(["pass", "fail", "unknown"]),
+      findings: z.array(
+        z.object({
+          severity: z.enum(["high", "medium", "low"]),
+          message: z.string(),
+          file: z.string().optional(),
+          viewport: z.string().optional(),
+        }),
+      ),
+    })
+    .optional(),
   startedAt: z.number().optional(),
   endedAt: z.number().optional(),
 });
 export type SubtaskState = z.infer<typeof SubtaskState>;
 
-export const AgentStatus = z.enum(["created", "running", "paused", "waiting_approval", "completed", "failed", "cancelled"]);
+export const AgentStatus = z.enum([
+  "created",
+  "running",
+  "paused",
+  "waiting_approval",
+  "completed",
+  "failed",
+  "cancelled",
+]);
 export type AgentStatus = z.infer<typeof AgentStatus>;
 
 export const AgentRun = z.object({
@@ -271,7 +311,14 @@ export const OrchestrationState = z.object({
   integrations: z.array(IntegrationRecord),
   reviews: z.array(ReviewResult),
   usage: Usage,
-  options: z.object({ maxAgents: z.number(), maxSubtasks: z.number(), retries: z.number(), review: z.boolean(), tokenBudget: z.number(), retestRounds: z.number().optional() }),
+  options: z.object({
+    maxAgents: z.number(),
+    maxSubtasks: z.number(),
+    retries: z.number(),
+    review: z.boolean(),
+    tokenBudget: z.number(),
+    retestRounds: z.number().optional(),
+  }),
   integrationBranch: z.string().optional(),
   /** The last event `seq` included in this snapshot (later events have higher numbers). */
   seq: z.number(),
@@ -280,5 +327,11 @@ export const OrchestrationState = z.object({
 });
 export type OrchestrationState = z.infer<typeof OrchestrationState>;
 
-export const OrchControl = z.enum(["pause", "resume", "cancel_subtask", "retry_subtask", "continue"]);
+export const OrchControl = z.enum([
+  "pause",
+  "resume",
+  "cancel_subtask",
+  "retry_subtask",
+  "continue",
+]);
 export type OrchControl = z.infer<typeof OrchControl>;

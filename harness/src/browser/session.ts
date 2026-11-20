@@ -19,7 +19,13 @@ import path from "node:path";
 import type { Browser, BrowserContext, Locator, Page } from "playwright-core";
 import { BrowserError } from "./errors";
 import { checkUrl, redactUrl } from "./permissions";
-import { VIEWPORTS, type ConsoleEntry, type NetworkEntry, type Screenshot, type Viewport } from "./schema";
+import {
+  VIEWPORTS,
+  type ConsoleEntry,
+  type NetworkEntry,
+  type Screenshot,
+  type Viewport,
+} from "./schema";
 
 const MAX_LOG = 300;
 const MAX_SHOTS = 200;
@@ -87,7 +93,13 @@ export class BrowserSession {
 
   /** Records a blocked request or navigation. */
   private block = (method: string, url: string, why: string, mainFrame: boolean) => {
-    this.push(this.network, { kind: "blocked", method, url: redactUrl(url), error: why, at: Date.now() });
+    this.push(this.network, {
+      kind: "blocked",
+      method,
+      url: redactUrl(url),
+      error: why,
+      at: Date.now(),
+    });
     if (mainFrame) this.blockedAt = Date.now();
     this.onChange();
   };
@@ -125,8 +137,14 @@ export class BrowserSession {
         }
         return route.continue();
       }
-      if (this.isAllowed(url) || (STATIC.has(req.resourceType()) && req.method() === "GET")) return route.continue();
-      block(req.method(), url, `${req.resourceType()} request to a site that isn't allowed was blocked`, false);
+      if (this.isAllowed(url) || (STATIC.has(req.resourceType()) && req.method() === "GET"))
+        return route.continue();
+      block(
+        req.method(),
+        url,
+        `${req.resourceType()} request to a site that isn't allowed was blocked`,
+        false,
+      );
       return route.abort("blockedbyclient");
     });
     await this.context.routeWebSocket(
@@ -145,13 +163,19 @@ export class BrowserSession {
         main = req.frame() === req.frame().page().mainFrame();
       } catch {}
       // Recorded here; if the page commits, the framenavigated backstop replaces it with about:blank.
-      this.block(req.method(), req.url(), `redirect from ${redactUrl(req.redirectedFrom()!.url())} to a site that isn't allowed was blocked`, main);
+      this.block(
+        req.method(),
+        req.url(),
+        `redirect from ${redactUrl(req.redirectedFrom()!.url())} to a site that isn't allowed was blocked`,
+        main,
+      );
     });
     this.pages = [];
     const page = await this.context.newPage();
     this.active = 0;
     this.state = "ready";
-    if (this.lastUrl && this.lastUrl !== "about:blank" && this.isAllowed(this.lastUrl)) await page.goto(this.lastUrl, { waitUntil: "load" }).catch(() => {});
+    if (this.lastUrl && this.lastUrl !== "about:blank" && this.isAllowed(this.lastUrl))
+      await page.goto(this.lastUrl, { waitUntil: "load" }).catch(() => {});
     this.onChange();
     return page;
   }
@@ -168,30 +192,64 @@ export class BrowserSession {
       const t = m.type();
       if (t !== "error" && t !== "warning") return;
       const loc = m.location();
-      this.push(this.console, { type: t === "error" ? "error" : "warning", text: m.text().slice(0, 1_000), url: loc.url ? redactUrl(loc.url) : undefined, line: loc.lineNumber, at: Date.now() });
+      this.push(this.console, {
+        type: t === "error" ? "error" : "warning",
+        text: m.text().slice(0, 1_000),
+        url: loc.url ? redactUrl(loc.url) : undefined,
+        line: loc.lineNumber,
+        at: Date.now(),
+      });
       this.onChange();
     });
     p.on("pageerror", (e) => {
-      this.push(this.console, { type: "pageerror", text: `${e.name}: ${e.message}`.slice(0, 1_000), at: Date.now() });
+      this.push(this.console, {
+        type: "pageerror",
+        text: `${e.name}: ${e.message}`.slice(0, 1_000),
+        at: Date.now(),
+      });
       this.onChange();
     });
     p.on("requestfailed", (r) => {
       const err = r.failure()?.errorText ?? "failed";
       if (err.includes("BLOCKED_BY_CLIENT")) return; // recorded by the route guard
-      this.push(this.network, { kind: "failed", method: r.method(), url: redactUrl(r.url()), error: err, resource: r.resourceType(), at: Date.now() });
+      this.push(this.network, {
+        kind: "failed",
+        method: r.method(),
+        url: redactUrl(r.url()),
+        error: err,
+        resource: r.resourceType(),
+        at: Date.now(),
+      });
       this.onChange();
     });
     p.on("response", (r) => {
       if (r.status() < 400) return;
-      this.push(this.network, { kind: "http_error", method: r.request().method(), url: redactUrl(r.url()), status: r.status(), resource: r.request().resourceType(), at: Date.now() });
+      this.push(this.network, {
+        kind: "http_error",
+        method: r.request().method(),
+        url: redactUrl(r.url()),
+        status: r.status(),
+        resource: r.request().resourceType(),
+        at: Date.now(),
+      });
       this.onChange();
     });
     p.on("dialog", (d) => {
-      this.push(this.console, { type: "info", text: `${d.type()} dialog dismissed: ${d.message().slice(0, 300)}`, at: Date.now() });
+      this.push(this.console, {
+        type: "info",
+        text: `${d.type()} dialog dismissed: ${d.message().slice(0, 300)}`,
+        at: Date.now(),
+      });
       void d.dismiss().catch(() => {});
     });
     p.on("download", (d) => {
-      this.push(this.network, { kind: "blocked", method: "GET", url: redactUrl(d.url()), error: "downloads are disabled", at: Date.now() });
+      this.push(this.network, {
+        kind: "blocked",
+        method: "GET",
+        url: redactUrl(d.url()),
+        error: "downloads are disabled",
+        at: Date.now(),
+      });
       void d.cancel().catch(() => {});
     });
     p.on("framenavigated", (f) => {
@@ -208,20 +266,32 @@ export class BrowserSession {
       }
     });
     p.on("close", () => {
-      if (this.pages[this.active] === p) this.active = Math.max(0, this.pages.findIndex((x) => !x.isClosed()));
+      if (this.pages[this.active] === p)
+        this.active = Math.max(
+          0,
+          this.pages.findIndex((x) => !x.isClosed()),
+        );
     });
   }
 
   locate(t: Target): Locator {
     const p = this.page();
     let l: Locator;
-    if (t.role) l = p.getByRole(t.role as Parameters<Page["getByRole"]>[0], t.name ? { name: t.name, exact: t.exact } : {});
+    if (t.role)
+      l = p.getByRole(
+        t.role as Parameters<Page["getByRole"]>[0],
+        t.name ? { name: t.name, exact: t.exact } : {},
+      );
     else if (t.label) l = p.getByLabel(t.label, { exact: t.exact });
     else if (t.text) l = p.getByText(t.text, { exact: t.exact });
     else if (t.placeholder) l = p.getByPlaceholder(t.placeholder, { exact: t.exact });
     else if (t.testId) l = p.getByTestId(t.testId);
     else if (t.selector) l = p.locator(t.selector);
-    else throw new BrowserError("not_found", "say which element: role and name, label, text, placeholder, testId or selector");
+    else
+      throw new BrowserError(
+        "not_found",
+        "say which element: role and name, label, text, placeholder, testId or selector",
+      );
     return t.nth !== undefined ? l.nth(t.nth) : l.first();
   }
 
@@ -230,19 +300,40 @@ export class BrowserSession {
     return l.evaluate(
       (el) => {
         const a = (n: string) => el.getAttribute(n) ?? "";
-        const label = (el as HTMLInputElement).labels ? [...((el as HTMLInputElement).labels ?? [])].map((x) => x.innerText).join(" ") : "";
+        const label = (el as HTMLInputElement).labels
+          ? [...((el as HTMLInputElement).labels ?? [])].map((x) => x.innerText).join(" ")
+          : "";
         const form = el.closest("form");
-        return [el.tagName, a("type"), a("name"), a("id"), a("autocomplete"), a("aria-label"), a("value"), label, (el as HTMLElement).innerText?.slice(0, 120), form ? `${form.getAttribute("action") ?? ""} ${form.getAttribute("name") ?? ""}` : ""].join(" ");
+        return [
+          el.tagName,
+          a("type"),
+          a("name"),
+          a("id"),
+          a("autocomplete"),
+          a("aria-label"),
+          a("value"),
+          label,
+          (el as HTMLElement).innerText?.slice(0, 120),
+          form ? `${form.getAttribute("action") ?? ""} ${form.getAttribute("name") ?? ""}` : "",
+        ].join(" ");
       },
       undefined,
       { timeout },
     );
   }
 
-  async screenshot(o: { label: string; fullPage?: boolean; target?: Target; viewport?: string }): Promise<Screenshot> {
+  async screenshot(o: {
+    label: string;
+    fullPage?: boolean;
+    target?: Target;
+    viewport?: string;
+  }): Promise<Screenshot> {
     const p = this.page();
     const n = ++this.shot;
-    const file = path.join(this.artifactsDir, `${String(n).padStart(3, "0")}-${o.label.replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 40)}.png`);
+    const file = path.join(
+      this.artifactsDir,
+      `${String(n).padStart(3, "0")}-${o.label.replace(/[^A-Za-z0-9_-]+/g, "-").slice(0, 40)}.png`,
+    );
     let width = this.viewport.width;
     let height = this.viewport.height;
     if (o.target) {
@@ -254,11 +345,24 @@ export class BrowserSession {
     } else if (o.fullPage) {
       const h = await p.evaluate(() => document.documentElement.scrollHeight);
       height = Math.min(h, MAX_FULLPAGE_HEIGHT);
-      await p.screenshot({ path: file, fullPage: h <= MAX_FULLPAGE_HEIGHT, clip: h > MAX_FULLPAGE_HEIGHT ? { x: 0, y: 0, width, height } : undefined, timeout: 30_000 });
+      await p.screenshot({
+        path: file,
+        fullPage: h <= MAX_FULLPAGE_HEIGHT,
+        clip: h > MAX_FULLPAGE_HEIGHT ? { x: 0, y: 0, width, height } : undefined,
+        timeout: 30_000,
+      });
     } else await p.screenshot({ path: file, timeout: 30_000 });
-    const s: Screenshot = { path: file, label: o.label, viewport: o.viewport ?? this.viewportName, width, height, at: Date.now() };
+    const s: Screenshot = {
+      path: file,
+      label: o.label,
+      viewport: o.viewport ?? this.viewportName,
+      width,
+      height,
+      at: Date.now(),
+    };
     this.screenshots.push(s);
-    if (this.screenshots.length > MAX_SHOTS) this.screenshots.splice(0, this.screenshots.length - MAX_SHOTS);
+    if (this.screenshots.length > MAX_SHOTS)
+      this.screenshots.splice(0, this.screenshots.length - MAX_SHOTS);
     this.onChange();
     return s;
   }

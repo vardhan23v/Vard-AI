@@ -15,7 +15,12 @@ function parse(diff: string): FileDiffT[] {
       continue;
     }
     if (!cur) continue;
-    if (/^(index |--- |\+\+\+ |new file mode|deleted file mode|similarity index|rename (from|to) )/.test(line)) continue;
+    if (
+      /^(index |--- |\+\+\+ |new file mode|deleted file mode|similarity index|rename (from|to) )/.test(
+        line,
+      )
+    )
+      continue;
     if (line.startsWith("+")) cur.added++;
     else if (line.startsWith("-")) cur.removed++;
     cur.lines.push(line);

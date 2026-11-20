@@ -53,7 +53,10 @@ function CodeBlock({ code, lang }: { code: string; lang: string }) {
       .then((h) => {
         const language = h.getLoadedLanguages().includes(lang) ? lang : "text";
         const dark = document.documentElement.classList.contains("dark");
-        const out = h.codeToHtml(code, { lang: language, theme: dark ? "github-dark-dimmed" : "github-light" });
+        const out = h.codeToHtml(code, {
+          lang: language,
+          theme: dark ? "github-dark-dimmed" : "github-light",
+        });
         if (alive) setHtml(out);
       })
       .catch(() => {
@@ -141,11 +144,19 @@ const components: Components = {
       <table className="w-full border-collapse text-sm">{children}</table>
     </div>
   ),
-  th: ({ children }) => <th className="border border-border px-2 py-1 text-left font-semibold">{children}</th>,
+  th: ({ children }) => (
+    <th className="border border-border px-2 py-1 text-left font-semibold">{children}</th>
+  ),
   td: ({ children }) => <td className="border border-border px-2 py-1">{children}</td>,
 };
 
-export const Markdown = memo(function Markdown({ text, className }: { text: string; className?: string }) {
+export const Markdown = memo(function Markdown({
+  text,
+  className,
+}: {
+  text: string;
+  className?: string;
+}) {
   return (
     <div
       className={cn(

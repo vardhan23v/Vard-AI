@@ -16,11 +16,19 @@ export interface RelevantCodeOptions {
 }
 
 /** Returns "- path:line kind symbol (why)" lines, or "" when the index has nothing useful. */
-export async function relevantCode(ix: CodeIndex, query: string, o: RelevantCodeOptions = {}): Promise<string> {
+export async function relevantCode(
+  ix: CodeIndex,
+  query: string,
+  o: RelevantCodeOptions = {},
+): Promise<string> {
   if (!ix.exists()) return "";
   const maxEntries = o.maxEntries ?? 8;
   const maxChars = o.maxChars ?? 1_200;
-  const hits = await searchCode(ix, query, { limit: 20, embeddings: o.embeddings, signal: o.signal }).catch(() => []);
+  const hits = await searchCode(ix, query, {
+    limit: 20,
+    embeddings: o.embeddings,
+    signal: o.signal,
+  }).catch(() => []);
   const lines: string[] = [];
   const seen = new Set<string>();
   const perFile = new Map<string, number>();
@@ -31,7 +39,8 @@ export async function relevantCode(ix: CodeIndex, query: string, o: RelevantCode
     lines.push(line);
     size += line.length + 1;
   };
-  const ref = (h: (typeof hits)[number]) => `${h.path}:${h.line}${h.symbol ? ` ${h.kind ? `${h.kind} ` : ""}${h.symbol}` : ""}`;
+  const ref = (h: (typeof hits)[number]) =>
+    `${h.path}:${h.line}${h.symbol ? ` ${h.kind ? `${h.kind} ` : ""}${h.symbol}` : ""}`;
   const clean = (s: string) => s.replace(/[\r\n]+/g, " ").slice(0, 200);
   for (const f of (o.files ?? []).map(clean)) {
     const h = hits.find((x) => x.path === f && x.symbol) ?? hits.find((x) => x.path === f);

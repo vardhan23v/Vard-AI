@@ -45,7 +45,11 @@ const STATE_LABEL: Record<string, string> = {
 };
 
 export function gitRoot(cwd: string): string | null {
-  const r = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], { cwd, stdout: "pipe", stderr: "pipe" });
+  const r = Bun.spawnSync(["git", "rev-parse", "--show-toplevel"], {
+    cwd,
+    stdout: "pipe",
+    stderr: "pipe",
+  });
   return r.exitCode === 0 ? r.stdout.toString().trim() : null;
 }
 
@@ -81,7 +85,14 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
   };
 
   const team = !!flags.team;
-  const ROLE: Record<string, string> = { planner: "planner", frontend: "frontend", backend: "backend", database: "database", testing: "testing", reviewer: "reviewer" };
+  const ROLE: Record<string, string> = {
+    planner: "planner",
+    frontend: "frontend",
+    backend: "backend",
+    database: "database",
+    testing: "testing",
+    reviewer: "reviewer",
+  };
   const tag = (agentId: string) => t.cerulean(`[${agentId}]`);
   const lastStatus = new Map<string, string>();
 
@@ -93,20 +104,26 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
           if (e.tool === "todo_write") return true;
           pause();
           const d = describeToolInput(e.tool, e.input);
-          out.write(`  ${tag(e.agentId)} ${t.cerulean("▸")} ${e.tool}${d ? " " + t.muted(d) : ""}\n`);
+          out.write(
+            `  ${tag(e.agentId)} ${t.cerulean("▸")} ${e.tool}${d ? " " + t.muted(d) : ""}\n`,
+          );
           ctx.spinner.start(label);
           return true;
         }
         case "tool_result":
           if (!e.ok) {
             pause();
-            out.write(`  ${tag(e.agentId)}   ${t.danger("✗")} ${t.muted(e.output.split("\n")[0].slice(0, 140))}\n`);
+            out.write(
+              `  ${tag(e.agentId)}   ${t.danger("✗")} ${t.muted(e.output.split("\n")[0].slice(0, 140))}\n`,
+            );
             ctx.spinner.start(label);
           }
           return true;
         case "skills_activated":
           pause();
-          out.write(`  ${tag(e.agentId)} ${t.muted(`skills: ${e.skills.map((x) => x.name).join(", ")}`)}\n`);
+          out.write(
+            `  ${tag(e.agentId)} ${t.muted(`skills: ${e.skills.map((x) => x.name).join(", ")}`)}\n`,
+          );
           ctx.spinner.start(label);
           return true;
         case "approval_request":
@@ -145,7 +162,8 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
           label = labels[e.phase];
           ctx.spinner.start(label);
         } else ctx.spinner.stop();
-        if (e.phase === "attention") queue = queue.then(() => attention()).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
+        if (e.phase === "attention")
+          queue = queue.then(() => attention()).catch((err) => ctx.err.write(t.danger(`${err}\n`)));
         return true;
       }
       case "orch_task": {
@@ -177,15 +195,22 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       case "orch_integration":
         if (e.record.status === "conflict") {
           pause();
-          out.write(`  ${t.danger("!")} ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}\n`);
+          out.write(
+            `  ${t.danger("!")} ${e.record.subtaskId}: merge conflict in ${e.record.files.join(", ")}\n`,
+          );
           ctx.spinner.start(label);
         }
         return true;
       case "orch_review": {
         pause();
         const r = e.review;
-        out.write(`\n${t.bold("Review")} ${r.verdict === "approve" ? t.sage("approved") : r.verdict === "changes_requested" ? t.star("changes requested") : t.muted("unavailable")}${r.summary ? `: ${r.summary}` : ""}\n`);
-        for (const f of r.findings) out.write(`  ${f.severity === "low" ? t.muted(f.severity) : t.danger(f.severity)} ${f.file ?? ""}${f.line ? `:${f.line}` : ""} ${f.message}\n`);
+        out.write(
+          `\n${t.bold("Review")} ${r.verdict === "approve" ? t.sage("approved") : r.verdict === "changes_requested" ? t.star("changes requested") : t.muted("unavailable")}${r.summary ? `: ${r.summary}` : ""}\n`,
+        );
+        for (const f of r.findings)
+          out.write(
+            `  ${f.severity === "low" ? t.muted(f.severity) : t.danger(f.severity)} ${f.file ?? ""}${f.line ? `:${f.line}` : ""} ${f.message}\n`,
+          );
         ctx.spinner.start(label);
         return true;
       }
@@ -206,17 +231,25 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       await ctx.client.control(taskId, "continue");
       return;
     }
-    const stuck = [...lastStatus.entries()].filter(([, st]) => ["failed", "needs_attention", "blocked"].includes(st)).map(([id]) => id);
+    const stuck = [...lastStatus.entries()]
+      .filter(([, st]) => ["failed", "needs_attention", "blocked"].includes(st))
+      .map(([id]) => id);
     out.write(`${t.star("Some subtasks didn't finish:")} ${stuck.join(", ")}\n`);
-    const a = await ctx.prompter.choose(`${t.muted("[c] continue without them  [r] retry one  [s] stop")}`, [
-      { key: "c", label: "continue" },
-      { key: "r", label: "retry" },
-      { key: "s", label: "stop" },
-    ]);
+    const a = await ctx.prompter.choose(
+      `${t.muted("[c] continue without them  [r] retry one  [s] stop")}`,
+      [
+        { key: "c", label: "continue" },
+        { key: "r", label: "retry" },
+        { key: "s", label: "stop" },
+      ],
+    );
     if (a === "s") return void ctx.client.cancel(taskId);
     if (a === "c") return void (await ctx.client.control(taskId, "continue"));
-    const id = ((await ctx.prompter.line(`Which subtask? (${stuck.join(", ")}) `)) ?? "").trim() || stuck[0];
-    const note = ((await ctx.prompter.line("Note or answer for the agent (optional): ")) ?? "").trim();
+    const id =
+      ((await ctx.prompter.line(`Which subtask? (${stuck.join(", ")}) `)) ?? "").trim() || stuck[0];
+    const note = (
+      (await ctx.prompter.line("Note or answer for the agent (optional): ")) ?? ""
+    ).trim();
     try {
       await ctx.client.control(taskId, "retry_subtask", id, note || undefined);
     } catch (err) {
@@ -264,18 +297,29 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
       case "todos":
         pause();
         for (const td of e.todos) {
-          const mark = td.status === "completed" ? t.sage("✓") : td.status === "in_progress" ? t.star("●") : t.muted("○");
-          out.write(`    ${mark} ${td.status === "completed" ? t.muted(td.content) : td.content}\n`);
+          const mark =
+            td.status === "completed"
+              ? t.sage("✓")
+              : td.status === "in_progress"
+                ? t.star("●")
+                : t.muted("○");
+          out.write(
+            `    ${mark} ${td.status === "completed" ? t.muted(td.content) : td.content}\n`,
+          );
         }
         ctx.spinner.start(label);
         break;
       case "verify":
         pause();
-        if (e.status === "running") out.write(`  ${t.cerulean("⟳")} verify ${t.muted(e.command)}\n`);
+        if (e.status === "running")
+          out.write(`  ${t.cerulean("⟳")} verify ${t.muted(e.command)}\n`);
         else if (e.status === "passed") out.write(`  ${t.sage("✓")} verify passed\n`);
         else {
           out.write(`  ${t.danger("✗")} verify failed\n`);
-          if (e.output) out.write(t.muted(indent(e.output.trim().split("\n").slice(-15).join("\n"), "      ")) + "\n");
+          if (e.output)
+            out.write(
+              t.muted(indent(e.output.trim().split("\n").slice(-15).join("\n"), "      ")) + "\n",
+            );
         }
         ctx.spinner.start(label);
         break;
@@ -302,7 +346,11 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         break;
       case "skills_activated":
         pause();
-        out.write(t.muted(`Skills: ${e.skills.map((x) => x.name).join(", ")} (~${e.tokens.toLocaleString()} tokens)\n`));
+        out.write(
+          t.muted(
+            `Skills: ${e.skills.map((x) => x.name).join(", ")} (~${e.tokens.toLocaleString()} tokens)\n`,
+          ),
+        );
         ctx.spinner.start(label);
         break;
       case "approval_request":
@@ -319,14 +367,19 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
     pause();
     if (e.kind === "plan" && e.graph) {
       out.write(`\n${t.star(t.bold("Team plan"))}\n${indent((e.plan ?? "").trim())}\n\n`);
-      const a = await ctx.prompter.choose(`${t.star("Start these agents?")} ${t.muted("[y] yes  [n] ask for a new plan")}`, [
-        { key: "y", label: "approve" },
-        { key: "n", label: "reject" },
-      ]);
+      const a = await ctx.prompter.choose(
+        `${t.star("Start these agents?")} ${t.muted("[y] yes  [n] ask for a new plan")}`,
+        [
+          { key: "y", label: "approve" },
+          { key: "n", label: "reject" },
+        ],
+      );
       if (a === "y") await ctx.client.approve(taskId, e.approvalId, "allow_once");
       else {
         const reason = (await ctx.prompter.line("What should change? ")) ?? "";
-        await ctx.client.approve(taskId, e.approvalId, "deny", { reason: reason.trim() || "Please revise the plan." });
+        await ctx.client.approve(taskId, e.approvalId, "deny", {
+          reason: reason.trim() || "Please revise the plan.",
+        });
       }
     } else if (e.kind === "plan") {
       const a = await ctx.prompter.choose(
@@ -343,7 +396,12 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         await ctx.client.approve(taskId, e.approvalId, "allow_once", { plan });
       } else {
         const reason = (await ctx.prompter.line("What should change? (optional) ")) ?? "";
-        await ctx.client.approve(taskId, e.approvalId, "deny", reason.trim() ? { reason: reason.trim() } : {});
+        await ctx.client.approve(
+          taskId,
+          e.approvalId,
+          "deny",
+          reason.trim() ? { reason: reason.trim() } : {},
+        );
       }
     } else {
       const d = describeToolInput(e.tool ?? "", e.input);
@@ -353,7 +411,8 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         out.write(
           `  ${t.star("?")} ${t.cerulean(`[MCP ${m.serverName}]`)} ${t.bold(m.tool)} ${t.muted(JSON.stringify(e.input ?? {}).slice(0, 160))}\n    ${t.muted(m.access)}\n`,
         );
-      else out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
+      else
+        out.write(`  ${t.star("?")} ${t.bold(e.tool ?? "tool")} ${d}\n    ${t.muted(e.reason)}\n`);
       const once = m?.destructive || e.noAlways;
       const a = await ctx.prompter.choose(
         `  ${t.muted(once ? `[a] allow once  [d] deny  (${m?.destructive ? "destructive" : "this tool"}: asks every time)` : "[a] allow once  [A] always in this project  [d] deny")}`,
@@ -368,12 +427,18 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
               { key: "d", label: "deny" },
             ],
       );
-      await ctx.client.approve(taskId, e.approvalId, a === "a" ? "allow_once" : a === "A" ? "always" : "deny");
+      await ctx.client.approve(
+        taskId,
+        e.approvalId,
+        a === "a" ? "allow_once" : a === "A" ? "always" : "deny",
+      );
     }
     ctx.spinner.start(label);
   };
 
-  out.write(`${t.star("✦")} ${t.bold(team ? "Team task" : "Task")} ${t.muted(`· ${choice.model}${team ? ` · up to ${flags.maxAgents ?? 3} agents at once` : planFirst ? " · plan first" : ""}`)}\n`);
+  out.write(
+    `${t.star("✦")} ${t.bold(team ? "Team task" : "Task")} ${t.muted(`· ${choice.model}${team ? ` · up to ${flags.maxAgents ?? 3} agents at once` : planFirst ? " · plan first" : ""}`)}\n`,
+  );
   ctx.prompter.onInterrupt(() => {
     pause();
     out.write(t.muted("Stopping the task…\n"));
@@ -398,7 +463,11 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         ...(team
           ? {
               mode: "team" as const,
-              team: { ...(flags.maxAgents ? { maxAgents: flags.maxAgents } : {}), ...(flags.retestRounds !== undefined ? { retestRounds: flags.retestRounds } : {}), onFailure: ctx.prompter.interactive ? ("ask" as const) : ("continue" as const) },
+              team: {
+                ...(flags.maxAgents ? { maxAgents: flags.maxAgents } : {}),
+                ...(flags.retestRounds !== undefined ? { retestRounds: flags.retestRounds } : {}),
+                onFailure: ctx.prompter.interactive ? ("ask" as const) : ("continue" as const),
+              },
             }
           : {}),
       },
@@ -412,10 +481,17 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
 
   out.write("\n");
   const showSummary = done.summary && !already(done.summary);
-  if (done.status === "done") out.write(`${t.sage("✓")} ${t.bold("Done")}${showSummary ? `\n${indent(done.summary.trim())}` : ""}\n`);
-  else if (done.status === "blocked") out.write(`${t.danger("■")} ${t.bold("Stopped")}: ${done.reason ?? done.summary}\n`);
+  if (done.status === "done")
+    out.write(
+      `${t.sage("✓")} ${t.bold("Done")}${showSummary ? `\n${indent(done.summary.trim())}` : ""}\n`,
+    );
+  else if (done.status === "blocked")
+    out.write(`${t.danger("■")} ${t.bold("Stopped")}: ${done.reason ?? done.summary}\n`);
   else out.write(t.muted("Task cancelled.\n"));
-  if (done.usage) out.write(t.muted(`${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens\n`));
+  if (done.usage)
+    out.write(
+      t.muted(`${done.steps ?? 0} steps · ${done.usage.totalTokens.toLocaleString()} tokens\n`),
+    );
   const code = done.status === "done" ? 0 : done.status === "blocked" ? 1 : 2;
 
   let kept: { branch: string; path: string } | undefined;
@@ -431,19 +507,28 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
 }
 
 /** Merge / discard / view / keep loop. Returns the worktree if it was kept. */
-export async function reviewChanges(ctx: Ctx, taskId: string, wt: { branch: string; path: string }) {
+export async function reviewChanges(
+  ctx: Ctx,
+  taskId: string,
+  wt: { branch: string; path: string },
+) {
   const t = ctx.theme;
   if (!ctx.prompter.interactive) {
-    ctx.out.write(t.muted(`Kept on branch ${wt.branch} (${wt.path}). Merge with: git merge ${wt.branch}\n`));
+    ctx.out.write(
+      t.muted(`Kept on branch ${wt.branch} (${wt.path}). Merge with: git merge ${wt.branch}\n`),
+    );
     return wt;
   }
   for (;;) {
-    const a = await ctx.prompter.choose(`${t.star("Merge these changes?")} ${t.muted("[m] merge  [v] view diff  [d] discard  [k] keep for later")}`, [
-      { key: "m", label: "merge" },
-      { key: "v", label: "view diff" },
-      { key: "d", label: "discard" },
-      { key: "k", label: "keep" },
-    ]);
+    const a = await ctx.prompter.choose(
+      `${t.star("Merge these changes?")} ${t.muted("[m] merge  [v] view diff  [d] discard  [k] keep for later")}`,
+      [
+        { key: "m", label: "merge" },
+        { key: "v", label: "view diff" },
+        { key: "d", label: "discard" },
+        { key: "k", label: "keep" },
+      ],
+    );
     try {
       if (a === "v") {
         const { diff } = await ctx.client.diff(taskId);

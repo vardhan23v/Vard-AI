@@ -96,7 +96,12 @@ function depHits(skillWords: Set<string>, deps: string[]): string[] {
   return hits;
 }
 
-export function scoreSkill(r: SkillRecord, o: ResolveOptions, promptTokens: Set<string>, lowerPrompt: string) {
+export function scoreSkill(
+  r: SkillRecord,
+  o: ResolveOptions,
+  promptTokens: Set<string>,
+  lowerPrompt: string,
+) {
   const fm = r.frontmatter!;
   const reasons: string[] = [];
   let text = 0;
@@ -105,18 +110,27 @@ export function scoreSkill(r: SkillRecord, o: ResolveOptions, promptTokens: Set<
     text += 3 * nameHits.length;
     reasons.push(`task mentions ${nameHits.map((h) => `"${h}"`).join(", ")}`);
   }
-  const tagHits = fm.tags.filter((t) => tokens(t).some((x) => promptTokens.has(x)) && !nameHits.includes(t));
+  const tagHits = fm.tags.filter(
+    (t) => tokens(t).some((x) => promptTokens.has(x)) && !nameHits.includes(t),
+  );
   if (tagHits.length) {
     text += 2 * Math.min(tagHits.length, 4);
     reasons.push(`tags ${tagHits.slice(0, 4).join(", ")}`);
   }
   const trig = fm.triggers.filter((t) => {
     const lt = t.toLowerCase();
-    return lt.includes(" ") || /[^a-z0-9]/.test(lt) ? lowerPrompt.includes(lt) : promptTokens.has(lt);
+    return lt.includes(" ") || /[^a-z0-9]/.test(lt)
+      ? lowerPrompt.includes(lt)
+      : promptTokens.has(lt);
   });
   if (trig.length) {
     text += Math.min(4 * trig.length, 12);
-    reasons.push(`triggers ${trig.slice(0, 4).map((t) => `"${t}"`).join(", ")}`);
+    reasons.push(
+      `triggers ${trig
+        .slice(0, 4)
+        .map((t) => `"${t}"`)
+        .join(", ")}`,
+    );
   }
   const descHits = tokens(fm.description).filter((t) => t.length >= 4 && promptTokens.has(t));
   text += Math.min(0.5 * new Set(descHits).size, 3);
@@ -161,23 +175,42 @@ export function resolveSkills(records: SkillRecord[], o: ResolveOptions): Resolv
   let chars = 0;
 
   const conflicts = (r: SkillRecord) =>
-    out.some((c) => c.record.frontmatter!.conflicts.includes(r.name) || r.frontmatter!.conflicts.includes(c.record.name));
+    out.some(
+      (c) =>
+        c.record.frontmatter!.conflicts.includes(r.name) ||
+        r.frontmatter!.conflicts.includes(c.record.name),
+    );
 
   for (const ref of o.explicit ?? []) {
     const named = records.filter((r) => r.id === ref || r.name === ref);
     const r = named.find((x) => x.usable) ?? named[0];
     if (!r) throw new SkillError("not_found", `no skill named "${ref}" (see vard skills list)`);
-    if (r.errors.length) throw new SkillError("invalid", `skill "${ref}" is invalid: ${r.errors[0]}`);
-    if (r.shadowedBy) throw new SkillError("shadowed", `skill "${ref}" is shadowed by ${r.shadowedBy}`);
-    if (!r.trusted) throw new SkillError("untrusted", `project skill "${ref}" isn't trusted yet; trust this project's skills first`);
+    if (r.errors.length)
+      throw new SkillError("invalid", `skill "${ref}" is invalid: ${r.errors[0]}`);
+    if (r.shadowedBy)
+      throw new SkillError("shadowed", `skill "${ref}" is shadowed by ${r.shadowedBy}`);
+    if (!r.trusted)
+      throw new SkillError(
+        "untrusted",
+        `project skill "${ref}" isn't trusted yet; trust this project's skills first`,
+      );
     if (!r.enabled) throw new SkillError("disabled", `skill "${ref}" is disabled`);
     if (chosen.has(r.id)) continue;
-    if (conflicts(r)) throw new SkillError("invalid", `skill "${ref}" conflicts with another selected skill`);
+    if (conflicts(r))
+      throw new SkillError("invalid", `skill "${ref}" conflicts with another selected skill`);
     chosen.add(r.id);
     chars += r.body.length;
     out.push({
       record: r,
-      activation: { id: r.id, name: r.name, source: r.source, version: r.frontmatter!.version, score: 100, reasons: ["explicitly selected"], explicit: true },
+      activation: {
+        id: r.id,
+        name: r.name,
+        source: r.source,
+        version: r.frontmatter!.version,
+        score: 100,
+        reasons: ["explicitly selected"],
+        explicit: true,
+      },
     });
   }
   if (o.auto === false) return out;
@@ -188,7 +221,12 @@ export function resolveSkills(records: SkillRecord[], o: ResolveOptions): Resolv
     .filter((r) => r.usable && !chosen.has(r.id))
     .map((r) => ({ r, ...scoreSkill(r, o, promptTokens, lowerPrompt) }))
     .filter((x) => x.matched && x.score >= minScore)
-    .sort((a, b) => b.score - a.score || b.r.frontmatter!.priority - a.r.frontmatter!.priority || a.r.name.localeCompare(b.r.name));
+    .sort(
+      (a, b) =>
+        b.score - a.score ||
+        b.r.frontmatter!.priority - a.r.frontmatter!.priority ||
+        a.r.name.localeCompare(b.r.name),
+    );
 
   let auto = 0;
   for (const x of ranked) {
@@ -200,7 +238,15 @@ export function resolveSkills(records: SkillRecord[], o: ResolveOptions): Resolv
     auto++;
     out.push({
       record: x.r,
-      activation: { id: x.r.id, name: x.r.name, source: x.r.source, version: x.r.frontmatter!.version, score: x.score, reasons: x.reasons, explicit: false },
+      activation: {
+        id: x.r.id,
+        name: x.r.name,
+        source: x.r.source,
+        version: x.r.frontmatter!.version,
+        score: x.score,
+        reasons: x.reasons,
+        explicit: false,
+      },
     });
   }
   return out;

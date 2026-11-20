@@ -14,7 +14,7 @@ import { runTask } from "./commands/task";
 import { makeCtx, type Ctx } from "./context";
 import type { KeyStore } from "./keys";
 import { NonInteractivePrompter, TtyPrompter, TuiPrompter, type Prompter } from "./prompt";
-import { useColor, type Writer } from "./render";
+import { colorEnabled, type Writer } from "./render";
 import type { SecretStore } from "../mcp";
 import type { ModelFactory } from "../providers";
 
@@ -63,7 +63,19 @@ or the macOS Keychain shared with the Vard AI app.
 `;
 
 export type ParsedArgs = {
-  command: "session" | "ask" | "run" | "keys" | "models" | "memory" | "mcp" | "skills" | "code" | "browser" | "help" | "version";
+  command:
+    | "session"
+    | "ask"
+    | "run"
+    | "keys"
+    | "models"
+    | "memory"
+    | "mcp"
+    | "skills"
+    | "code"
+    | "browser"
+    | "help"
+    | "version";
   rest: string[];
   flags: {
     model?: string;
@@ -140,8 +152,12 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
   const maxAgents = values["max-agents"] !== undefined ? Number(values["max-agents"]) : undefined;
   if (maxAgents !== undefined && (!Number.isInteger(maxAgents) || maxAgents < 1 || maxAgents > 6))
     throw new Error("--max-agents needs a whole number from 1 to 6");
-  const retestRounds = values["retest-rounds"] !== undefined ? Number(values["retest-rounds"]) : undefined;
-  if (retestRounds !== undefined && (!Number.isInteger(retestRounds) || retestRounds < 0 || retestRounds > 3))
+  const retestRounds =
+    values["retest-rounds"] !== undefined ? Number(values["retest-rounds"]) : undefined;
+  if (
+    retestRounds !== undefined &&
+    (!Number.isInteger(retestRounds) || retestRounds < 0 || retestRounds > 3)
+  )
     throw new Error("--retest-rounds needs a whole number from 0 to 3");
   const flags: ParsedArgs["flags"] = {
     model: values.model,
@@ -176,10 +192,22 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
   if (values.version) return { command: "version", rest: [], flags };
   const [first, ...rest] = positionals;
   if (first === undefined) return { command: "session", rest: [], flags };
-  if (first === "ask" || first === "run" || first === "keys" || first === "models" || first === "memory" || first === "mcp" || first === "skills" || first === "code" || first === "browser")
+  if (
+    first === "ask" ||
+    first === "run" ||
+    first === "keys" ||
+    first === "models" ||
+    first === "memory" ||
+    first === "mcp" ||
+    first === "skills" ||
+    first === "code" ||
+    first === "browser"
+  )
     return { command: first, rest, flags };
   if (first === "help") return { command: "help", rest: [], flags };
-  throw new Error(`Unknown command "${first}". To ask a question, use: vard ask "${positionals.join(" ")}"`);
+  throw new Error(
+    `Unknown command "${first}". To ask a question, use: vard ask "${positionals.join(" ")}"`,
+  );
 }
 
 /** Runs a parsed command against a context. Returns the exit code. */
@@ -223,7 +251,9 @@ export async function dispatch(ctx: Ctx, p: ParsedArgs): Promise<number> {
     }
     case "session":
       if (!ctx.prompter.interactive) {
-        ctx.err.write("The interactive session needs a terminal. Use vard ask or vard run in scripts.\n");
+        ctx.err.write(
+          "The interactive session needs a terminal. Use vard ask or vard run in scripts.\n",
+        );
         return 1;
       }
       if (!p.flags.classic) {
@@ -261,18 +291,27 @@ export async function runCli(argv: string[], io: CliIO = {}): Promise<number> {
   const stdinIsTTY = io.stdinIsTTY ?? !!process.stdin.isTTY;
   // Piped input is context for `ask`; read it before any prompt touches stdin.
   let stdinText: string | undefined;
-  if (!stdinIsTTY && (parsed.command === "ask" || (parsed.command === "keys" && parsed.rest[0] === "set") || (parsed.command === "mcp" && parsed.rest[0] === "secret")))
+  if (
+    !stdinIsTTY &&
+    (parsed.command === "ask" ||
+      (parsed.command === "keys" && parsed.rest[0] === "set") ||
+      (parsed.command === "mcp" && parsed.rest[0] === "secret"))
+  )
     stdinText = await (io.readStdin ?? (() => Bun.stdin.text()))();
   const interactive = stdinIsTTY && !!stdout.isTTY;
   // The full-screen UI owns the terminal itself; readline must not attach to stdin.
   const tui = parsed.command === "session" && !parsed.flags.classic;
   const prompter =
     io.prompter ??
-    (interactive && !tui ? new TtyPrompter() : tui && interactive ? new TuiPrompter() : new NonInteractivePrompter(!!parsed.flags.yes));
+    (interactive && !tui
+      ? new TtyPrompter()
+      : tui && interactive
+        ? new TuiPrompter()
+        : new NonInteractivePrompter(!!parsed.flags.yes));
   const ctx = makeCtx({
     out: stdout,
     err: stderr,
-    color: useColor(!!stdout.isTTY, env),
+    color: colorEnabled(!!stdout.isTTY, env),
     spinner: !!stderr.isTTY,
     prompter,
     cwd: io.cwd ?? process.cwd(),

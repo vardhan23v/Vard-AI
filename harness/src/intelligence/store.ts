@@ -55,9 +55,13 @@ export class IndexStore {
     let db: Database | null = null;
     try {
       db = new Database(file, { create: true });
-      const ok = (db.query("PRAGMA quick_check").get() as { quick_check: string } | null)?.quick_check === "ok";
+      const ok =
+        (db.query("PRAGMA quick_check").get() as { quick_check: string } | null)?.quick_check ===
+        "ok";
       db.exec(SCHEMA);
-      const v = (db.query("SELECT value FROM meta WHERE key = 'schema'").get() as { value: string } | null)?.value;
+      const v = (
+        db.query("SELECT value FROM meta WHERE key = 'schema'").get() as { value: string } | null
+      )?.value;
       if (!ok || (v && Number(v) !== SCHEMA_VERSION)) throw new Error("rebuild");
     } catch {
       try {
@@ -69,13 +73,17 @@ export class IndexStore {
       recovered = true;
     }
     db.exec("PRAGMA journal_mode = WAL; PRAGMA synchronous = NORMAL; PRAGMA foreign_keys = OFF;");
-    db.query("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(String(SCHEMA_VERSION));
+    db.query("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema', ?)").run(
+      String(SCHEMA_VERSION),
+    );
     this.db = db;
     this.recovered = recovered;
   }
 
   meta(key: string): string | undefined {
-    return (this.db.query("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | null)?.value;
+    return (
+      this.db.query("SELECT value FROM meta WHERE key = ?").get(key) as { value: string } | null
+    )?.value;
   }
   setMeta(key: string, value: string) {
     this.db.query("INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)").run(key, value);
@@ -86,7 +94,9 @@ export class IndexStore {
     this.db.query("DELETE FROM symbols WHERE file_id = ?").run(fileId);
     this.db.query("DELETE FROM refs WHERE file_id = ?").run(fileId);
     this.db.query("DELETE FROM imports WHERE file_id = ?").run(fileId);
-    const chunkIds = this.db.query("SELECT id FROM chunks WHERE file_id = ?").all(fileId) as { id: number }[];
+    const chunkIds = this.db.query("SELECT id FROM chunks WHERE file_id = ?").all(fileId) as {
+      id: number;
+    }[];
     for (const { id } of chunkIds) {
       this.db.query("DELETE FROM chunks_fts WHERE rowid = ?").run(id);
       this.db.query("DELETE FROM embeddings WHERE chunk_id = ?").run(id);

@@ -19,7 +19,11 @@ export function StarField({ count = 48, seed = 7 }: { count?: number; seed?: num
   }, [count, seed]);
 
   return (
-    <svg aria-hidden className="pointer-events-none absolute inset-0 h-full w-full" preserveAspectRatio="none">
+    <svg
+      aria-hidden
+      className="pointer-events-none absolute inset-0 h-full w-full"
+      preserveAspectRatio="none"
+    >
       {stars.map((st) => (
         <circle
           key={st.key}

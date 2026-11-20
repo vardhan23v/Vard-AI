@@ -87,12 +87,22 @@ export class BrowserManager {
     this.launching ??= (async () => {
       const found = detectBrowser(this.o.env);
       if (!found.installed || !found.executable)
-        throw new BrowserError("not_installed", "No Chromium found. Install one in Vard (Browser → Install) or run: vard browser install");
+        throw new BrowserError(
+          "not_installed",
+          "No Chromium found. Install one in Vard (Browser → Install) or run: vard browser install",
+        );
       const b = await chromium.launch({
         executablePath: found.executable,
         headless: true,
         timeout: 30_000,
-        args: ["--no-first-run", "--no-default-browser-check", "--disable-extensions", "--disable-sync", "--disable-background-networking", "--mute-audio"],
+        args: [
+          "--no-first-run",
+          "--no-default-browser-check",
+          "--disable-extensions",
+          "--disable-sync",
+          "--disable-background-networking",
+          "--mute-audio",
+        ],
       });
       this.launches++;
       b.on("disconnected", () => {
@@ -106,7 +116,10 @@ export class BrowserManager {
   }
 
   /** The session for a task/agent (key), created on first use. */
-  async session(key: string, o: { projectRoot: string; taskId?: string; agentId?: string; run?: string }): Promise<BrowserSession> {
+  async session(
+    key: string,
+    o: { projectRoot: string; taskId?: string; agentId?: string; run?: string },
+  ): Promise<BrowserSession> {
     const s = this.sessions.get(key);
     if (s && s.state !== "closed") {
       if (s.state === "crashed") await this.recover(s);
@@ -122,15 +135,26 @@ export class BrowserManager {
     return p;
   }
 
-  private async create(key: string, o: { projectRoot: string; taskId?: string; agentId?: string; run?: string }): Promise<BrowserSession> {
+  private async create(
+    key: string,
+    o: { projectRoot: string; taskId?: string; agentId?: string; run?: string },
+  ): Promise<BrowserSession> {
     let s: BrowserSession | undefined;
     if ([...this.sessions.values()].filter((x) => x.state !== "closed").length >= MAX_SESSIONS)
-      throw new BrowserError("launch", `At most ${MAX_SESSIONS} browser sessions can be open; close one first.`);
+      throw new BrowserError(
+        "launch",
+        `At most ${MAX_SESSIONS} browser sessions can be open; close one first.`,
+      );
     const id = `b${++this.seq}-${Date.now().toString(36)}`;
+    // eslint-disable-next-line prefer-const -- declared earlier so callbacks created first can read it
     s = new BrowserSession(
       id,
       runDir(o.projectRoot, o.run ?? o.taskId ?? "browser"),
-      { taskId: o.taskId, agentId: o.agentId, projectOrigins: () => this.o.projectOrigins?.(o.projectRoot) ?? [] },
+      {
+        taskId: o.taskId,
+        agentId: o.agentId,
+        projectOrigins: () => this.o.projectOrigins?.(o.projectRoot) ?? [],
+      },
       () => this.changed(s!),
     );
     await s.open(await this.launch());
@@ -144,7 +168,9 @@ export class BrowserManager {
 
   /** Keeps the most recent 20 closed sessions (for the UI's history); older ones are dropped. */
   private prune() {
-    const closed = [...this.sessions].filter(([, x]) => x.state === "closed").sort((a, b) => a[1].startedAt - b[1].startedAt);
+    const closed = [...this.sessions]
+      .filter(([, x]) => x.state === "closed")
+      .sort((a, b) => a[1].startedAt - b[1].startedAt);
     for (const [k] of closed.slice(0, Math.max(0, closed.length - 20))) this.sessions.delete(k);
   }
 
@@ -177,13 +203,22 @@ export class BrowserManager {
    * Runs one action, recovering once from a crashed or closed browser, and reports it. Every action
    * has a timeout and honours the agent's AbortSignal.
    */
-  async act<T>(s: BrowserSession, label: string, fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
+  async act<T>(
+    s: BrowserSession,
+    label: string,
+    fn: () => Promise<T>,
+    signal?: AbortSignal,
+  ): Promise<T> {
     const attempt = async () => {
       if (signal?.aborted) throw new BrowserError("closed", "cancelled");
       if (s.state === "crashed" || !this.browser?.isConnected()) await this.recover(s);
       s.state = "busy";
       s.lastAction = label;
-      const abort = new Promise<never>((_, j) => signal?.addEventListener("abort", () => j(new BrowserError("closed", "cancelled")), { once: true }));
+      const abort = new Promise<never>((_, j) =>
+        signal?.addEventListener("abort", () => j(new BrowserError("closed", "cancelled")), {
+          once: true,
+        }),
+      );
       try {
         return await Promise.race([fn(), abort]);
       } finally {
@@ -196,7 +231,12 @@ export class BrowserManager {
       return r;
     } catch (e) {
       const msg = (e as Error).message ?? String(e);
-      if (!signal?.aborted && /Target page, context or browser has been closed|Browser has been closed|browser has disconnected|Target closed/i.test(msg)) {
+      if (
+        !signal?.aborted &&
+        /Target page, context or browser has been closed|Browser has been closed|browser has disconnected|Target closed/i.test(
+          msg,
+        )
+      ) {
         s.state = "crashed";
         const r = await attempt();
         this.o.onAction?.(this.info(s), `${label} (after restarting the browser)`, true);
@@ -211,7 +251,10 @@ export class BrowserManager {
   async setViewport(s: BrowserSession, v: ViewportName | Viewport) {
     const next: Viewport = typeof v === "string" ? { ...VIEWPORTS[v] } : v;
     const name = typeof v === "string" ? v : `${v.width}×${v.height}`;
-    const needsContext = next.isMobile !== s.viewport.isMobile || next.deviceScaleFactor !== s.viewport.deviceScaleFactor || next.hasTouch !== s.viewport.hasTouch;
+    const needsContext =
+      next.isMobile !== s.viewport.isMobile ||
+      next.deviceScaleFactor !== s.viewport.deviceScaleFactor ||
+      next.hasTouch !== s.viewport.hasTouch;
     s.viewport = next;
     s.viewportName = name;
     if (needsContext) {
@@ -233,7 +276,8 @@ export class BrowserManager {
 
   /** Closes every session belonging to a task (its team agents included). */
   async closeTask(taskId: string) {
-    for (const [k, s] of this.sessions) if (s.info.taskId === taskId && s.state !== "closed") await this.close(k);
+    for (const [k, s] of this.sessions)
+      if (s.info.taskId === taskId && s.state !== "closed") await this.close(k);
   }
 
   list(): BrowserSessionInfo[] {

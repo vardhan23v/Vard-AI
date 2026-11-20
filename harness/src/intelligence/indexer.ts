@@ -35,11 +35,15 @@ const CHUNK_CHARS = 4_000;
 const CONTAINER = new Set(["class", "interface", "struct", "trait", "module", "enum"]);
 
 /** Text chunks for keyword (and optional vector) search: one per top-level definition or section. */
-export function chunksFor(lines: string[], symbols: ParsedSymbol[]): { start: number; end: number; symbol?: string }[] {
+export function chunksFor(
+  lines: string[],
+  symbols: ParsedSymbol[],
+): { start: number; end: number; symbol?: string }[] {
   const out: { start: number; end: number; symbol?: string }[] = [];
   const top = symbols.filter((s) => !s.parent || CONTAINER.has(s.kind));
   for (const s of top) {
-    for (let a = s.line; a <= s.endLine; a += CHUNK_LINES) out.push({ start: a, end: Math.min(s.endLine, a + CHUNK_LINES - 1), symbol: s.name });
+    for (let a = s.line; a <= s.endLine; a += CHUNK_LINES)
+      out.push({ start: a, end: Math.min(s.endLine, a + CHUNK_LINES - 1), symbol: s.name });
     if (out.length > 400) break;
   }
   if (!out.some((c) => c.start <= 1)) out.unshift({ start: 1, end: Math.min(lines.length, 40) });
@@ -62,7 +66,9 @@ export class CodeIndex {
 
   exists(): boolean {
     try {
-      return fs.existsSync(`${this.projectRoot}/.vard/index/index.db`) && !!this.db().meta("indexed_at");
+      return (
+        fs.existsSync(`${this.projectRoot}/.vard/index/index.db`) && !!this.db().meta("indexed_at")
+      );
     } catch {
       return false;
     }
@@ -88,9 +94,26 @@ export class CodeIndex {
     const db = store.db;
     const scan = await scanProject(this.projectRoot, cfg);
     const known = new Map(
-      (db.query("SELECT id, path, size, mtime, hash, partial FROM files").all() as { id: number; path: string; size: number; mtime: number; hash: string; partial: number }[]).map((r) => [r.path, r]),
+      (
+        db.query("SELECT id, path, size, mtime, hash, partial FROM files").all() as {
+          id: number;
+          path: string;
+          size: number;
+          mtime: number;
+          hash: string;
+          partial: number;
+        }[]
+      ).map((r) => [r.path, r]),
     );
-    const res: BuildResult = { added: 0, updated: 0, removed: 0, unchanged: 0, failed: 0, skipped: scan.skipped, durationMs: 0 };
+    const res: BuildResult = {
+      added: 0,
+      updated: 0,
+      removed: 0,
+      unchanged: 0,
+      failed: 0,
+      skipped: scan.skipped,
+      durationMs: 0,
+    };
     const present = new Set(scan.files.map((f) => f.path));
 
     // Deleted files.
@@ -107,13 +130,23 @@ export class CodeIndex {
     const insFile = db.query(
       "INSERT INTO files (path, lang, size, mtime, hash, lines, error, test, indexed_at, partial) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?) RETURNING id",
     );
-    const updFile = db.query("UPDATE files SET lang = ?, size = ?, mtime = ?, hash = ?, lines = ?, error = ?, test = ?, indexed_at = ?, partial = ? WHERE id = ?");
+    const updFile = db.query(
+      "UPDATE files SET lang = ?, size = ?, mtime = ?, hash = ?, lines = ?, error = ?, test = ?, indexed_at = ?, partial = ? WHERE id = ?",
+    );
     const touch = db.query("UPDATE files SET mtime = ?, size = ? WHERE id = ?");
-    const insSym = db.query("INSERT INTO symbols (file_id, name, kind, start_line, end_line, exported, parent, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)");
+    const insSym = db.query(
+      "INSERT INTO symbols (file_id, name, kind, start_line, end_line, exported, parent, signature) VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
+    );
     const insRef = db.query("INSERT INTO refs (file_id, name, line, kind) VALUES (?, ?, ?, ?)");
-    const insImp = db.query("INSERT INTO imports (file_id, source, names, line) VALUES (?, ?, ?, ?)");
-    const insChunk = db.query("INSERT INTO chunks (file_id, start_line, end_line, symbol, hash) VALUES (?, ?, ?, ?, ?) RETURNING id");
-    const insFts = db.query("INSERT INTO chunks_fts (rowid, path, symbol, content) VALUES (?, ?, ?, ?)");
+    const insImp = db.query(
+      "INSERT INTO imports (file_id, source, names, line) VALUES (?, ?, ?, ?)",
+    );
+    const insChunk = db.query(
+      "INSERT INTO chunks (file_id, start_line, end_line, symbol, hash) VALUES (?, ?, ?, ?, ?) RETURNING id",
+    );
+    const insFts = db.query(
+      "INSERT INTO chunks_fts (rowid, path, symbol, content) VALUES (?, ?, ?, ?)",
+    );
     let overCap = store.bytes() > cfg.maxIndexBytes;
 
     const total = scan.files.length;
@@ -166,19 +199,64 @@ export class CodeIndex {
         let id: number;
         if (prev) {
           store.clearFile(prev.id);
-          updFile.run(f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now(), overCap ? 1 : 0, prev.id);
+          updFile.run(
+            f.lang,
+            f.size,
+            f.mtime,
+            hash,
+            lines.length,
+            parsed.error ?? null,
+            isTestFile(f.path) ? 1 : 0,
+            Date.now(),
+            overCap ? 1 : 0,
+            prev.id,
+          );
           id = prev.id;
           res.updated++;
         } else {
-          id = (insFile.get(f.path, f.lang, f.size, f.mtime, hash, lines.length, parsed.error ?? null, isTestFile(f.path) ? 1 : 0, Date.now(), overCap ? 1 : 0) as { id: number }).id;
+          id = (
+            insFile.get(
+              f.path,
+              f.lang,
+              f.size,
+              f.mtime,
+              hash,
+              lines.length,
+              parsed.error ?? null,
+              isTestFile(f.path) ? 1 : 0,
+              Date.now(),
+              overCap ? 1 : 0,
+            ) as { id: number }
+          ).id;
           res.added++;
         }
-        for (const s of parsed.symbols) insSym.run(id, s.name, s.kind, s.line, s.endLine, s.exported ? 1 : 0, s.parent ?? null, s.signature ?? null);
+        for (const s of parsed.symbols)
+          insSym.run(
+            id,
+            s.name,
+            s.kind,
+            s.line,
+            s.endLine,
+            s.exported ? 1 : 0,
+            s.parent ?? null,
+            s.signature ?? null,
+          );
         for (const r of parsed.refs) insRef.run(id, r.name, r.line, r.kind);
         for (const im of parsed.imports) insImp.run(id, im.source, im.names.join(","), im.line);
         for (const c of chunksFor(lines, parsed.symbols)) {
-          const content = lines.slice(c.start - 1, c.end).join("\n").slice(0, CHUNK_CHARS);
-          const cid = (insChunk.get(id, c.start, c.end, c.symbol ?? null, crypto.createHash("sha1").update(content).digest("hex")) as { id: number }).id;
+          const content = lines
+            .slice(c.start - 1, c.end)
+            .join("\n")
+            .slice(0, CHUNK_CHARS);
+          const cid = (
+            insChunk.get(
+              id,
+              c.start,
+              c.end,
+              c.symbol ?? null,
+              crypto.createHash("sha1").update(content).digest("hex"),
+            ) as { id: number }
+          ).id;
           insFts.run(cid, f.path, c.symbol ?? "", overCap ? "" : content);
         }
       })();
@@ -199,20 +277,30 @@ export class CodeIndex {
   /** Re-resolves every import against the current file list (cheap; keeps edges consistent). */
   resolveImports() {
     const db = this.db().db;
-    const rows = db.query("SELECT f.id AS fid, f.path, f.lang FROM files f").all() as { fid: number; path: string; lang: string }[];
+    const rows = db.query("SELECT f.id AS fid, f.path, f.lang FROM files f").all() as {
+      fid: number;
+      path: string;
+      lang: string;
+    }[];
     const ids = new Map(rows.map((r) => [r.path, r.fid]));
     const meta = new Map(rows.map((r) => [r.fid, r]));
     const resolver = createResolver(this.projectRoot, new Set(ids.keys()));
-    const imports = db.query("SELECT rowid, file_id, source FROM imports WHERE names IS NOT '__extra__'").all() as { rowid: number; file_id: number; source: string }[];
+    const imports = db
+      .query("SELECT rowid, file_id, source FROM imports WHERE names IS NOT '__extra__'")
+      .all() as { rowid: number; file_id: number; source: string }[];
     const upd = db.query("UPDATE imports SET target_id = ?, package = ? WHERE rowid = ?");
-    const extra = db.query("INSERT INTO imports (file_id, source, names, line, target_id) VALUES (?, ?, '__extra__', 0, ?)");
+    const extra = db.query(
+      "INSERT INTO imports (file_id, source, names, line, target_id) VALUES (?, ?, '__extra__', 0, ?)",
+    );
     db.transaction(() => {
       db.query("DELETE FROM imports WHERE names = '__extra__'").run();
       for (const im of imports) {
         const f = meta.get(im.file_id);
         if (!f) continue;
         const r = resolver.resolve(f.path, f.lang as never, im.source);
-        const [first, ...more] = r.targets.map((t) => ids.get(t)).filter((x): x is number => x !== undefined);
+        const [first, ...more] = r.targets
+          .map((t) => ids.get(t))
+          .filter((x): x is number => x !== undefined);
         upd.run(first ?? null, r.pkg ?? null, im.rowid);
         for (const m of more.slice(0, 50)) extra.run(im.file_id, im.source, m);
       }
@@ -233,7 +321,12 @@ export class CodeIndex {
       bytes: 0,
       overCap: false,
       progress: this.progress,
-      embeddings: { provider: loadIndexConfig(this.projectRoot).embeddings.provider, model: loadIndexConfig(this.projectRoot).embeddings.model, chunks: 0, embedded: 0 },
+      embeddings: {
+        provider: loadIndexConfig(this.projectRoot).embeddings.provider,
+        model: loadIndexConfig(this.projectRoot).embeddings.model,
+        chunks: 0,
+        embedded: 0,
+      },
       error: this.lastError,
     };
     if (!fs.existsSync(`${this.projectRoot}/.vard/index/index.db`)) return base;
@@ -242,10 +335,20 @@ export class CodeIndex {
     const n = (sql: string) => (db.query(sql).get() as { n: number }).n;
     const indexedAt = store.meta("indexed_at");
     const langs: Record<string, number> = {};
-    for (const r of db.query("SELECT lang, COUNT(*) AS n FROM files GROUP BY lang").all() as { lang: string; n: number }[]) langs[r.lang] = r.n;
+    for (const r of db.query("SELECT lang, COUNT(*) AS n FROM files GROUP BY lang").all() as {
+      lang: string;
+      n: number;
+    }[])
+      langs[r.lang] = r.n;
     return {
       ...base,
-      state: this.building ? "indexing" : this.lastError ? "error" : indexedAt ? "ready" : "missing",
+      state: this.building
+        ? "indexing"
+        : this.lastError
+          ? "error"
+          : indexedAt
+            ? "ready"
+            : "missing",
       files: n("SELECT COUNT(*) AS n FROM files"),
       symbols: n("SELECT COUNT(*) AS n FROM symbols"),
       references: n("SELECT COUNT(*) AS n FROM refs"),
@@ -257,7 +360,11 @@ export class CodeIndex {
       overCap: store.meta("over_cap") === "1",
       indexedAt: indexedAt ? Number(indexedAt) : undefined,
       durationMs: Number(store.meta("duration_ms") ?? 0) || undefined,
-      embeddings: { ...base.embeddings, chunks: n("SELECT COUNT(*) AS n FROM chunks"), embedded: n("SELECT COUNT(*) AS n FROM embeddings") },
+      embeddings: {
+        ...base.embeddings,
+        chunks: n("SELECT COUNT(*) AS n FROM chunks"),
+        embedded: n("SELECT COUNT(*) AS n FROM embeddings"),
+      },
     };
   }
 

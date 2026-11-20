@@ -23,7 +23,12 @@ function turnParts(t: Turn): any[] {
     parts.push({ type: "text-end", id: "t" });
   }
   for (const c of t.calls ?? [])
-    parts.push({ type: "tool-call", toolCallId: `call_${++callSeq}`, toolName: c.name, input: JSON.stringify(c.input) });
+    parts.push({
+      type: "tool-call",
+      toolCallId: `call_${++callSeq}`,
+      toolName: c.name,
+      input: JSON.stringify(c.input),
+    });
   parts.push({
     type: "finish",
     usage: usage(),
@@ -54,7 +59,9 @@ export function sh(cwd: string, cmd: string[]): string {
 }
 
 /** A temp git repo with one committed file. */
-export function tmpGitRepo(files: Record<string, string> = { "hello.txt": "hello world\n" }): string {
+export function tmpGitRepo(
+  files: Record<string, string> = { "hello.txt": "hello world\n" },
+): string {
   const dir = tmpDir("vard-repo-");
   sh(dir, ["git", "init", "-q", "-b", "main"]);
   sh(dir, ["git", "config", "user.email", "t@example.com"]);
@@ -106,17 +113,28 @@ export type RouteInfo = {
  * A model that answers by looking at the conversation, so concurrent agents (each its own
  * AgentLoop sharing one model) get deterministic, per-agent scripts. `delayMs` slows each call.
  */
-export function routedModel(route: (r: RouteInfo) => Turn, opts: { delayMs?: number; onCall?: (r: RouteInfo) => void } = {}) {
+export function routedModel(
+  route: (r: RouteInfo) => Turn,
+  opts: { delayMs?: number; onCall?: (r: RouteInfo) => void } = {},
+) {
   const text = (c: unknown): string =>
-    typeof c === "string" ? c : Array.isArray(c) ? c.map((p: any) => p.text ?? (p.output ? String(p.output.value ?? "") : "")).join("") : "";
+    typeof c === "string"
+      ? c
+      : Array.isArray(c)
+        ? c.map((p: any) => p.text ?? (p.output ? String(p.output.value ?? "") : "")).join("")
+        : "";
   return new MockLanguageModelV4({
     doStream: async (o: any) => {
       const prompt: any[] = o.prompt;
-      const system = prompt.filter((m) => m.role === "system").map((m) => text(m.content)).join("\n");
+      const system = prompt
+        .filter((m) => m.role === "system")
+        .map((m) => text(m.content))
+        .join("\n");
       const task = text(prompt.find((m) => m.role === "user")?.content);
       const step = prompt.filter((m) => m.role === "assistant").length;
       const last = prompt[prompt.length - 1];
-      const lastResults = last?.role === "tool" ? last.content.map((p: any) => String(p.output?.value ?? "")) : [];
+      const lastResults =
+        last?.role === "tool" ? last.content.map((p: any) => String(p.output?.value ?? "")) : [];
       const info = { system, task, step, lastResults };
       opts.onCall?.(info);
       if (opts.delayMs) await new Promise((r) => setTimeout(r, opts.delayMs));

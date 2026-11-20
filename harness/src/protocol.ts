@@ -7,17 +7,59 @@
  */
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
-import { AgentMessage, AgentRun, IntegrationRecord, OrchControl, OrchestrationState, OrchPhase, ReviewResult, RoleConfig, RoleId, RoleOverride, SubtaskState, TaskGraph, TeamRequest } from "./agents/schema";
-import { BrowserInstall, BrowserReport, BrowserSessionInfo, BrowserSettings, DevServerInfo, ViewportName } from "./browser/schema";
-import { CodeSymbol, GraphData, ImpactReport, IndexConfig, IndexStatus, SearchHit } from "./intelligence/schema";
+import {
+  AgentMessage,
+  AgentRun,
+  IntegrationRecord,
+  OrchControl,
+  OrchestrationState,
+  OrchPhase,
+  ReviewResult,
+  RoleConfig,
+  RoleId,
+  RoleOverride,
+  SubtaskState,
+  TaskGraph,
+  TeamRequest,
+} from "./agents/schema";
+import {
+  BrowserInstall,
+  BrowserReport,
+  BrowserSessionInfo,
+  BrowserSettings,
+  DevServerInfo,
+  ViewportName,
+} from "./browser/schema";
+import {
+  CodeSymbol,
+  GraphData,
+  ImpactReport,
+  IndexConfig,
+  IndexStatus,
+  SearchHit,
+} from "./intelligence/schema";
 import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
-import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
+import {
+  McpCallInfo,
+  McpPromptInfo,
+  McpResourceInfo,
+  McpScope,
+  McpServerStatus,
+  McpToolInfo,
+} from "./mcp/types";
 
 export { MemoryCategory, MemoryEntry, MemorySettings };
 
 // ---------- shared ----------
 
-export const ProviderId = z.enum(["anthropic", "openai", "google", "ollama", "openai-compatible", "groq"]);
+export const ProviderId = z.enum([
+  "anthropic",
+  "openai",
+  "google",
+  "ollama",
+  "openai-compatible",
+  "groq",
+]);
 export type ProviderId = z.infer<typeof ProviderId>;
 
 export const ProviderConfig = z.object({
@@ -110,9 +152,21 @@ export const TaskCancelRequest = z.object({
   taskId: z.string().min(1),
 });
 
-export const TaskDiffRequest = z.object({ ...reqBase, type: z.literal("task.diff"), taskId: z.string().min(1) });
-export const TaskMergeRequest = z.object({ ...reqBase, type: z.literal("task.merge"), taskId: z.string().min(1) });
-export const TaskDiscardRequest = z.object({ ...reqBase, type: z.literal("task.discard"), taskId: z.string().min(1) });
+export const TaskDiffRequest = z.object({
+  ...reqBase,
+  type: z.literal("task.diff"),
+  taskId: z.string().min(1),
+});
+export const TaskMergeRequest = z.object({
+  ...reqBase,
+  type: z.literal("task.merge"),
+  taskId: z.string().min(1),
+});
+export const TaskDiscardRequest = z.object({
+  ...reqBase,
+  type: z.literal("task.discard"),
+  taskId: z.string().min(1),
+});
 
 // ---------- project memory (<project>/.vard/memory.json) ----------
 
@@ -121,7 +175,12 @@ const entryId = z.string().min(1).max(64);
 const memText = z.string().min(1).max(600);
 export const MemoryChange = z.discriminatedUnion("op", [
   z.object({ op: z.literal("add"), category: MemoryCategory, text: memText }),
-  z.object({ op: z.literal("edit"), entryId, text: memText.optional(), category: MemoryCategory.optional() }),
+  z.object({
+    op: z.literal("edit"),
+    entryId,
+    text: memText.optional(),
+    category: MemoryCategory.optional(),
+  }),
   z.object({ op: z.literal("delete"), entryId }),
   z.object({ op: z.literal("verify"), entryId }),
   z.object({ op: z.literal("clear") }),
@@ -131,18 +190,38 @@ export const MemoryChange = z.discriminatedUnion("op", [
   z.object({
     op: z.literal("accept"),
     items: z
-      .array(z.object({ category: MemoryCategory, text: memText, replaces: entryId.optional(), taskId: z.string().optional() }))
+      .array(
+        z.object({
+          category: MemoryCategory,
+          text: memText,
+          replaces: entryId.optional(),
+          taskId: z.string().optional(),
+        }),
+      )
       .max(20),
   }),
 ]);
 export type MemoryChange = z.infer<typeof MemoryChange>;
 export const MemoryGetRequest = z.object({ ...memReq, type: z.literal("memory.get") });
-export const MemoryUpdateRequest = z.object({ ...memReq, type: z.literal("memory.update"), change: MemoryChange });
+export const MemoryUpdateRequest = z.object({
+  ...memReq,
+  type: z.literal("memory.update"),
+  change: MemoryChange,
+});
 
 // ---------- MCP servers (harness/src/mcp) ----------
 
-const mcpRef = { ...reqBase, scope: McpScope, id: z.string().min(1).max(40), projectRoot: z.string().min(1).optional() };
-export const McpListRequest = z.object({ ...reqBase, type: z.literal("mcp.list"), projectRoot: z.string().min(1).optional() });
+const mcpRef = {
+  ...reqBase,
+  scope: McpScope,
+  id: z.string().min(1).max(40),
+  projectRoot: z.string().min(1).optional(),
+};
+export const McpListRequest = z.object({
+  ...reqBase,
+  type: z.literal("mcp.list"),
+  projectRoot: z.string().min(1).optional(),
+});
 export const McpConfigRequest = z.object({
   ...reqBase,
   type: z.literal("mcp.config"),
@@ -154,7 +233,11 @@ export const McpConfigRequest = z.object({
     z.object({ op: z.literal("remove"), id: z.string() }),
     z.object({ op: z.literal("trust"), trusted: z.boolean() }),
     /** Import another client's config (a known file path, or pasted JSON). Imported servers start disabled. */
-    z.object({ op: z.literal("import"), file: z.string().optional(), json: z.unknown().optional() }),
+    z.object({
+      op: z.literal("import"),
+      file: z.string().optional(),
+      json: z.unknown().optional(),
+    }),
   ]),
 });
 export const McpConnectionRequest = z.object({
@@ -164,8 +247,16 @@ export const McpConnectionRequest = z.object({
   /** For "test" before saving: an unsaved server config. */
   server: z.unknown().optional(),
 });
-export const McpInspectRequest = z.object({ ...mcpRef, type: z.literal("mcp.inspect"), kind: z.enum(["tools", "resources", "prompts", "logs"]) });
-export const McpReadResourceRequest = z.object({ ...mcpRef, type: z.literal("mcp.read_resource"), uri: z.string().min(1).max(4000) });
+export const McpInspectRequest = z.object({
+  ...mcpRef,
+  type: z.literal("mcp.inspect"),
+  kind: z.enum(["tools", "resources", "prompts", "logs"]),
+});
+export const McpReadResourceRequest = z.object({
+  ...mcpRef,
+  type: z.literal("mcp.read_resource"),
+  uri: z.string().min(1).max(4000),
+});
 export const McpGetPromptRequest = z.object({
   ...mcpRef,
   type: z.literal("mcp.get_prompt"),
@@ -179,20 +270,37 @@ export const McpPermissionsRequest = z.object({
   change: z.discriminatedUnion("op", [
     z.object({ op: z.literal("list") }),
     /** key "<server>/<tool>" ("<server>/*" for the whole server); null clears (back to "ask"). */
-    z.object({ op: z.literal("set"), key: z.string().min(3).max(300), value: z.enum(["allow", "deny"]).nullable() }),
+    z.object({
+      op: z.literal("set"),
+      key: z.string().min(3).max(300),
+      value: z.enum(["allow", "deny"]).nullable(),
+    }),
     /** Clears every rule starting with prefix ("" = all, "<server>/" = one server). */
     z.object({ op: z.literal("revoke"), prefix: z.string().max(300) }),
   ]),
 });
 /** Stores a server secret in the Keychain (null clears). The value is never sent back. */
-export const McpSecretRequest = z.object({ ...mcpRef, type: z.literal("mcp.secret"), name: z.string().min(1).max(140), value: z.string().max(20_000).nullable() });
+export const McpSecretRequest = z.object({
+  ...mcpRef,
+  type: z.literal("mcp.secret"),
+  name: z.string().min(1).max(140),
+  value: z.string().max(20_000).nullable(),
+});
 
 // ---------- skills ----------
 
 const skillsReq = { ...reqBase, projectRoot: z.string().min(1).optional() };
 export const SkillsListRequest = z.object({ ...skillsReq, type: z.literal("skills.list") });
-export const SkillsGetRequest = z.object({ ...skillsReq, type: z.literal("skills.get"), skillId: z.string().min(1).max(200) });
-export const SkillsUpdateRequest = z.object({ ...skillsReq, type: z.literal("skills.update"), change: SkillChange });
+export const SkillsGetRequest = z.object({
+  ...skillsReq,
+  type: z.literal("skills.get"),
+  skillId: z.string().min(1).max(200),
+});
+export const SkillsUpdateRequest = z.object({
+  ...skillsReq,
+  type: z.literal("skills.update"),
+  change: SkillChange,
+});
 
 // ---------- team runs ----------
 
@@ -206,14 +314,23 @@ export const OrchControlRequest = z.object({
   note: z.string().max(4000).optional(),
 });
 /** Current state of a team run (after a reconnect). */
-export const OrchStatusRequest = z.object({ ...reqBase, type: z.literal("orch.status"), taskId: z.string().min(1) });
+export const OrchStatusRequest = z.object({
+  ...reqBase,
+  type: z.literal("orch.status"),
+  taskId: z.string().min(1),
+});
 export const AgentsRolesRequest = z.object({
   ...reqBase,
   type: z.literal("agents.roles"),
   projectRoot: z.string().min(1).optional(),
   change: z
     .discriminatedUnion("op", [
-      z.object({ op: z.literal("save"), scope: z.enum(["global", "project"]), role: RoleId, override: RoleOverride }),
+      z.object({
+        op: z.literal("save"),
+        scope: z.enum(["global", "project"]),
+        role: RoleId,
+        override: RoleOverride,
+      }),
       z.object({ op: z.literal("reset"), scope: z.enum(["global", "project"]), role: RoleId }),
     ])
     .optional(),
@@ -235,28 +352,67 @@ export const CodeIndexRequest = z.object({
 });
 const relPath = z.string().min(1).max(400);
 export const CodeQuery = z.discriminatedUnion("kind", [
-  z.object({ kind: z.literal("search"), query: z.string().min(1).max(300), limit: z.number().int().min(1).max(50).optional() }),
-  z.object({ kind: z.literal("symbols"), query: z.string().min(1).max(120), limit: z.number().int().min(1).max(100).optional() }),
+  z.object({
+    kind: z.literal("search"),
+    query: z.string().min(1).max(300),
+    limit: z.number().int().min(1).max(50).optional(),
+  }),
+  z.object({
+    kind: z.literal("symbols"),
+    query: z.string().min(1).max(120),
+    limit: z.number().int().min(1).max(100).optional(),
+  }),
   z.object({ kind: z.literal("definition"), name: z.string().min(1).max(120) }),
   z.object({ kind: z.literal("references"), name: z.string().min(1).max(120) }),
   z.object({ kind: z.literal("callers"), name: z.string().min(1).max(120) }),
   z.object({ kind: z.literal("dependencies"), path: relPath }),
-  z.object({ kind: z.literal("dependents"), path: relPath, depth: z.number().int().min(1).max(3).optional() }),
+  z.object({
+    kind: z.literal("dependents"),
+    path: relPath,
+    depth: z.number().int().min(1).max(3).optional(),
+  }),
   z.object({ kind: z.literal("outline"), path: relPath }),
   z.object({ kind: z.literal("architecture") }),
-  z.object({ kind: z.literal("impact"), target: z.string().min(1).max(400), depth: z.number().int().min(1).max(5).optional() }),
-  z.object({ kind: z.literal("graph"), focus: relPath.optional(), depth: z.number().int().min(1).max(3).optional(), limit: z.number().int().min(10).max(150).optional() }),
-  z.object({ kind: z.literal("snippet"), path: relPath, line: z.number().int().min(1), context: z.number().int().min(0).max(80).optional() }),
+  z.object({
+    kind: z.literal("impact"),
+    target: z.string().min(1).max(400),
+    depth: z.number().int().min(1).max(5).optional(),
+  }),
+  z.object({
+    kind: z.literal("graph"),
+    focus: relPath.optional(),
+    depth: z.number().int().min(1).max(3).optional(),
+    limit: z.number().int().min(10).max(150).optional(),
+  }),
+  z.object({
+    kind: z.literal("snippet"),
+    path: relPath,
+    line: z.number().int().min(1),
+    context: z.number().int().min(0).max(80).optional(),
+  }),
 ]);
 export type CodeQuery = z.infer<typeof CodeQuery>;
-export const CodeQueryRequest = z.object({ ...codeReq, type: z.literal("code.query"), query: CodeQuery });
-export const CodeConfigRequest = z.object({ ...reqBase, type: z.literal("code.config"), projectRoot: z.string().min(1), config: IndexConfig.partial().optional() });
+export const CodeQueryRequest = z.object({
+  ...codeReq,
+  type: z.literal("code.query"),
+  query: CodeQuery,
+});
+export const CodeConfigRequest = z.object({
+  ...reqBase,
+  type: z.literal("code.config"),
+  projectRoot: z.string().min(1),
+  config: IndexConfig.partial().optional(),
+});
 
 // ---------- browser ----------
 
 export const BrowserStatusRequest = z.object({ ...reqBase, type: z.literal("browser.status") });
 /** Downloads Chrome Headless Shell into Playwright's cache (only when you ask). */
-export const BrowserInstallRequest = z.object({ ...reqBase, type: z.literal("browser.install"), force: z.boolean().optional() });
+export const BrowserInstallRequest = z.object({
+  ...reqBase,
+  type: z.literal("browser.install"),
+  force: z.boolean().optional(),
+});
 export const BrowserSessionsRequest = z.object({ ...reqBase, type: z.literal("browser.sessions") });
 export const BrowserControlRequest = z.object({
   ...reqBase,
@@ -267,13 +423,35 @@ export const BrowserControlRequest = z.object({
   viewport: ViewportName.optional(),
 });
 /** The project's remembered browser origins ("always" answers); `remove` forgets one first. */
-export const BrowserOriginsRequest = z.object({ ...reqBase, type: z.literal("browser.origins"), projectRoot: z.string().min(1), remove: z.string().min(1).max(2000).optional() });
+export const BrowserOriginsRequest = z.object({
+  ...reqBase,
+  type: z.literal("browser.origins"),
+  projectRoot: z.string().min(1),
+  remove: z.string().min(1).max(2000).optional(),
+});
 /** Global browser settings; saved when `settings` is given. */
-export const BrowserSettingsRequest = z.object({ ...reqBase, type: z.literal("browser.settings"), settings: BrowserSettings.optional() });
+export const BrowserSettingsRequest = z.object({
+  ...reqBase,
+  type: z.literal("browser.settings"),
+  settings: BrowserSettings.optional(),
+});
 const artReq = { ...reqBase, projectRoot: z.string().min(1) };
-export const ArtifactsListRequest = z.object({ ...artReq, type: z.literal("artifacts.list"), run: z.string().max(200).optional() });
-export const ArtifactsGetRequest = z.object({ ...artReq, type: z.literal("artifacts.get"), path: z.string().min(1).max(1000) });
-export const ArtifactsCleanRequest = z.object({ ...artReq, type: z.literal("artifacts.clean"), run: z.string().max(200).optional(), olderThanDays: z.number().min(0).max(3650).optional() });
+export const ArtifactsListRequest = z.object({
+  ...artReq,
+  type: z.literal("artifacts.list"),
+  run: z.string().max(200).optional(),
+});
+export const ArtifactsGetRequest = z.object({
+  ...artReq,
+  type: z.literal("artifacts.get"),
+  path: z.string().min(1).max(1000),
+});
+export const ArtifactsCleanRequest = z.object({
+  ...artReq,
+  type: z.literal("artifacts.clean"),
+  run: z.string().max(200).optional(),
+  olderThanDays: z.number().min(0).max(3650).optional(),
+});
 
 export const Request = z.discriminatedUnion("type", [
   PingRequest,
@@ -467,8 +645,19 @@ export const Event = z.discriminatedUnion("type", [
     logs: z.array(z.string()).optional(),
   }),
   z.object({ ...evBase, type: z.literal("mcp_resource"), uri: z.string(), text: z.string() }),
-  z.object({ ...evBase, type: z.literal("mcp_prompt"), name: z.string(), description: z.string().optional(), text: z.string() }),
-  z.object({ ...evBase, type: z.literal("mcp_permissions"), projectRoot: z.string(), rules: z.record(z.string(), z.enum(["allow", "deny"])) }),
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_prompt"),
+    name: z.string(),
+    description: z.string().optional(),
+    text: z.string(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("mcp_permissions"),
+    projectRoot: z.string(),
+    rules: z.record(z.string(), z.enum(["allow", "deny"])),
+  }),
   z.object({
     ...evBase,
     type: z.literal("mcp_progress"),
@@ -556,9 +745,24 @@ export const Event = z.discriminatedUnion("type", [
   }),
   // Team runs (mode "team"). All carry the task id and a per-task `seq`.
   z.object({ ...evBase, type: z.literal("orch_snapshot"), state: OrchestrationState }),
-  z.object({ ...evBase, type: z.literal("orch_phase"), phase: OrchPhase, reason: z.string().optional() }),
-  z.object({ ...evBase, type: z.literal("orch_plan"), graph: TaskGraph, approved: z.boolean().optional() }),
-  z.object({ ...evBase, type: z.literal("orch_task"), subtask: SubtaskState, why: z.string().optional() }),
+  z.object({
+    ...evBase,
+    type: z.literal("orch_phase"),
+    phase: OrchPhase,
+    reason: z.string().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("orch_plan"),
+    graph: TaskGraph,
+    approved: z.boolean().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("orch_task"),
+    subtask: SubtaskState,
+    why: z.string().optional(),
+  }),
   z.object({ ...evBase, type: z.literal("orch_agent"), agent: AgentRun }),
   z.object({ ...evBase, type: z.literal("orch_integration"), record: IntegrationRecord }),
   z.object({ ...evBase, type: z.literal("orch_review"), review: ReviewResult }),
@@ -567,55 +771,145 @@ export const Event = z.discriminatedUnion("type", [
     ...evBase,
     type: z.literal("agent_roles"),
     roles: z.array(RoleConfig),
-    overrides: z.object({ global: z.record(z.string(), RoleOverride), project: z.record(z.string(), RoleOverride) }),
+    overrides: z.object({
+      global: z.record(z.string(), RoleOverride),
+      project: z.record(z.string(), RoleOverride),
+    }),
   }),
   // Browser.
-  z.object({ ...evBase, type: z.literal("browser_status"), install: BrowserInstall, running: z.boolean(), sessions: z.array(BrowserSessionInfo), devServers: z.array(DevServerInfo) }),
-  z.object({ ...evBase, type: z.literal("browser_install_progress"), received: z.number(), total: z.number() }),
+  z.object({
+    ...evBase,
+    type: z.literal("browser_status"),
+    install: BrowserInstall,
+    running: z.boolean(),
+    sessions: z.array(BrowserSessionInfo),
+    devServers: z.array(DevServerInfo),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("browser_install_progress"),
+    received: z.number(),
+    total: z.number(),
+  }),
   z.object({ ...evBase, type: z.literal("browser_session"), session: BrowserSessionInfo }),
-  z.object({ ...evBase, type: z.literal("browser_action"), sessionId: z.string(), action: z.string(), ok: z.boolean(), detail: z.string().optional() }),
-  z.object({ ...evBase, type: z.literal("browser_report"), sessionId: z.string(), report: BrowserReport }),
+  z.object({
+    ...evBase,
+    type: z.literal("browser_action"),
+    sessionId: z.string(),
+    action: z.string(),
+    ok: z.boolean(),
+    detail: z.string().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("browser_report"),
+    sessionId: z.string(),
+    report: BrowserReport,
+  }),
   z.object({ ...evBase, type: z.literal("dev_server"), server: DevServerInfo }),
-  z.object({ ...evBase, type: z.literal("browser_origins"), projectRoot: z.string(), origins: z.array(z.string()) }),
+  z.object({
+    ...evBase,
+    type: z.literal("browser_origins"),
+    projectRoot: z.string(),
+    origins: z.array(z.string()),
+  }),
   z.object({ ...evBase, type: z.literal("browser_settings"), settings: BrowserSettings }),
   z.object({
     ...evBase,
     type: z.literal("artifacts"),
     projectRoot: z.string(),
-    items: z.array(z.object({ path: z.string(), run: z.string(), name: z.string(), bytes: z.number(), at: z.number() })),
+    items: z.array(
+      z.object({
+        path: z.string(),
+        run: z.string(),
+        name: z.string(),
+        bytes: z.number(),
+        at: z.number(),
+      }),
+    ),
     removed: z.number().optional(),
     bytes: z.number().optional(),
   }),
-  z.object({ ...evBase, type: z.literal("artifact"), path: z.string(), data: z.string(), mediaType: z.string(), bytes: z.number() }),
+  z.object({
+    ...evBase,
+    type: z.literal("artifact"),
+    path: z.string(),
+    data: z.string(),
+    mediaType: z.string(),
+    bytes: z.number(),
+  }),
   // Code intelligence.
   z.object({ ...evBase, type: z.literal("code_index_status"), status: IndexStatus }),
-  z.object({ ...evBase, type: z.literal("code_index_progress"), projectRoot: z.string(), done: z.number(), total: z.number() }),
-  z.object({ ...evBase, type: z.literal("code_config"), projectRoot: z.string(), config: IndexConfig }),
+  z.object({
+    ...evBase,
+    type: z.literal("code_index_progress"),
+    projectRoot: z.string(),
+    done: z.number(),
+    total: z.number(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("code_config"),
+    projectRoot: z.string(),
+    config: IndexConfig,
+  }),
   z.object({
     ...evBase,
     type: z.literal("code_results"),
     kind: z.string(),
     hits: z.array(SearchHit).optional(),
     symbols: z.array(CodeSymbol).optional(),
-    locations: z.array(z.object({ path: z.string(), line: z.number(), kind: z.string().optional(), in: z.string().optional() })).optional(),
+    locations: z
+      .array(
+        z.object({
+          path: z.string(),
+          line: z.number(),
+          kind: z.string().optional(),
+          in: z.string().optional(),
+        }),
+      )
+      .optional(),
     ambiguous: z.boolean().optional(),
-    files: z.array(z.object({ path: z.string(), depth: z.number().optional(), test: z.boolean().optional() })).optional(),
+    files: z
+      .array(
+        z.object({ path: z.string(), depth: z.number().optional(), test: z.boolean().optional() }),
+      )
+      .optional(),
     packages: z.array(z.string()).optional(),
     impact: ImpactReport.optional(),
     graph: GraphData.optional(),
     text: z.string().optional(),
-    snippet: z.object({ path: z.string(), start: z.number(), lines: z.array(z.string()) }).optional(),
+    snippet: z
+      .object({ path: z.string(), start: z.number(), lines: z.array(z.string()) })
+      .optional(),
   }),
   /** A task's view of the codebase: overview text and, for team runs, the planner's impact reports. */
-  z.object({ ...evBase, type: z.literal("code_context"), overview: z.string(), impact: ImpactReport.optional(), indexing: z.boolean().optional() }),
-  z.object({ ...evBase, type: z.literal("error"), message: z.string(), code: z.string().optional() }),
+  z.object({
+    ...evBase,
+    type: z.literal("code_context"),
+    overview: z.string(),
+    impact: ImpactReport.optional(),
+    indexing: z.boolean().optional(),
+  }),
+  z.object({
+    ...evBase,
+    type: z.literal("error"),
+    message: z.string(),
+    code: z.string().optional(),
+  }),
 ]);
 export type Event = z.infer<typeof Event>;
 
 /** An event before the router stamps `id`/`ts` on it. */
-export type EventBody = Event extends infer E ? (E extends Event ? Omit<E, "id" | "ts" | "taskId"> : never) : never;
+export type EventBody = Event extends infer E
+  ? E extends Event
+    ? Omit<E, "id" | "ts" | "taskId">
+    : never
+  : never;
 
-export type ParseResult = { ok: true; request: Request } | { ok: false; id?: string; message: string };
+export type ParseResult =
+  | { ok: true; request: Request }
+  | { ok: false; id?: string; message: string };
 
 /** Parse one JSON line into a Request, returning a friendly error instead of throwing. */
 export function parseRequest(line: string): ParseResult {
@@ -625,10 +919,15 @@ export function parseRequest(line: string): ParseResult {
   } catch (e) {
     return { ok: false, message: `invalid JSON: ${(e as Error).message}` };
   }
-  const id = typeof raw === "object" && raw && typeof (raw as any).id === "string" ? (raw as any).id : undefined;
+  const id =
+    typeof raw === "object" && raw && typeof (raw as any).id === "string"
+      ? (raw as any).id
+      : undefined;
   const parsed = Request.safeParse(raw);
   if (!parsed.success) {
-    const msg = parsed.error.issues.map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`).join("; ");
+    const msg = parsed.error.issues
+      .map((i) => `${i.path.join(".") || "<root>"}: ${i.message}`)
+      .join("; ");
     return { ok: false, id, message: `invalid request: ${msg}` };
   }
   return { ok: true, request: parsed.data };

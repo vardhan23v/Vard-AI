@@ -19,12 +19,28 @@
 import { generateText, type LanguageModel, type ModelMessage, streamText } from "ai";
 import { buildSystemPrompt, compactMessages, repoMap } from "./context";
 import type { McpCallInfo } from "./mcp/types";
-import { ensureAnalyzed, type MemoryStore, parseProposals, type Proposal, recall, reflectPrompt } from "./memory";
+import {
+  ensureAnalyzed,
+  type MemoryStore,
+  parseProposals,
+  type Proposal,
+  recall,
+  reflectPrompt,
+} from "./memory";
 import { Policy } from "./policy";
 import type { TaskGraph } from "./agents/schema";
 import type { ApprovalDecision, EventBody, TaskState, Usage } from "./protocol";
 import fs from "node:fs";
-import { ALL_TOOLS, textOf, type Todo, type ToolContext, type ToolDef, ToolError, toSdkTools, toolByName } from "./tools";
+import {
+  ALL_TOOLS,
+  textOf,
+  type Todo,
+  type ToolContext,
+  type ToolDef,
+  ToolError,
+  toSdkTools,
+  toolByName,
+} from "./tools";
 import { runCommand } from "./tools/command";
 import { DEFAULT_RETRY, isToolCallRejection, type RetryOptions, withRetry } from "./retry";
 import { describeError, truncateMiddle } from "./util";
@@ -225,7 +241,15 @@ export class AgentLoop {
   }
 
   private result(status: LoopResult["status"], summary: string, reason?: string): LoopResult {
-    return { status, summary, reason, steps: this.steps, usage: this.usage, todos: this.todos, messages: this.messages };
+    return {
+      status,
+      summary,
+      reason,
+      steps: this.steps,
+      usage: this.usage,
+      todos: this.todos,
+      messages: this.messages,
+    };
   }
 
   // ---------- phases ----------
@@ -250,20 +274,29 @@ export class AgentLoop {
       o.emit({ type: "plan", plan });
 
       this.setState("awaiting_plan_approval");
-      const answer = await this.approval({ kind: "plan", reason: "review the plan before the agent edits files", plan });
+      const answer = await this.approval({
+        kind: "plan",
+        reason: "review the plan before the agent edits files",
+        plan,
+      });
       if (answer.decision !== "deny") {
         const finalPlan = answer.plan?.trim() || plan;
         if (answer.plan) o.emit({ type: "plan", plan: finalPlan });
         this.messages.push({
           role: "user",
           content:
-            (answer.plan ? `The user edited the plan. Follow this plan:\n${finalPlan}\n\n` : "The plan is approved. ") +
+            (answer.plan
+              ? `The user edited the plan. Follow this plan:\n${finalPlan}\n\n`
+              : "The plan is approved. ") +
             "Execute it now. Keep the todo list updated with todo_write.",
         });
         return;
       }
       if (!answer.reason) throw new Blocked("plan rejected by user");
-      this.messages.push({ role: "user", content: `The plan was rejected: ${answer.reason}\nRevise the plan.` });
+      this.messages.push({
+        role: "user",
+        content: `The plan was rejected: ${answer.reason}\nRevise the plan.`,
+      });
     }
     throw new Blocked("plan rejected too many times");
   }
@@ -275,7 +308,8 @@ export class AgentLoop {
       await o.gate();
       this.checkCancel();
     }
-    if (this.steps >= (o.maxSteps ?? 50)) throw new Blocked(`step limit reached (${o.maxSteps ?? 50})`);
+    if (this.steps >= (o.maxSteps ?? 50))
+      throw new Blocked(`step limit reached (${o.maxSteps ?? 50})`);
     if (this.usage.totalTokens >= (o.tokenBudget ?? 2_000_000))
       throw new Blocked(`token budget exhausted (${this.usage.totalTokens} tokens)`);
     this.steps++;
@@ -289,7 +323,13 @@ export class AgentLoop {
           if (o.memory.recall) {
             const r = recall(o.memory.store, o.prompt);
             this.memoryCache = r.text;
-            o.emit({ type: "memory_recall", count: r.ids.length, total: r.total, chars: r.chars, ids: r.ids });
+            o.emit({
+              type: "memory_recall",
+              count: r.ids.length,
+              total: r.total,
+              chars: r.chars,
+              ids: r.ids,
+            });
           }
         } catch {
           // Memory must never break a task.
@@ -307,46 +347,56 @@ export class AgentLoop {
       mcp: o.mcpSummary?.(),
       extra: o.extraInstructions,
     });
-    const { messages, compacted } = compactMessages(this.messages, { budgetTokens: o.contextBudget ?? 120_000 });
+    const { messages, compacted } = compactMessages(this.messages, {
+      budgetTokens: o.contextBudget ?? 120_000,
+    });
     if (compacted) this.messages = messages;
 
-    const { text, toolCalls, response, u } = await this.withToolCallRepair(() => withRetry(
-      async (markEmitted) => {
-        const result = streamText({
-          model: o.model,
-          instructions,
-          messages: this.messages,
-          tools: toSdkTools(tools),
-          abortSignal: o.signal,
-          // The harness does its own, longer backoff (retry.ts).
-          maxRetries: 0,
-          // Errors surface through fullStream and become retry/error/blocked events; keep stderr quiet.
-          onError: () => {},
-        });
-        let text = "";
-        for await (const part of result.fullStream) {
-          if (part.type === "text-delta") {
-            text += part.text;
-            markEmitted();
-            o.emit({ type: "token", text: part.text });
-          } else if (part.type === "error") {
-            throw part.error instanceof Error ? part.error : new Error(String((part as any).error));
+    const { text, toolCalls, response, u } = await this.withToolCallRepair(() =>
+      withRetry(
+        async (markEmitted) => {
+          const result = streamText({
+            model: o.model,
+            instructions,
+            messages: this.messages,
+            tools: toSdkTools(tools),
+            abortSignal: o.signal,
+            // The harness does its own, longer backoff (retry.ts).
+            maxRetries: 0,
+            // Errors surface through fullStream and become retry/error/blocked events; keep stderr quiet.
+            onError: () => {},
+          });
+          let text = "";
+          for await (const part of result.fullStream) {
+            if (part.type === "text-delta") {
+              text += part.text;
+              markEmitted();
+              o.emit({ type: "token", text: part.text });
+            } else if (part.type === "error") {
+              throw part.error instanceof Error
+                ? part.error
+                : new Error(String((part as any).error));
+            }
           }
-        }
-        const [toolCalls, response, u] = await Promise.all([result.toolCalls, result.response, result.usage]);
-        return { text, toolCalls, response, u };
-      },
-      o.retry ?? DEFAULT_RETRY,
-      (r) =>
-        o.emit({
-          type: "retry",
-          attempt: r.attempt,
-          maxAttempts: r.maxAttempts,
-          delayMs: r.delayMs,
-          message: describeError(r.error),
-        }),
-      o.signal,
-    ));
+          const [toolCalls, response, u] = await Promise.all([
+            result.toolCalls,
+            result.response,
+            result.usage,
+          ]);
+          return { text, toolCalls, response, u };
+        },
+        o.retry ?? DEFAULT_RETRY,
+        (r) =>
+          o.emit({
+            type: "retry",
+            attempt: r.attempt,
+            maxAttempts: r.maxAttempts,
+            delayMs: r.delayMs,
+            message: describeError(r.error),
+          }),
+        o.signal,
+      ),
+    );
     this.messages.push(...(response.messages as ModelMessage[]));
 
     const step: Usage = {
@@ -360,7 +410,10 @@ export class AgentLoop {
       totalTokens: this.usage.totalTokens + step.totalTokens,
     };
     o.emit({ type: "usage", step, total: this.usage });
-    return { text, toolCalls: toolCalls as Array<{ toolCallId: string; toolName: string; input: unknown }> };
+    return {
+      text,
+      toolCalls: toolCalls as Array<{ toolCallId: string; toolName: string; input: unknown }>,
+    };
   }
 
   private async observe(calls: Array<{ toolCallId: string; toolName: string; input: unknown }>) {
@@ -369,14 +422,26 @@ export class AgentLoop {
     for (const call of calls) {
       this.checkCancel();
       const { ok, output, images } = await this.executeCall(call);
-      this.o.emit({ type: "tool_result", callId: call.toolCallId, tool: call.toolName, ok, output, ...(images?.length ? { images: images.map((i) => i.path) } : {}) });
+      this.o.emit({
+        type: "tool_result",
+        callId: call.toolCallId,
+        tool: call.toolName,
+        ok,
+        output,
+        ...(images?.length ? { images: images.map((i) => i.path) } : {}),
+      });
       const arg = JSON.stringify(call.input ?? {}).slice(0, 160);
-      this.toolLog.push(`${ok ? "ok " : "ERR"} ${call.toolName} ${arg}${ok ? "" : ` -> ${output.split("\n")[0].slice(0, 160)}`}`);
+      this.toolLog.push(
+        `${ok ? "ok " : "ERR"} ${call.toolName} ${arg}${ok ? "" : ` -> ${output.split("\n")[0].slice(0, 160)}`}`,
+      );
       parts.push({
         type: "tool-result",
         toolCallId: call.toolCallId,
         toolName: call.toolName,
-        output: ok && images?.length && this.o.vision ? this.withImages(output, images) : { type: "text", value: ok ? output : `ERROR: ${output}` },
+        output:
+          ok && images?.length && this.o.vision
+            ? this.withImages(output, images)
+            : { type: "text", value: ok ? output : `ERROR: ${output}` },
       });
     }
     if (parts.some((p) => p.output.type === "content")) this.dropOldImages();
@@ -389,7 +454,12 @@ export class AgentLoop {
     for (const img of images.slice(0, 3)) {
       try {
         const data = fs.readFileSync(img.path);
-        if (data.length <= 4 * 1024 * 1024) value.push({ type: "file", mediaType: img.mediaType, data: { type: "data", data: data.toString("base64") } });
+        if (data.length <= 4 * 1024 * 1024)
+          value.push({
+            type: "file",
+            mediaType: img.mediaType,
+            data: { type: "data", data: data.toString("base64") },
+          });
       } catch {}
     }
     return { type: "content", value };
@@ -402,14 +472,24 @@ export class AgentLoop {
       for (const part of m.content as any[]) {
         const out = part.output;
         if (out?.type !== "content") continue;
-        const text = out.value.filter((v: any) => v.type === "text").map((v: any) => v.text).join("\n");
-        part.output = { type: "text", value: `${text}\n[earlier screenshot removed from the conversation; it is still saved on disk]` };
+        const text = out.value
+          .filter((v: any) => v.type === "text")
+          .map((v: any) => v.text)
+          .join("\n");
+        part.output = {
+          type: "text",
+          value: `${text}\n[earlier screenshot removed from the conversation; it is still saved on disk]`,
+        };
       }
     }
   }
 
   /** Validate → policy → (approval) → execute → truncate. Never throws except on cancel. */
-  async executeCall(call: { toolCallId: string; toolName: string; input: unknown }): Promise<{ ok: boolean; output: string; images?: { path: string; mediaType: string }[] }> {
+  async executeCall(call: {
+    toolCallId: string;
+    toolName: string;
+    input: unknown;
+  }): Promise<{ ok: boolean; output: string; images?: { path: string; mediaType: string }[] }> {
     const o = this.o;
     const def = toolByName(this.currentTools(), call.toolName);
     o.emit({
@@ -417,22 +497,40 @@ export class AgentLoop {
       callId: call.toolCallId,
       tool: call.toolName,
       input: call.input,
-      ...(def?.mcp ? { mcp: { serverId: def.mcp.serverId, serverName: def.mcp.serverName, tool: def.mcp.tool } } : {}),
+      ...(def?.mcp
+        ? {
+            mcp: { serverId: def.mcp.serverId, serverName: def.mcp.serverName, tool: def.mcp.tool },
+          }
+        : {}),
     });
     if (!def) return { ok: false, output: `unknown tool: ${call.toolName}` };
     const parsed = def.inputSchema.safeParse(call.input);
     if (!parsed.success)
-      return { ok: false, output: `invalid input: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}` };
+      return {
+        ok: false,
+        output: `invalid input: ${parsed.error.issues.map((i) => `${i.path.join(".")}: ${i.message}`).join("; ")}`,
+      };
     const input = parsed.data as Record<string, unknown>;
 
     const decision = o.policy.decide(def, input);
-    if (decision.action === "deny") return { ok: false, output: `blocked by policy: ${decision.reason}` };
+    if (decision.action === "deny")
+      return { ok: false, output: `blocked by policy: ${decision.reason}` };
     if (decision.action === "ask") {
       const prev = this.state;
-      const answer = await this.approval({ kind: "tool", tool: def.name, input, reason: decision.reason, ...(decision.mcp ? { mcp: decision.mcp } : {}), ...(def.alwaysAsk || decision.noAlways ? { noAlways: true } : {}) });
+      const answer = await this.approval({
+        kind: "tool",
+        tool: def.name,
+        input,
+        reason: decision.reason,
+        ...(decision.mcp ? { mcp: decision.mcp } : {}),
+        ...(def.alwaysAsk || decision.noAlways ? { noAlways: true } : {}),
+      });
       this.state = prev;
       if (answer.decision === "deny")
-        return { ok: false, output: `the user denied this call${answer.reason ? `: ${answer.reason}` : ""}` };
+        return {
+          ok: false,
+          output: `the user denied this call${answer.reason ? `: ${answer.reason}` : ""}`,
+        };
       if (answer.decision === "always") o.policy.remember(def, input);
     }
 
@@ -453,7 +551,10 @@ export class AgentLoop {
       return { ok: true, output: def.truncate(out.text), images: out.images };
     } catch (e) {
       this.checkCancel();
-      const msg = e instanceof ToolError ? e.message : `${def.name} failed: ${(e as Error)?.message ?? String(e)}`;
+      const msg =
+        e instanceof ToolError
+          ? e.message
+          : `${def.name} failed: ${(e as Error)?.message ?? String(e)}`;
       return { ok: false, output: def.truncate(msg) };
     }
   }
@@ -483,10 +584,18 @@ export class AgentLoop {
   private async verify(command: string): Promise<{ ok: boolean; output: string }> {
     this.setState("verifying");
     this.o.emit({ type: "verify", status: "running", command });
-    const out = textOf(await runCommand.execute(
-      { command, timeoutSec: 600 },
-      { workRoot: this.o.workRoot, projectRoot: this.o.projectRoot, todos: this.todos, setTodos: () => {}, signal: this.o.signal },
-    ));
+    const out = textOf(
+      await runCommand.execute(
+        { command, timeoutSec: 600 },
+        {
+          workRoot: this.o.workRoot,
+          projectRoot: this.o.projectRoot,
+          todos: this.todos,
+          setTodos: () => {},
+          signal: this.o.signal,
+        },
+      ),
+    );
     this.checkCancel();
     const ok = out.startsWith("exit code 0");
     const output = truncateMiddle(out, 8_000);

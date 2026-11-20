@@ -19,7 +19,10 @@ export class CodeIntel {
   /** Embedding keys handed over by the app/CLI per project (never stored). */
   private keys = new Map<string, string>();
   /** Background embedding refreshes, one per project (a second request reruns once after it). */
-  private embedding = new Map<string, { run: Promise<void>; again: boolean; ctrl: AbortController }>();
+  private embedding = new Map<
+    string,
+    { run: Promise<void>; again: boolean; ctrl: AbortController }
+  >();
 
   constructor(private o: CodeIntelOptions = {}) {}
 
@@ -40,7 +43,10 @@ export class CodeIntel {
   embeddings(projectRoot: string): EmbeddingProvider | null {
     if (this.o.embeddingsFor) return this.o.embeddingsFor(path.resolve(projectRoot));
     try {
-      return embeddingProvider(loadIndexConfig(projectRoot).embeddings, this.keys.get(path.resolve(projectRoot)));
+      return embeddingProvider(
+        loadIndexConfig(projectRoot).embeddings,
+        this.keys.get(path.resolve(projectRoot)),
+      );
     } catch {
       return null;
     }
@@ -85,7 +91,10 @@ export class CodeIntel {
   async build(projectRoot: string, o: { force?: boolean; signal?: AbortSignal } = {}) {
     const ix = this.get(projectRoot);
     try {
-      const r = await ix.build({ ...o, onProgress: (d, t) => this.o.onProgress?.(ix.projectRoot, d, t) });
+      const r = await ix.build({
+        ...o,
+        onProgress: (d, t) => this.o.onProgress?.(ix.projectRoot, d, t),
+      });
       this.o.onStatus?.(ix.status());
       return r;
     } catch (e) {
@@ -109,7 +118,9 @@ export class CodeIntel {
       () => "ready" as const,
     );
     let timer: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<"building">((r) => (timer = setTimeout(() => r("building"), budgetMs)));
+    const timeout = new Promise<"building">(
+      (r) => (timer = setTimeout(() => r("building"), budgetMs)),
+    );
     return Promise.race([p, timeout]).finally(() => clearTimeout(timer));
   }
 

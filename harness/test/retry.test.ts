@@ -19,7 +19,9 @@ function apiErr(status: number, headers: Record<string, string> = {}) {
     requestBodyValues: {},
     statusCode: status,
     responseHeaders: headers,
-    responseBody: JSON.stringify({ error: { message: "x", metadata: { raw: `upstream said ${status}` } } }),
+    responseBody: JSON.stringify({
+      error: { message: "x", metadata: { raw: `upstream said ${status}` } },
+    }),
   });
 }
 
@@ -52,7 +54,10 @@ function flakyModel(errors: unknown[], text = "ok") {
   return { model, calls: () => calls };
 }
 
-function loopFor(model: MockLanguageModelV4, extra: Partial<ConstructorParameters<typeof AgentLoop>[0]> = {}) {
+function loopFor(
+  model: MockLanguageModelV4,
+  extra: Partial<ConstructorParameters<typeof AgentLoop>[0]> = {},
+) {
   const root = tmpDir();
   const events: any[] = [];
   const loop = new AgentLoop({
@@ -82,7 +87,9 @@ describe("backoff policy", () => {
     expect(retryAfterMs(apiErr(429, { "retry-after": "3" }))).toBe(3000);
     expect(retryAfterMs(apiErr(429, { "Retry-After-Ms": "250" }))).toBe(250);
     const now = Date.parse("2026-11-10T00:00:00Z");
-    expect(retryAfterMs(apiErr(429, { "retry-after": "Tue, 10 Nov 2026 00:00:07 GMT" }), now)).toBe(7000);
+    expect(retryAfterMs(apiErr(429, { "retry-after": "Tue, 10 Nov 2026 00:00:07 GMT" }), now)).toBe(
+      7000,
+    );
     const opts = { maxAttempts: 5, baseDelayMs: 1000, maxDelayMs: 60_000 };
     expect(nextDelay(apiErr(429, { "retry-after": "5" }), 1, opts)).toBe(5000);
     expect(nextDelay(apiErr(429, { "retry-after": "600" }), 1, opts)).toBe(60_000);
@@ -168,7 +175,11 @@ test("chat.send retries rate limits too", async () => {
   await server.handle({
     id: "c1",
     type: "chat.send",
-    provider: { provider: "openai-compatible", model: "m:free", baseUrl: "https://example.test/v1" },
+    provider: {
+      provider: "openai-compatible",
+      model: "m:free",
+      baseUrl: "https://example.test/v1",
+    },
     messages: [{ role: "user", content: "ping" }],
   });
   await finished;

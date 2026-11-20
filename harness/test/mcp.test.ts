@@ -496,6 +496,7 @@ describe("agent workflow", () => {
       write_note: "deny",
     };
     let server!: Server;
+    // eslint-disable-next-line prefer-const -- declared earlier so callbacks created first can read it
     server = new Server({
       mcp: m,
       traceDir: tmpDir("vard-traces-"),

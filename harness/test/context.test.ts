@@ -2,7 +2,12 @@ import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
 import type { ModelMessage } from "ai";
-import { buildSystemPrompt, compactMessages, estimateMessagesTokens, repoMap } from "../src/context";
+import {
+  buildSystemPrompt,
+  compactMessages,
+  estimateMessagesTokens,
+  repoMap,
+} from "../src/context";
 import { tmpDir, tmpGitRepo } from "./helpers";
 
 function transcript(n: number, size: number): ModelMessage[] {
@@ -10,12 +15,19 @@ function transcript(n: number, size: number): ModelMessage[] {
   for (let i = 0; i < n; i++) {
     msgs.push({
       role: "assistant",
-      content: [{ type: "tool-call", toolCallId: `c${i}`, toolName: "read_file", input: { path: `f${i}` } }],
+      content: [
+        { type: "tool-call", toolCallId: `c${i}`, toolName: "read_file", input: { path: `f${i}` } },
+      ],
     });
     msgs.push({
       role: "tool",
       content: [
-        { type: "tool-result", toolCallId: `c${i}`, toolName: "read_file", output: { type: "text", value: "x".repeat(size) } },
+        {
+          type: "tool-result",
+          toolCallId: `c${i}`,
+          toolName: "read_file",
+          output: { type: "text", value: "x".repeat(size) },
+        },
       ],
     });
   }
@@ -50,7 +62,10 @@ describe("compaction", () => {
 
   test("stops compacting as soon as it fits", () => {
     const msgs = transcript(10, 4_000);
-    const r = compactMessages(msgs, { budgetTokens: estimateMessagesTokens(msgs) - 500, keepRecent: 2 });
+    const r = compactMessages(msgs, {
+      budgetTokens: estimateMessagesTokens(msgs) - 500,
+      keepRecent: 2,
+    });
     expect(r.compacted).toBe(1);
   });
 });

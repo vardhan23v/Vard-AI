@@ -7,7 +7,12 @@ export { searchCode } from "./search";
 export { relevantCode } from "./relevant";
 export { analyzeImpact, renderImpact } from "./impact";
 export { architecture, renderArchitecture } from "./overview";
-export { embeddingProvider, updateEmbeddings, vectorSearch, type EmbeddingProvider } from "./embeddings";
+export {
+  embeddingProvider,
+  updateEmbeddings,
+  vectorSearch,
+  type EmbeddingProvider,
+} from "./embeddings";
 export { CodeIntel } from "./manager";
 export { codeTools, CODE_TOOL_NAMES } from "./tools";
 export { deleteIndex } from "./store";
