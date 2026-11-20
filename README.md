@@ -95,12 +95,20 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Sign in with Google or email
 - API keys stored in the macOS Keychain
 - "Starry Night" theme in dark and light, with three accent colours and a reduced-motion setting
+- **Settings → Browser** (test browser, allowed sites per project, how long screenshots and reports are kept) and **Settings → Code index** (semantic search, index limits)
+- A startup screen instead of an empty window while Vard loads; if starting takes too long or fails, it says so and offers to retry, and each start is logged to `~/Library/Logs/ai.vard.desktop/frontend.log`
 
 ## Install
 
 1. Download **[Vard-AI-macOS-universal.dmg](https://github.com/vardhan23v/Vard-AI/releases/latest/download/Vard-AI-macOS-universal.dmg)** from the [latest release](https://github.com/vardhan23v/Vard-AI/releases/latest) (Apple Silicon and Intel), or from [vard-ai.vercel.app](https://vard-ai.vercel.app).
 2. Open it and drag **Vard AI** to Applications.
 3. The app isn't notarized yet. On first launch, right-click it in Applications and choose **Open**, then **Open** again.
+
+**Builds from `main`.** Every push to `main` builds a DMG in CI. To try changes that aren't in a release yet, open the latest successful [desktop workflow run](https://github.com/vardhan23v/Vard-AI/actions/workflows/desktop.yml) on `main`, download the `vard-ai-dmg` artifact, and install it the same way. With the GitHub CLI:
+
+```bash
+gh run download --repo vardhan23v/Vard-AI -n vard-ai-dmg "$(gh run list --repo vardhan23v/Vard-AI --workflow desktop.yml --branch main --status success --limit 1 --json databaseId -q '.[0].databaseId')"
+```
 
 ## Getting started
 
@@ -375,12 +383,25 @@ bunx firebase-tools deploy --only firestore
 | 429 (rate-limited) | Free tiers have per-minute limits. The agent waits and retries. |
 | "Sign-in isn't set up" | Enable Authentication and its Email and Google providers in the Firebase console. |
 | Google says "access blocked" | Add your account as a test user on the OAuth consent screen, or publish the app. |
+| The window stays on "Starting Vard…" or shows "Vard is taking longer than usual to start" | Click **Try again**, or **Reload window**. Saved sessions are restored from local storage; if WebKit's IndexedDB doesn't answer at startup, Vard falls back to an in-memory cache for that run. The startup log, `~/Library/Logs/ai.vard.desktop/frontend.log`, shows which step was slow. |
+| "Vard couldn't start" with `auth/invalid-api-key` | The build has no Firebase config. For a local build, fill in `.env` from `.env.example`; for CI builds, set the `VITE_FIREBASE_*` repository secrets (see [Distribution](#distribution)). |
+| "Google sign-in isn't configured" | The build has no Google desktop OAuth client: set `VITE_GOOGLE_DESKTOP_CLIENT_ID` and `VITE_GOOGLE_DESKTOP_CLIENT_SECRET` in `.env` or as repository secrets. Email sign-in still works. |
+| Older builds (0.2.0) open to an empty window | Quit (⌘Q) and reopen, or install a newer build: the startup fix is in `main` (#11). |
 
 ## Distribution
 
 Builds are **unsigned** (ad-hoc signature) for now. On first launch, right-click the app and choose **Open**. Signing and notarization need an Apple Developer ID; add them in `src-tauri/tauri.conf.json` (`bundle.macOS.signingIdentity`) and the CI workflow.
 
-CI (`.github/workflows/desktop.yml`) typechecks the app and the harness, lints the app, runs the harness tests, runs `cargo check --locked` and uploads a universal DMG and the standalone `vard` binary as build artifacts. It needs the six variables in `.env.example` as repository secrets.
+CI (`.github/workflows/desktop.yml`) typechecks the app and the harness, lints the app, runs the harness tests, runs `cargo check --locked` and uploads a universal DMG and the standalone `vard` binary as build artifacts.
+
+The app's build-time config comes from repository secrets (**Settings → Secrets and variables → Actions**), the same six variables as `.env.example`. These are public client identifiers that end up in the app; Firestore rules protect the data.
+
+| Secret | Without it |
+|---|---|
+| `VITE_FIREBASE_API_KEY`, `VITE_FIREBASE_AUTH_DOMAIN`, `VITE_FIREBASE_PROJECT_ID`, `VITE_FIREBASE_APP_ID` | The app can't start: it shows "Vard couldn't start" (`auth/invalid-api-key`) |
+| `VITE_GOOGLE_DESKTOP_CLIENT_ID`, `VITE_GOOGLE_DESKTOP_CLIENT_SECRET` | Google sign-in isn't available (email sign-in works) |
+
+After adding or changing a secret, re-run the latest workflow run on `main` (or push) to get a DMG built with it.
 
 ## Website
 
