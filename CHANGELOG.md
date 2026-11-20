@@ -19,7 +19,7 @@ All notable changes to Vard AI are listed here. The format follows
 - Artifact retention in **Settings → Browser**: keep screenshots and reports forever, or for 7, 30 or 90 days.
 - **Settings → Code index**, and **Open in editor** from the Code page.
 - Team agents get the codebase overview and the code relevant to their subtask.
-- Startup: the window is never blank, a startup splash shows progress, waiting for the session is bounded, and a boot log records startup (#11, open).
+- Startup: the window is never blank, a startup splash shows progress, waiting for the session is bounded, and a boot log records startup (#11).
 - `CHANGELOG.md`.
 
 ### Changed
