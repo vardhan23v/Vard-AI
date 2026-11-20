@@ -24,6 +24,8 @@ export type TaskFlags = {
   /** Run as a team of agents (--team). */
   team?: boolean;
   maxAgents?: number;
+  /** Browser fix-and-retest rounds for a team run (--retest-rounds, 0-3). */
+  retestRounds?: number;
 };
 
 export type TaskOutcome = {
@@ -396,7 +398,7 @@ export async function runTask(ctx: Ctx, prompt: string, flags: TaskFlags): Promi
         ...(team
           ? {
               mode: "team" as const,
-              team: { ...(flags.maxAgents ? { maxAgents: flags.maxAgents } : {}), onFailure: ctx.prompter.interactive ? ("ask" as const) : ("continue" as const) },
+              team: { ...(flags.maxAgents ? { maxAgents: flags.maxAgents } : {}), ...(flags.retestRounds !== undefined ? { retestRounds: flags.retestRounds } : {}), onFailure: ctx.prompter.interactive ? ("ask" as const) : ("continue" as const) },
             }
           : {}),
       },

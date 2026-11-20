@@ -27,6 +27,9 @@ Vard AI is a macOS desktop app (Tauri v2) with a chat and a coding agent. Read [
 
 ```bash
 bun run typecheck             # app types
+bun run lint                  # app ESLint + Prettier (CI fails on errors)
+bun run build                 # web UI into dist/ (watch for chunk-size warnings)
+cd harness && bunx tsc --noEmit   # harness types
 cd harness && bun test        # harness tests (test/setup.ts keeps them away from your ~/.vard)
 bun run desktop:dev           # run the app (needs Rust on PATH)
 bun run desktop:build         # universal DMG

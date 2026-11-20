@@ -8,7 +8,7 @@
 import { z } from "zod";
 import { Category as MemoryCategory, MemoryEntry, MemorySettings } from "./memory/schema";
 import { AgentMessage, AgentRun, IntegrationRecord, OrchControl, OrchestrationState, OrchPhase, ReviewResult, RoleConfig, RoleId, RoleOverride, SubtaskState, TaskGraph, TeamRequest } from "./agents/schema";
-import { BrowserInstall, BrowserReport, BrowserSessionInfo, DevServerInfo, ViewportName } from "./browser/schema";
+import { BrowserInstall, BrowserReport, BrowserSessionInfo, BrowserSettings, DevServerInfo, ViewportName } from "./browser/schema";
 import { CodeSymbol, GraphData, ImpactReport, IndexConfig, IndexStatus, SearchHit } from "./intelligence/schema";
 import { ActivatedSkill, SkillChange, SkillSummary, SkillUsage } from "./skills/schema";
 import { McpCallInfo, McpPromptInfo, McpResourceInfo, McpScope, McpServerStatus, McpToolInfo } from "./mcp/types";
@@ -266,6 +266,10 @@ export const BrowserControlRequest = z.object({
   url: z.string().max(2000).optional(),
   viewport: ViewportName.optional(),
 });
+/** The project's remembered browser origins ("always" answers); `remove` forgets one first. */
+export const BrowserOriginsRequest = z.object({ ...reqBase, type: z.literal("browser.origins"), projectRoot: z.string().min(1), remove: z.string().min(1).max(2000).optional() });
+/** Global browser settings; saved when `settings` is given. */
+export const BrowserSettingsRequest = z.object({ ...reqBase, type: z.literal("browser.settings"), settings: BrowserSettings.optional() });
 const artReq = { ...reqBase, projectRoot: z.string().min(1) };
 export const ArtifactsListRequest = z.object({ ...artReq, type: z.literal("artifacts.list"), run: z.string().max(200).optional() });
 export const ArtifactsGetRequest = z.object({ ...artReq, type: z.literal("artifacts.get"), path: z.string().min(1).max(1000) });
@@ -303,6 +307,8 @@ export const Request = z.discriminatedUnion("type", [
   BrowserInstallRequest,
   BrowserSessionsRequest,
   BrowserControlRequest,
+  BrowserOriginsRequest,
+  BrowserSettingsRequest,
   ArtifactsListRequest,
   ArtifactsGetRequest,
   ArtifactsCleanRequest,
@@ -570,6 +576,8 @@ export const Event = z.discriminatedUnion("type", [
   z.object({ ...evBase, type: z.literal("browser_action"), sessionId: z.string(), action: z.string(), ok: z.boolean(), detail: z.string().optional() }),
   z.object({ ...evBase, type: z.literal("browser_report"), sessionId: z.string(), report: BrowserReport }),
   z.object({ ...evBase, type: z.literal("dev_server"), server: DevServerInfo }),
+  z.object({ ...evBase, type: z.literal("browser_origins"), projectRoot: z.string(), origins: z.array(z.string()) }),
+  z.object({ ...evBase, type: z.literal("browser_settings"), settings: BrowserSettings }),
   z.object({
     ...evBase,
     type: z.literal("artifacts"),

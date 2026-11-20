@@ -1,11 +1,25 @@
 import { useState } from "react";
 import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, KeyRound, Loader2, Moon, Sun, Terminal } from "lucide-react";
+import {
+  Check,
+  Copy,
+  ExternalLink,
+  KeyRound,
+  Loader2,
+  Moon,
+  Settings as SettingsIcon,
+  Sun,
+  Terminal,
+} from "lucide-react";
 import { openUrl } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { AppShell } from "@/components/shell/AppShell";
+import { PageHeader } from "@/components/PageHeader";
+import { BrowserSection } from "@/features/settings/BrowserSection";
+import { CodeIndexSection } from "@/features/settings/CodeIndexSection";
+import { Section } from "@/features/settings/Section";
 import { requireAuth } from "@/lib/guard";
 import { cli, isTauri, keys, ping, type ProviderId } from "@/lib/agent-client";
 import { PROVIDERS, type ProviderInfo } from "@/lib/models";
@@ -23,30 +37,21 @@ export function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-2xl space-y-10 px-6 py-10">
-        <header>
-          <h1 className="text-2xl">Settings</h1>
-          <p className="mt-1 text-sm text-muted-foreground">Keys, models and how Vard looks.</p>
-        </header>
-        <ApiKeys />
-        <Appearance />
-        <CommandLine />
-        <AgentStatus />
+        <PageHeader
+          icon={SettingsIcon}
+          title="Settings"
+          description="Keys, models and how Vard looks."
+        />
+        <div className="stagger space-y-10">
+          <ApiKeys />
+          <Appearance />
+          <BrowserSection />
+          <CodeIndexSection />
+          <CommandLine />
+          <AgentStatus />
+        </div>
       </div>
     </div>
-  );
-}
-
-function Section({ title, description, children }: { title: string; description?: string; children: React.ReactNode }) {
-  return (
-    <section aria-labelledby={`s-${title}`} className="space-y-4">
-      <div>
-        <h2 id={`s-${title}`} className="text-lg">
-          {title}
-        </h2>
-        {description && <p className="mt-1 text-sm text-muted-foreground">{description}</p>}
-      </div>
-      {children}
-    </section>
   );
 }
 
@@ -132,14 +137,21 @@ function KeyRow({
           {provider.keyUrl && (
             <button
               type="button"
-              onClick={() => (isTauri() ? openUrl(provider.keyUrl!) : window.open(provider.keyUrl, "_blank", "noopener"))}
+              onClick={() =>
+                isTauri()
+                  ? openUrl(provider.keyUrl!)
+                  : window.open(provider.keyUrl, "_blank", "noopener")
+              }
               className="inline-flex min-h-9 items-center gap-1 rounded-md px-2 text-xs text-muted-foreground hover:bg-accent hover:text-foreground"
             >
               Get a key <ExternalLink className="size-3" />
             </button>
           )}
           {hint && !editing && (
-            <button onClick={remove} className="min-h-9 rounded-md px-2 text-xs text-destructive hover:bg-destructive/10">
+            <button
+              onClick={remove}
+              className="min-h-9 rounded-md px-2 text-xs text-destructive hover:bg-destructive/10"
+            >
               Remove
             </button>
           )}
@@ -236,7 +248,11 @@ function Appearance() {
                   accent === a.id ? "border-primary bg-accent" : "border-border hover:bg-accent",
                 )}
               >
-                <span className="size-3.5 rounded-full" style={{ background: a.swatch }} aria-hidden />
+                <span
+                  className="size-3.5 rounded-full"
+                  style={{ background: a.swatch }}
+                  aria-hidden
+                />
                 {a.label}
               </button>
             ))}
@@ -252,7 +268,9 @@ function Appearance() {
                 aria-pressed={motion.reducedMotion === v}
                 className={cn(
                   "min-h-10 rounded-md border px-4 text-sm capitalize",
-                  motion.reducedMotion === v ? "border-primary bg-accent" : "border-border hover:bg-accent",
+                  motion.reducedMotion === v
+                    ? "border-primary bg-accent"
+                    : "border-border hover:bg-accent",
                 )}
               >
                 {v === "system" ? "Follow macOS" : v}
@@ -267,7 +285,12 @@ function Appearance() {
 
 function CommandLine() {
   const qc = useQueryClient();
-  const status = useQuery({ queryKey: ["cli-status"], queryFn: cli.status, enabled: isTauri(), retry: false });
+  const status = useQuery({
+    queryKey: ["cli-status"],
+    queryFn: cli.status,
+    enabled: isTauri(),
+    retry: false,
+  });
   const [busy, setBusy] = useState(false);
   const [copied, setCopied] = useState(false);
 
@@ -334,7 +357,8 @@ function CommandLine() {
         </div>
         <div className="flex items-center gap-2 rounded-md bg-background px-3 py-2 font-mono text-xs">
           <span className="flex-1 text-muted-foreground">
-            <span className="text-foreground">vard</span> · <span className="text-foreground">vard ask</span> "…" ·{" "}
+            <span className="text-foreground">vard</span> ·{" "}
+            <span className="text-foreground">vard ask</span> "…" ·{" "}
             <span className="text-foreground">vard run</span> "…"
           </span>
           <button
@@ -352,7 +376,12 @@ function CommandLine() {
 }
 
 function AgentStatus() {
-  const q = useQuery({ queryKey: ["agent-ping"], queryFn: () => ping(), enabled: isTauri(), retry: false });
+  const q = useQuery({
+    queryKey: ["agent-ping"],
+    queryFn: () => ping(),
+    enabled: isTauri(),
+    retry: false,
+  });
   return (
     <Section title="Agent" description="The local process that talks to models and runs tools.">
       <div className="flex items-center justify-between rounded-lg border border-border bg-card p-4 text-sm">
@@ -366,7 +395,10 @@ function AgentStatus() {
                 : `Running, version ${q.data}`}
         </span>
         {isTauri() && (
-          <button onClick={() => q.refetch()} className="min-h-9 rounded-md border border-input px-3 hover:bg-accent">
+          <button
+            onClick={() => q.refetch()}
+            className="min-h-9 rounded-md border border-input px-3 hover:bg-accent"
+          >
             Check again
           </button>
         )}

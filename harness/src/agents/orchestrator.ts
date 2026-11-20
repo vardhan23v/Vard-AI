@@ -13,6 +13,7 @@ import type { EventBody, Usage } from "../protocol";
 import { runCommand } from "../tools/command";
 import { textOf } from "../tools/types";
 import { git, truncateMiddle } from "../util";
+import { architecture, relevantCode, renderArchitecture } from "../intelligence";
 import { createWorktree, discardWorktree, type Worktree } from "../worktree";
 import { MessageBus } from "./communication";
 import { addFileEdges, allDeps, validateGraph, dedupeGraph } from "./dependencies";
@@ -243,7 +244,37 @@ export class Orchestrator {
 
   // ---------- run ----------
 
+  /** Fills env.codebase from the code index once it has something (agents' "# Codebase overview"). */
+  private loadCodebase() {
+    if (this.env.codebase || !this.d.codeIntel) return;
+    try {
+      const ix = this.d.codeIntel.get(this.d.projectRoot);
+      if (ix.exists()) this.env.codebase = renderArchitecture(architecture(ix), 1_500) || undefined;
+    } catch {
+      // The index must never stop a run.
+    }
+  }
+
+  /** References (path:line + symbol) for a subtask from the code index; "" without an index. */
+  private async subtaskCode(s: SubtaskState, signal: AbortSignal): Promise<string> {
+    const intel = this.d.codeIntel;
+    if (!intel) return "";
+    try {
+      const ix = intel.get(this.d.projectRoot);
+      return await relevantCode(ix, `${s.title}\n${s.description}`, {
+        files: s.files,
+        embeddings: intel.embeddings(this.d.projectRoot),
+        maxEntries: 8,
+        maxChars: 1_200,
+        signal: AbortSignal.any([signal, AbortSignal.timeout(5_000)]),
+      });
+    } catch {
+      return "";
+    }
+  }
+
   async run(): Promise<OrchestrationResult> {
+    this.loadCodebase();
     const d = this.d;
     const steps = () => [...this.agents.values()].reduce((n, a) => n + a.steps, 0);
     try {
@@ -437,6 +468,8 @@ export class Orchestrator {
         ws = await createWorktree(d.integration.projectRoot, `${d.taskId}--${s.id}-${s.attempts}`, { base: d.integration.branch });
       this.bus.post("task_started", { from: agentId, to: "orchestrator", subtaskId: s.id, text: ws ? `working on branch ${ws.branch}` : "started (read-only)" });
       const remaining = Math.max(10_000, this.tokenBudget - this.usage.totalTokens);
+      this.loadCodebase();
+      const code = await this.subtaskCode(s, signal);
       const { result } = await runAgent(this.env, {
         agentId,
         role,
@@ -448,6 +481,7 @@ export class Orchestrator {
         attempt: s.attempts,
         signal,
         tokenBudget: Math.min(PER_AGENT_TOKENS, remaining),
+        relevantCode: code || undefined,
       });
       if (result.status === "cancelled") return { status: "cancelled" };
       if (result.status === "blocked") return { status: "failed", error: result.reason ?? "stopped", retryable: true };

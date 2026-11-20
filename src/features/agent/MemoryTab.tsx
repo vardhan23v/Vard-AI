@@ -30,6 +30,9 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog";
+import { EmptyState } from "@/components/EmptyState";
+import { Pill } from "@/components/Pill";
+import { useListEntrance } from "@/lib/motion";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -98,6 +101,8 @@ export function MemoryTab({ path }: { path: string }) {
       .filter((e) => !needle || e.text.toLowerCase().includes(needle))
       .sort((a, b) => b.updatedAt.localeCompare(a.updatedAt));
   }, [live, query, category, status]);
+  // The page cascades in once when it loads; later changes don't re-animate it.
+  const entrance = useListEntrance([], !!data);
 
   if (q.isLoading)
     return (
@@ -118,7 +123,7 @@ export function MemoryTab({ path }: { path: string }) {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-3xl space-y-6 px-6 py-6">
+      <div className={cn("mx-auto max-w-3xl space-y-6 px-6 py-6", entrance.list)}>
         <header className="flex flex-wrap items-start justify-between gap-3">
           <div>
             <h1 className="flex items-center gap-2 text-xl">
@@ -234,10 +239,15 @@ export function MemoryTab({ path }: { path: string }) {
         </div>
 
         {!live.length ? (
-          <p className="rounded-lg border border-dashed border-border p-6 text-center text-sm text-muted-foreground">
-            Nothing yet. Click <strong>Re-analyze</strong> to let Vard study the project, or run a
-            task: afterwards it suggests what to remember.
-          </p>
+          <EmptyState
+            icon={<Brain className="size-5" aria-hidden />}
+            text={
+              <>
+                Nothing yet. Click <strong>Re-analyze</strong> to let Vard study the project, or run
+                a task: afterwards it suggests what to remember.
+              </>
+            }
+          />
         ) : !shown.length ? (
           <p className="text-sm text-muted-foreground">No notes match.</p>
         ) : (
@@ -269,13 +279,9 @@ export function MemoryTab({ path }: { path: string }) {
 
 function StatusBadge({ status }: { status: MemoryEntry["status"] }) {
   return (
-    <span
-      className={cn(
-        "inline-flex items-center rounded-full border px-1.5 py-px text-[11px]",
-        status === "verified"
-          ? "border-diff-add/50 text-diff-add"
-          : "border-primary/60 text-primary",
-      )}
+    <Pill
+      size="xs"
+      tone={status === "verified" ? "ok" : "attention"}
       title={
         status === "verified"
           ? "Confirmed by you or the project analysis"
@@ -283,7 +289,7 @@ function StatusBadge({ status }: { status: MemoryEntry["status"] }) {
       }
     >
       {status === "verified" ? "Verified" : "Inferred"}
-    </span>
+    </Pill>
   );
 }
 

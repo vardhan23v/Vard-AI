@@ -360,6 +360,8 @@ export type BrowserSessionInfo = BrowserStatus["sessions"][number];
 export type DevServerInfo = BrowserStatus["devServers"][number];
 export type BrowserReport = Extract<AgentEvent, { type: "browser_report" }>["report"];
 export type ArtifactItem = Extract<AgentEvent, { type: "artifacts" }>["items"][number];
+/** Browser settings, e.g. artifact retention in days (0 keeps them forever, at most 365). */
+export type BrowserSettings = Extract<AgentEvent, { type: "browser_settings" }>["settings"];
 export type ViewportPreset = "mobile" | "mobile-large" | "tablet" | "laptop" | "desktop";
 
 export const browser = {
@@ -376,6 +378,12 @@ export const browser = {
     ask({ type: "artifacts.get", projectRoot, path }, ["artifact"], "br"),
   cleanArtifacts: (projectRoot: string, o: { run?: string; olderThanDays?: number } = {}) =>
     ask({ type: "artifacts.clean", projectRoot, ...o }, ["artifacts"], "br"),
+  /** Sites remembered as allowed for a project; `remove` forgets one first. */
+  origins: (projectRoot: string, remove?: string) =>
+    ask({ type: "browser.origins", projectRoot, remove }, ["browser_origins"], "br"),
+  /** Reads (or, with `settings`, changes) the browser settings. */
+  settings: (settings?: BrowserSettings) =>
+    ask({ type: "browser.settings", settings }, ["browser_settings"], "br"),
 };
 
 /** Live browser events (sessions, actions, reports, dev servers, install progress). */

@@ -1,6 +1,7 @@
 /**
  * Browser artifacts (screenshots, reports, logs) live in <project>/.vard/artifacts/<run>/.
- * Nothing here is deleted automatically; cleanup happens only when the user asks.
+ * Cleanup happens when the user asks, or automatically when they set a retention period
+ * (browser/settings.ts); runs of tasks that are still running are never removed automatically.
  */
 import fs from "node:fs";
 import path from "node:path";
@@ -11,10 +12,12 @@ export const MAX_ARTIFACT_READ = 8 * 1024 * 1024;
 
 export const artifactsRoot = (projectRoot: string) => path.join(projectRoot, ".vard", "artifacts");
 
+/** The folder name a run's artifacts are saved under. */
+export const runFolder = (run: string) => run.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "browser";
+
 export function runDir(projectRoot: string, run: string): string {
   ensureVardDir(projectRoot);
-  const safe = run.replace(/[^A-Za-z0-9._-]/g, "_").slice(0, 120) || "browser";
-  const dir = path.join(artifactsRoot(projectRoot), safe);
+  const dir = path.join(artifactsRoot(projectRoot), runFolder(run));
   fs.mkdirSync(dir, { recursive: true });
   return dir;
 }
@@ -80,8 +83,8 @@ export function readArtifact(projectRoot: string, file: string): { data: string;
   return { data: fs.readFileSync(real).toString("base64"), mediaType, bytes: st.size };
 }
 
-/** Deletes artifacts the user chose: one run, runs older than N days, or everything. */
-export function cleanArtifacts(projectRoot: string, o: { run?: string; olderThanDays?: number } = {}): { removed: number; bytes: number } {
+/** Deletes artifacts the user chose: one run, runs older than N days, or everything (except `keepRuns`). */
+export function cleanArtifacts(projectRoot: string, o: { run?: string; olderThanDays?: number; keepRuns?: string[] } = {}): { removed: number; bytes: number } {
   if (o.run) safeRun(o.run);
   const root = path.resolve(artifactsRoot(projectRoot));
   let removed = 0;
@@ -89,6 +92,7 @@ export function cleanArtifacts(projectRoot: string, o: { run?: string; olderThan
   const cutoff = o.olderThanDays !== undefined ? Date.now() - o.olderThanDays * 86_400_000 : Infinity;
   for (const a of listArtifacts(projectRoot, o.run)) {
     if (o.olderThanDays !== undefined && a.at > cutoff) continue;
+    if (o.keepRuns?.includes(a.run)) continue;
     if (!path.resolve(a.path).startsWith(root + path.sep)) continue;
     fs.rmSync(a.path, { force: true });
     removed++;

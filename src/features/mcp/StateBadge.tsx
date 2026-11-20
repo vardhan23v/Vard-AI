@@ -1,6 +1,5 @@
-import { Loader2 } from "lucide-react";
+import { Pill, type Tone } from "@/components/Pill";
 import type { McpServerStatus } from "@/lib/agent-client";
-import { cn } from "@/lib/utils";
 
 const LABEL: Record<McpServerStatus["state"], string> = {
   connected: "Connected",
@@ -12,25 +11,20 @@ const LABEL: Record<McpServerStatus["state"], string> = {
   disabled: "Disabled",
 };
 
+const TONE: Record<McpServerStatus["state"], Tone> = {
+  connected: "ok",
+  connecting: "muted",
+  disconnected: "muted",
+  error: "bad",
+  needs_trust: "attention",
+  needs_auth: "attention",
+  disabled: "muted",
+};
+
 export function StateBadge({ state }: { state: McpServerStatus["state"] }) {
-  const tone =
-    state === "connected"
-      ? "border-diff-add/50 text-diff-add"
-      : state === "error"
-        ? "border-destructive/50 text-destructive"
-        : state === "needs_trust" || state === "needs_auth"
-          ? "border-primary/60 text-primary"
-          : "border-border text-muted-foreground";
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-normal",
-        tone,
-      )}
-    >
-      {state === "connecting" && <Loader2 className="size-3 animate-spin" />}
-      {state === "connected" && <span className="size-1.5 rounded-full bg-diff-add" aria-hidden />}
+    <Pill tone={TONE[state]} spin={state === "connecting"} dot={state === "connected"}>
       {LABEL[state]}
-    </span>
+    </Pill>
   );
 }

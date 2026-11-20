@@ -4,7 +4,8 @@ import { Link } from "@tanstack/react-router";
 import { Users } from "lucide-react";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { StarField } from "@/components/StarField";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { projectsQuery, tasksQuery } from "@/features/agent/projects";
 import { StatusBadge } from "@/features/agent/TaskView";
@@ -28,15 +29,11 @@ export function AgentsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-5 px-6 py-6">
-        <header>
-          <h1 className="flex items-center gap-2 text-2xl">
-            <Users className="size-6 text-agent-foreground" aria-hidden /> Agents
-          </h1>
-          <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-            Team runs split a task across specialist agents that work in parallel on their own
-            branches. Start one from a project with the Team switch.
-          </p>
-        </header>
+        <PageHeader
+          icon={Users}
+          title="Agents"
+          description="Team runs split a task across specialist agents that work in parallel on their own branches. Start one from a project with the Team switch."
+        />
         <Tabs defaultValue="runs">
           <TabsList>
             <TabsTrigger value="runs">Team runs</TabsTrigger>
@@ -49,22 +46,20 @@ export function AgentsPage() {
                 <Skeleton className="h-16" />
               </div>
             ) : !runs.length ? (
-              <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
-                <StarField seed={41} />
-                <div className="relative animate-enter space-y-2">
-                  <Users className="mx-auto size-8 text-agent-foreground" aria-hidden />
-                  <p className="text-lg">No team runs yet</p>
-                  <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                    Open a project, describe a larger task, and turn on Team before starting it.
-                  </p>
-                  <Link
-                    to="/projects"
-                    className="press inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-                  >
-                    Go to projects
-                  </Link>
-                </div>
-              </div>
+              <EmptyState
+                size="lg"
+                seed={41}
+                icon={<Users className="size-8 text-agent-foreground" aria-hidden />}
+                title="No team runs yet"
+                text="Open a project, describe a larger task, and turn on Team before starting it."
+              >
+                <Link
+                  to="/projects"
+                  className="press inline-flex min-h-10 items-center rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+                >
+                  Go to projects
+                </Link>
+              </EmptyState>
             ) : (
               <ul className="stagger space-y-2">
                 {runs.map((t) => {

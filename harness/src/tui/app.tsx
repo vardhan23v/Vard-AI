@@ -27,7 +27,7 @@ import {
 } from "./components";
 import * as E from "./editor";
 import { analyze as analyzeMemory, type Proposal } from "../memory";
-import { analyzeImpact, renderImpact, searchCode } from "../intelligence";
+import { analyzeImpact, loadIndexConfig, renderImpact, searchCode } from "../intelligence";
 import { detectBrowser } from "../browser";
 import { itemLabel, memoryFor } from "../cli/commands/memory";
 import { type KeyFlags, splitKeys } from "./keys";
@@ -552,7 +552,10 @@ export function App(props: AppProps) {
           }
           const ix = intel.get(root);
           if (cmd === "/impact") return note(renderImpact(analyzeImpact(ix, arg)));
-          const hits = await searchCode(ix, arg, { limit: 8 });
+          // Semantic search too when embeddings are set up (the key comes from env or the Keychain).
+          const emb = loadIndexConfig(root).embeddings;
+          if (emb.provider === "openai" || emb.provider === "google") intel.setEmbeddingKey(root, ctx.keys.resolve(emb.provider === "google" ? "google" : "openai")?.key);
+          const hits = await searchCode(ix, arg, { limit: 8, embeddings: intel.embeddings(root) });
           return note(hits.length ? hits.map((h) => `${h.path}:${h.line}${h.symbol ? ` ${h.symbol}` : ""}  · ${h.reasons.join(", ")}`).join("\n") : "No matches.");
         } catch (e) {
           return note((e as Error).message, "error");

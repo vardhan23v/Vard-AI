@@ -14,6 +14,7 @@ import { skillsForTask } from "../skills/task";
 import type { ProjectSignals } from "../skills/resolver";
 import { ALL_TOOLS, type ToolDef } from "../tools";
 import { supportsVision } from "../catalog";
+import type { CodeIntel } from "../intelligence";
 import type { AgentRun, RoleConfig } from "./schema";
 
 export interface AgentEnv {
@@ -34,6 +35,10 @@ export interface AgentEnv {
   skills?: SkillRegistry;
   signals?: ProjectSignals;
   memory?: { store: MemoryStore; recall: boolean } | null;
+  /** The code index (absent when the task turned it off): the overview and per-subtask references. */
+  codeIntel?: Pick<CodeIntel, "get" | "embeddings">;
+  /** Codebase overview (as solo tasks get it); computed from codeIntel when not given. */
+  codebase?: string;
   retry?: RetryOptions;
   /** Resolves immediately unless the run is paused. */
   gate: () => Promise<void>;
@@ -60,6 +65,8 @@ export interface AgentSpec {
   skills?: string[];
   maxSteps?: number;
   tokenBudget?: number;
+  /** "Relevant code for this subtask" lines (references from the code index, never contents). */
+  relevantCode?: string;
 }
 
 /** Vard's built-in tools a role may use: reads always; writes and commands only if the role allows. */
@@ -221,7 +228,15 @@ export async function runAgent(env: AgentEnv, spec: AgentSpec): Promise<{ result
     skills: skillBlock,
     vision,
     gate,
-    extraInstructions: `# Your role\n${role.name}: ${role.instructions}`,
+    codebase: env.codebase || undefined,
+    extraInstructions: [
+      `# Your role\n${role.name}: ${role.instructions}`,
+      spec.relevantCode
+        ? `# Relevant code for this subtask\nFrom Vard's code index (references only: read a file before changing it, and check with code_search; the list may be incomplete):\n${spec.relevantCode}`
+        : "",
+    ]
+      .filter(Boolean)
+      .join("\n\n"),
     ...(mcpTools ? { extraTools: mcpTools, mcpSummary: env.mcp!.summary } : {}),
   };
   // A memory recall per agent uses the agent's own assignment, so each gets the notes relevant to it.

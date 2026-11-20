@@ -6,13 +6,38 @@ import { openUrl } from "@tauri-apps/plugin-opener";
 import { isTauri } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 
-// Shiki is large: load it only when a code block first renders.
-let highlighterPromise: Promise<import("shiki").Highlighter> | null = null;
+// Shiki is large: load it only when a code block first renders. `shiki/core` with
+// explicit grammars and the JavaScript regex engine keeps the bundle to the languages
+// below (the full `shiki` entry emits every grammar it ships, plus the Oniguruma WASM).
+let highlighterPromise: Promise<import("shiki/core").HighlighterCore> | null = null;
 function getHighlighter() {
-  highlighterPromise ??= import("shiki").then(({ createHighlighter }) =>
-    createHighlighter({
-      themes: ["github-dark-dimmed", "github-light"],
-      langs: ["ts", "tsx", "js", "jsx", "json", "bash", "python", "rust", "go", "css", "html", "sql", "yaml", "md", "diff"],
+  highlighterPromise ??= Promise.all([
+    import("shiki/core"),
+    import("shiki/engine/javascript"),
+  ]).then(([{ createHighlighterCore }, { createJavaScriptRegexEngine }]) =>
+    createHighlighterCore({
+      engine: createJavaScriptRegexEngine(),
+      themes: [
+        import("shiki/themes/github-dark-dimmed.mjs"),
+        import("shiki/themes/github-light.mjs"),
+      ],
+      langs: [
+        import("shiki/langs/typescript.mjs"),
+        import("shiki/langs/tsx.mjs"),
+        import("shiki/langs/javascript.mjs"),
+        import("shiki/langs/jsx.mjs"),
+        import("shiki/langs/json.mjs"),
+        import("shiki/langs/bash.mjs"),
+        import("shiki/langs/python.mjs"),
+        import("shiki/langs/rust.mjs"),
+        import("shiki/langs/go.mjs"),
+        import("shiki/langs/css.mjs"),
+        import("shiki/langs/html.mjs"),
+        import("shiki/langs/sql.mjs"),
+        import("shiki/langs/yaml.mjs"),
+        import("shiki/langs/markdown.mjs"),
+        import("shiki/langs/diff.mjs"),
+      ],
     }),
   );
   return highlighterPromise;

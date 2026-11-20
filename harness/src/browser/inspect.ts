@@ -112,10 +112,86 @@ function measure(args: { touch: boolean; width: number }): Raw[] {
   for (const img of document.querySelectorAll("img")) {
     if (img.complete && img.naturalWidth === 0 && visible(img)) out.push({ kind: "broken_image", severity: "medium", message: "An image failed to load", selector: sel(img), evidence: `naturalWidth=0, src=${(img.currentSrc || img.src).slice(0, 120)}` });
   }
-  const navs = [...document.querySelectorAll("nav, [role=navigation]")];
-  if (navs.length && navs.every((n) => !visible(n))) {
-    const toggle = [...document.querySelectorAll("button, [role=button]")].find((b) => visible(b) && (b.getAttribute("aria-expanded") !== null || b.getAttribute("aria-controls") || /menu|nav/i.test(b.getAttribute("aria-label") ?? (b as HTMLElement).innerText ?? "")));
-    if (!toggle) out.push({ kind: "hidden_navigation", severity: "high", message: "The navigation is hidden and there's no visible menu button to open it", selector: sel(navs[0]), evidence: `${navs.length} nav element(s), none visible; no button with aria-expanded/aria-controls or a menu label` });
+  // Navigation: links in nav/header containers that can't be seen at this viewport. Links placed
+  // straight in a <header> count too. Only reported when (almost) no navigation link is visible and
+  // no toggle related to the hidden links is visible (aria-controls pointing at them, or an
+  // aria-expanded / menu button in the same header or nav).
+  const label = (el: Element) => ((el as HTMLElement).innerText || el.getAttribute("aria-label") || el.getAttribute("title") || el.tagName).trim().replace(/\s+/g, " ").slice(0, 40);
+  const whyHidden = (el: Element): string | null => {
+    if (!el.getClientRects().length) return "not rendered (display:none on it or an ancestor)";
+    const cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.visibility === "collapse") return `visibility:${cs.visibility}`;
+    for (let e: Element | null = el; e; e = e.parentElement) if (Number(getComputedStyle(e).opacity) <= 0.05) return `opacity:${getComputedStyle(e).opacity}${e === el ? "" : ` on ${sel(e)}`}`;
+    const r = el.getBoundingClientRect();
+    if (r.width < 1 || r.height < 1) return `${Math.round(r.width)}×${Math.round(r.height)}px`;
+    if (r.right <= 0 || r.left >= W) return `off-screen (left=${Math.round(r.left)} right=${Math.round(r.right)} viewport=${W})`;
+    if (r.bottom <= 0) return `off-screen (top=${Math.round(r.top)} bottom=${Math.round(r.bottom)})`;
+    return null;
+  };
+  const NAV = "nav, [role=navigation], header, [role=banner]";
+  const navLinks = [...document.querySelectorAll("a[href]")].filter((a) => a.closest(NAV));
+  const hiddenNavLinks = new Set<Element>();
+  if (navLinks.length) {
+    const shown: Element[] = [];
+    const hidden: { el: Element; why: string }[] = [];
+    for (const a of navLinks) {
+      const why = whyHidden(a);
+      if (why) hidden.push({ el: a, why });
+      else shown.push(a);
+    }
+    if (hidden.length && shown.length <= 1) {
+      // Group hidden links by their closest container; report the biggest group.
+      const groups = new Map<Element, { el: Element; why: string }[]>();
+      for (const h of hidden) {
+        const c = h.el.closest(NAV)!;
+        groups.set(c, [...(groups.get(c) ?? []), h]);
+      }
+      const [container, links] = [...groups].sort((a, b) => b[1].length - a[1].length)[0];
+      const scope = container.closest("header, [role=banner]") ?? container.closest("nav, [role=navigation]") ?? container;
+      const related = [...document.querySelectorAll("button, [role=button], summary")].find((b) => {
+        if (whyHidden(b)) return false;
+        const ids = (b.getAttribute("aria-controls") ?? "").split(/\s+/).filter(Boolean);
+        for (const id of ids) {
+          const t = document.getElementById(id);
+          if (t && (t === container || t.contains(container) || container.contains(t))) return true;
+        }
+        if (!scope.contains(b)) return false;
+        return b.getAttribute("aria-expanded") !== null || b.tagName === "SUMMARY" || /menu|nav/i.test(b.getAttribute("aria-label") ?? (b as HTMLElement).innerText ?? "");
+      });
+      if (!related) {
+        for (const h of hidden) hiddenNavLinks.add(h.el);
+        out.push({
+          kind: "hidden_navigation",
+          severity: "high",
+          message: `The navigation is hidden and there's no visible menu button to open it (${links.length} link${links.length === 1 ? "" : "s"}, e.g. "${label(links[0].el)}")`,
+          selector: sel(container),
+          evidence: `${hidden.length} navigation link(s) hidden, ${shown.length} visible; ${links
+            .slice(0, 3)
+            .map((l) => `${sel(l.el)}: ${l.why}`)
+            .join("; ")}; no visible button with aria-controls pointing at it, or with aria-expanded or a menu label inside ${sel(scope)}`,
+        });
+      }
+    }
+  }
+  // Controls collapsed to zero size by layout (not display:none / visibility:hidden / hidden / aria-hidden).
+  let zero = 0;
+  for (const el of document.querySelectorAll("a[href], button, input:not([type=hidden]):not([type=checkbox]):not([type=radio]):not([type=file]), select, textarea")) {
+    if (zero >= 6 || hiddenNavLinks.has(el)) continue;
+    if (!el.getClientRects().length) continue;
+    const r = el.getBoundingClientRect();
+    if (r.width > 0 && r.height > 0) continue;
+    const cs = getComputedStyle(el);
+    if (cs.visibility === "hidden" || cs.visibility === "collapse") continue;
+    if (el.closest("[hidden], [aria-hidden=true], [inert]")) continue;
+    zero++;
+    const named = !!((el as HTMLElement).innerText?.trim() || el.getAttribute("aria-label"));
+    out.push({
+      kind: "zero_size_control",
+      severity: named || el.tagName !== "A" ? "medium" : "low",
+      message: `A control has no size, so it can't be seen or used: "${label(el)}"`,
+      selector: sel(el),
+      evidence: `${Math.round(r.width)}×${Math.round(r.height)}px at left=${Math.round(r.left)} top=${Math.round(r.top)}; display=${cs.display}, visibility=${cs.visibility}, width=${cs.width}, height=${cs.height}, overflow=${cs.overflow}`,
+    });
   }
   return out;
 }

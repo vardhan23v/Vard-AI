@@ -50,6 +50,7 @@ export function AppShell({ list }: { list?: ReactNode }) {
   const pathname = useRouterState({ select: (s) => s.location.pathname });
   const navigate = useNavigate();
   const [listOpen, setListOpen] = useState(true);
+  const hasList = !!list;
 
   // Collect agent task and browser events app-wide, so pages opened later still have the history.
   useEffect(() => startTaskStore(), []);
@@ -61,14 +62,14 @@ export function AppShell({ list }: { list?: ReactNode }) {
       if (e.key === "n") {
         e.preventDefault();
         void navigate({ to: "/chat" });
-      } else if (e.key === "\\") {
+      } else if (e.key === "\\" && hasList) {
         e.preventDefault();
         setListOpen((v) => !v);
       }
     };
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
-  }, [navigate]);
+  }, [navigate, hasList]);
 
   const isActive = (to: string) => pathname === to || pathname.startsWith(`${to}/`);
 
@@ -86,16 +87,19 @@ export function AppShell({ list }: { list?: ReactNode }) {
           <RailLink key={item.to} item={item} active={isActive(item.to)} />
         ))}
         <div className="flex-1" data-tauri-drag-region />
-        <button
-          type="button"
-          onClick={() => setListOpen((v) => !v)}
-          className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label={listOpen ? "Hide sidebar" : "Show sidebar"}
-          aria-pressed={listOpen}
-          title="Toggle sidebar (⌘\)"
-        >
-          <PanelLeft className="size-5" />
-        </button>
+        {/* Only pages with a list pane (Chats, Projects) have something to toggle. */}
+        {list && (
+          <button
+            type="button"
+            onClick={() => setListOpen((v) => !v)}
+            className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
+            aria-label={listOpen ? "Hide sidebar" : "Show sidebar"}
+            aria-pressed={listOpen}
+            title="Toggle sidebar (⌘\)"
+          >
+            <PanelLeft className="size-5" />
+          </button>
+        )}
         <RailLink
           item={{ to: "/settings", label: "Settings", icon: Settings }}
           active={isActive("/settings")}

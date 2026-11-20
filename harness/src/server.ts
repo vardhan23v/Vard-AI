@@ -13,7 +13,7 @@ import { knownImportSources, McpError, McpManager, McpServerConfig, toMcpError, 
 import { vardHome } from "./mcp/config";
 import { architecture, CodeGraph, CodeIntel, codeTools, deleteIndex, IntelError, loadIndexConfig, renderArchitecture, saveIndexConfig, searchCode, analyzeImpact, updateEmbeddings } from "./intelligence";
 import { ALL_TOOLS } from "./tools";
-import { BrowserManager, browserTools, cleanArtifacts, detectBrowser, DevServers, installBrowser, listArtifacts, readArtifact, BrowserError, checkUrl, VIEWPORTS } from "./browser";
+import { applyRetention, BrowserManager, browserTools, cleanArtifacts, detectBrowser, DevServers, installBrowser, listArtifacts, listOrigins, loadBrowserSettings, readArtifact, removeOrigin, saveBrowserSettings, BrowserError, checkUrl, VIEWPORTS } from "./browser";
 import { supportsVision } from "./catalog";
 import nodePath from "node:path";
 import { applySkillChange, previewTokens, projectSignals, renderSkillsBlock, SkillError, SkillRegistry, skillsForTask, type TaskSkills } from "./skills";
@@ -213,6 +213,8 @@ export class Server {
       case "browser.install":
       case "browser.sessions":
       case "browser.control":
+      case "browser.origins":
+      case "browser.settings":
       case "artifacts.list":
       case "artifacts.get":
       case "artifacts.clean":
@@ -626,6 +628,8 @@ export class Server {
         ...(req.codeIndex !== false ? codeTools(this.intel) : []),
         ...(role.tools.browser ? browserTools({ mgr: this.browser, dev: this.devServers, vision: () => vision }) : []),
       ],
+      // Team agents get the codebase overview and the relevant code for their subtask.
+      ...(req.codeIndex !== false ? { codeIntel: this.intel, codebase: lo.codebase } : {}),
       taskId: entry.taskId,
       goal: req.prompt,
       projectRoot,
@@ -740,6 +744,23 @@ export class Server {
   async endBrowserWork(taskId: string) {
     this.devServers.stopTask(taskId);
     await this.browser.closeTask(taskId).catch(() => {});
+    const projectRoot = this.tasks.get(taskId)?.projectRoot;
+    if (projectRoot) this.applyArtifactRetention(projectRoot);
+  }
+
+  /** Browser settings live with global skills/MCP config (~/.vard or $VARD_HOME). */
+  private get browserHome() {
+    return this.deps.skillsHome ?? this.deps.mcpHome ?? vardHome();
+  }
+
+  /** Deletes artifact runs older than the retention setting; never the runs of tasks still running. */
+  private applyArtifactRetention(projectRoot: string) {
+    try {
+      const keepRuns = [...this.tasks.values()].filter((t) => t.running).map((t) => t.taskId);
+      applyRetention(projectRoot, { home: this.browserHome, keepRuns });
+    } catch {
+      // Cleanup is best effort; it never fails a task or a listing.
+    }
   }
 
   /** browser.* and artifacts.* requests from the UI and CLI. */
@@ -797,7 +818,17 @@ export class Server {
           }
           return emit({ type: "browser_status", install: detectBrowser(), running: this.browser.running, sessions: this.browser.list(), devServers: this.devServers.list() });
         }
+        case "browser.origins": {
+          const store = this.deps.rulesStoreFor?.(req.projectRoot) ?? new FileRulesStore(req.projectRoot);
+          const origins = req.remove ? removeOrigin(store, req.remove) : listOrigins(store);
+          return emit({ type: "browser_origins", projectRoot: req.projectRoot, origins });
+        }
+        case "browser.settings": {
+          const settings = req.settings ? saveBrowserSettings(req.settings, this.browserHome) : loadBrowserSettings(this.browserHome);
+          return emit({ type: "browser_settings", settings });
+        }
         case "artifacts.list":
+          this.applyArtifactRetention(req.projectRoot);
           return emit({ type: "artifacts", projectRoot: req.projectRoot, items: listArtifacts(req.projectRoot, req.run).slice(0, 500) });
         case "artifacts.get": {
           const a = readArtifact(req.projectRoot, req.path);

@@ -4,6 +4,7 @@ export { loadIndexConfig, saveIndexConfig, indexDir } from "./config";
 export { CodeIndex, type BuildResult } from "./indexer";
 export { CodeGraph } from "./graph";
 export { searchCode } from "./search";
+export { relevantCode } from "./relevant";
 export { analyzeImpact, renderImpact } from "./impact";
 export { architecture, renderArchitecture } from "./overview";
 export { embeddingProvider, updateEmbeddings, vectorSearch, type EmbeddingProvider } from "./embeddings";

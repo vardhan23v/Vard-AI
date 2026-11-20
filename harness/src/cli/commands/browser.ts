@@ -5,13 +5,15 @@
  *   install                        download Chrome Headless Shell (about 90 MB) into Playwright's cache
  *   test <url> [--viewports mobile,tablet,desktop]   responsive check with screenshots and a report
  *   artifacts | clean [--days N]   list or delete screenshots and reports in .vard/artifacts
+ *   origins [--project <dir>] [--remove <origin>]   list or forget sites allowed with "always"
  */
 import path from "node:path";
-import { checkUrl, cleanArtifacts, detectBrowser, installBrowser, listArtifacts, renderReport, testResponsive, ViewportName } from "../../browser";
+import { checkUrl, cleanArtifacts, detectBrowser, installBrowser, listArtifacts, listOrigins, removeOrigin, renderReport, testResponsive, ViewportName } from "../../browser";
+import { FileRulesStore } from "../../policy";
 import type { Ctx } from "../context";
 import { gitRoot } from "./task";
 
-export async function browserCommand(ctx: Ctx, args: string[], flags: { viewports?: string; days?: number }): Promise<number> {
+export async function browserCommand(ctx: Ctx, args: string[], flags: { viewports?: string; days?: number; remove?: string; project?: boolean | string }): Promise<number> {
   const t = ctx.theme;
   const root = gitRoot(ctx.cwd) ?? ctx.cwd;
   const [sub = "status", url] = args;
@@ -65,6 +67,22 @@ export async function browserCommand(ctx: Ctx, args: string[], flags: { viewport
       case "clean": {
         const r = cleanArtifacts(root, { olderThanDays: flags.days });
         ctx.out.write(`${t.sage("✓")} Removed ${r.removed} file(s), ${(r.bytes / 1e6).toFixed(1)} MB.\n`);
+        return 0;
+      }
+      case "origins": {
+        // `--project <dir>`: the CLI parses --project as a flag, so the folder arrives as the next argument.
+        const dir = typeof flags.project === "string" ? flags.project : url;
+        const project = dir ? path.resolve(ctx.cwd, dir) : root;
+        const store = new FileRulesStore(gitRoot(project) ?? project);
+        let origins: string[];
+        if (flags.remove) {
+          const before = listOrigins(store);
+          origins = removeOrigin(store, flags.remove);
+          if (origins.length === before.length) ctx.err.write(t.muted(`${flags.remove} wasn't on the list.\n`));
+          else ctx.out.write(`${t.sage("✓")} Forgot ${flags.remove}\n`);
+        } else origins = listOrigins(store);
+        if (!origins.length) ctx.out.write(t.muted("No remembered sites. Local addresses are always allowed; other sites ask first.\n"));
+        for (const o of origins) ctx.out.write(`${o}\n`);
         return 0;
       }
       default:

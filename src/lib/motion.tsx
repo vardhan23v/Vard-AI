@@ -220,3 +220,26 @@ export function usePresence<T>(
   }
   return out;
 }
+
+/**
+ * Entrance for a live list: the items there when it first shows cascade in (`list` returns
+ * "stagger" for the container), and items added afterwards get `animate-row-in` once (`item`).
+ * Re-renders, such as streamed text, never re-animate anything. Pass `ready` false while loading.
+ */
+export function useListEntrance(keys: readonly string[], ready = true) {
+  const latest = useRef(keys);
+  useEffect(() => {
+    latest.current = keys;
+  });
+  const [seen, setSeen] = useState<Set<string> | null>(null);
+  useEffect(() => {
+    if (!ready || seen) return;
+    // Long enough for the capped cascade to finish at the slowest motion setting.
+    const timer = setTimeout(() => setSeen(new Set(latest.current)), 1500);
+    return () => clearTimeout(timer);
+  }, [ready, seen]);
+  return {
+    list: seen ? "" : "stagger",
+    item: (key: string) => (seen && !seen.has(key) ? "animate-row-in" : ""),
+  };
+}

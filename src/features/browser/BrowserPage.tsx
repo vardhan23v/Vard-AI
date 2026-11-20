@@ -6,16 +6,12 @@
 import { useMemo, useState, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import {
-  AlertTriangle,
   ArrowLeft,
   Camera,
-  CheckCircle2,
   ChevronDown,
-  Download,
   FolderOpen,
   Globe,
   ImageOff,
-  Loader2,
   RotateCw,
   Server,
   Square,
@@ -26,15 +22,16 @@ import {
 import { toast } from "sonner";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
-import { Progress } from "@/components/ui/progress";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StarField } from "@/components/StarField";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
 import { browser, isTauri, type BrowserSessionInfo, type ViewportPreset } from "@/lib/agent-client";
 import { Flash, usePresence } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { Pill } from "@/features/agents/Pill";
 import { projectOfArtifact, Shot } from "./Shot";
+import { ChromiumStatus } from "./ChromiumStatus";
 import { useBrowserState } from "./useBrowser";
 
 const VIEWPORTS: { id: ViewportPreset; label: string }[] = [
@@ -48,26 +45,11 @@ const VIEWPORTS: { id: ViewportPreset; label: string }[] = [
 export function BrowserPage() {
   const st = useBrowserState();
   const [selected, setSelected] = useState<string | null>(null);
-  const [installing, setInstalling] = useState(false);
   const current =
     st.sessions.find((s) => s.id === selected) ??
     st.sessions.find((s) => s.state !== "closed") ??
     st.sessions[0];
-  const inst = st.status.data?.install;
   const sessionRows = usePresence(st.sessions, (s) => s.id);
-
-  const doInstall = async () => {
-    setInstalling(true);
-    try {
-      await browser.install();
-      st.refresh();
-      toast.success("Browser installed");
-    } catch (e) {
-      toast.error("Install failed", { description: e instanceof Error ? e.message : String(e) });
-    } finally {
-      setInstalling(false);
-    }
-  };
 
   if (!isTauri())
     return (
@@ -79,94 +61,33 @@ export function BrowserPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-5 px-6 py-6">
-        <header>
-          <h1 className="flex items-center gap-2 text-2xl">
-            <Globe className="size-6 text-agent-foreground" aria-hidden /> Browser
-          </h1>
-          <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
-            Agents test your app in an isolated headless browser: a fresh profile per task, no
-            access to your own browser, and only this Mac's dev servers unless you allow another
-            site. Screenshots and reports are saved in the project's <code>.vard/artifacts</code>.
-          </p>
-        </header>
+        <PageHeader
+          icon={Globe}
+          title="Browser"
+          description={
+            <>
+              Agents test your app in an isolated headless browser: a fresh profile per task, no
+              access to your own browser, and only this Mac's dev servers unless you allow another
+              site. Screenshots and reports are saved in the project's <code>.vard/artifacts</code>.
+            </>
+          }
+        />
 
-        <section
-          aria-label="Browser installation"
-          className="flex flex-wrap items-center justify-between gap-3 rounded-xl border border-border bg-card p-4"
-        >
-          {st.status.isLoading ? (
-            <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
-          ) : inst?.installed ? (
-            <p className="flex items-start gap-2 text-sm">
-              <CheckCircle2
-                className="mt-0.5 size-4 shrink-0 animate-scale-in text-diff-add"
-                aria-hidden
-              />
-              <span className="min-w-0">
-                <span className="font-medium">{inst.name}</span>{" "}
-                {inst.version && <span className="text-muted-foreground">({inst.version})</span>}
-                <span
-                  className="block truncate font-mono text-xs text-muted-foreground"
-                  title={inst.executable}
-                >
-                  {inst.executable}
-                </span>
-              </span>
-            </p>
-          ) : (
-            <p className="flex items-start gap-2 text-sm">
-              <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" />
-              <span>
-                No Chromium found. Install {inst?.installable?.name} {inst?.installable?.version}{" "}
-                (about {inst?.installable?.approxMB} MB) into Playwright's cache folder. Nothing is
-                bundled with Vard.
-              </span>
-            </p>
-          )}
-          {!inst?.installed && (
-            <div className="flex min-w-48 flex-col gap-1">
-              <button
-                onClick={() => void doInstall()}
-                disabled={installing}
-                className="press inline-flex min-h-9 items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground disabled:opacity-60"
-              >
-                {installing ? (
-                  <Loader2 className="size-4 animate-spin" />
-                ) : (
-                  <Download className="size-4" />
-                )}{" "}
-                Install browser
-              </button>
-              {installing &&
-                (st.install && st.install.total > 0 ? (
-                  <Progress
-                    value={(st.install.received / st.install.total) * 100}
-                    className="h-1.5 animate-fade-in [&>*]:transition-transform [&>*]:duration-[var(--motion-base)] [&>*]:ease-[var(--ease-out)]"
-                    aria-label="Download progress"
-                  />
-                ) : (
-                  <div
-                    className="loading-bar w-full rounded-full bg-primary/20"
-                    role="progressbar"
-                    aria-label="Starting download"
-                  />
-                ))}
-            </div>
-          )}
-        </section>
+        <ChromiumStatus />
 
         {!st.sessions.length ? (
-          <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
-            <StarField seed={53} />
-            <div className="relative space-y-2">
-              <Globe className="mx-auto size-6 text-muted-foreground" aria-hidden />
-              <p className="text-lg">No browser sessions yet</p>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          <EmptyState
+            size="lg"
+            seed={53}
+            icon={<Globe className="size-6" aria-hidden />}
+            title="No browser sessions yet"
+            text={
+              <>
                 Sessions appear here when an agent opens a page, for example a task like "check the
                 dashboard on mobile and desktop".
-              </p>
-            </div>
-          </div>
+              </>
+            }
+          />
         ) : (
           <div className="grid gap-5 lg:grid-cols-[17rem_1fr]">
             <ul className="space-y-2" aria-label="Browser sessions">
@@ -519,24 +440,6 @@ function SessionView({
         </TabsContent>
       </Tabs>
     </section>
-  );
-}
-
-function EmptyState({
-  icon,
-  text,
-  children,
-}: {
-  icon: ReactNode;
-  text: string;
-  children?: ReactNode;
-}) {
-  return (
-    <div className="flex animate-fade-in flex-col items-center gap-2 rounded-lg border border-dashed border-border px-4 py-6 text-center text-sm text-muted-foreground">
-      <span className="text-muted-foreground">{icon}</span>
-      <p>{text}</p>
-      {children}
-    </div>
   );
 }
 

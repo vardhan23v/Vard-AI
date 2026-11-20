@@ -26,15 +26,15 @@ Usage
   vard --classic            line-by-line session instead of the full-screen one
   vard ask "<question>"     one answer; piped input is added as context
   vard run "<task>"         run the coding agent in this git repo
-  vard memory [list|search|show|add|edit|rm|verify|analyze|clear|config]
+  vard memory [list|search|show|export|add|edit|rm|verify|analyze|rebuild|clear|config|path]
                             what Vard remembers about this project
-  vard mcp [list|add|remove|test|tools|resources|prompts|secret|trust|import|permissions]
+  vard mcp [list|add|remove|enable|disable|test|tools|resources|prompts|secret|trust|untrust|import|permissions|revoke]
                             MCP servers (external tools); see vard mcp help
   vard skills [list|show|new|edit|import|validate|enable|disable|rm|trust|untrust|path]
                             reusable instructions the agent picks per task
   vard code [index|status|search|symbols|def|refs|callers|deps|dependents|outline|impact|arch|embeddings|clean]
                             the code index: search, dependencies, impact
-  vard browser [status|install|test <url>|artifacts|clean]
+  vard browser [status|install|test <url>|artifacts|clean|origins [--remove <origin>]]
                             the isolated test browser (--viewports mobile,tablet,desktop)
   vard keys [list|set|remove] <provider>   (set reads the key from stdin when piped:
                                             pbpaste | vard keys set openrouter)
@@ -50,6 +50,7 @@ Options
       --no-memory           (run) don't read or learn project memory
       --team                (run) split the task across a team of agents
       --max-agents <n>      (run --team) agents at once (1-6, default 3)
+      --retest-rounds <n>   (run --team) browser fix-and-retest rounds (0-3, default 2)
       --skill <name>        (run) use this skill (repeatable)
       --no-skills           (run) don't pick skills automatically
       --remember            (run, no terminal) save suggested memories
@@ -87,6 +88,8 @@ export type ParsedArgs = {
     description?: string;
     team?: boolean;
     maxAgents?: number;
+    retestRounds?: number;
+    remove?: string;
     force?: boolean;
     viewports?: string;
     days?: number;
@@ -113,6 +116,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       category: { type: "string" },
       search: { type: "string" },
       project: { type: "boolean" },
+      remove: { type: "string" },
       url: { type: "string" },
       bearer: { type: "boolean" },
       name: { type: "string" },
@@ -123,6 +127,7 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
       viewports: { type: "string" },
       days: { type: "string" },
       "max-agents": { type: "string" },
+      "retest-rounds": { type: "string" },
       description: { type: "string" },
       remember: { type: "boolean" },
       help: { type: "boolean", short: "h" },
@@ -135,6 +140,9 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
   const maxAgents = values["max-agents"] !== undefined ? Number(values["max-agents"]) : undefined;
   if (maxAgents !== undefined && (!Number.isInteger(maxAgents) || maxAgents < 1 || maxAgents > 6))
     throw new Error("--max-agents needs a whole number from 1 to 6");
+  const retestRounds = values["retest-rounds"] !== undefined ? Number(values["retest-rounds"]) : undefined;
+  if (retestRounds !== undefined && (!Number.isInteger(retestRounds) || retestRounds < 0 || retestRounds > 3))
+    throw new Error("--retest-rounds needs a whole number from 0 to 3");
   const flags: ParsedArgs["flags"] = {
     model: values.model,
     provider: values.provider,
@@ -158,6 +166,8 @@ export function parseCliArgs(argv: string[]): ParsedArgs {
     description: values.description,
     team: values.team,
     maxAgents,
+    retestRounds,
+    remove: values.remove,
     force: values.force,
     viewports: values.viewports,
     days: values.days !== undefined ? Number(values.days) : undefined,
