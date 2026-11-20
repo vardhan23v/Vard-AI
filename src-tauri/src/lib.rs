@@ -203,6 +203,32 @@ fn agent_restart(app: AppHandle, agent: State<'_, Agent>) -> Result<(), String> 
     spawn_agent(&app)
 }
 
+/// Appends one line from the WebView's boot log to `~/Library/Logs/ai.vard.desktop/frontend.log`.
+/// Startup problems (a window that never draws) leave no other trace in a release build. Lines are
+/// short status text; the file is rotated at 512 KB.
+#[tauri::command]
+fn log_frontend(app: AppHandle, line: String) -> Result<(), String> {
+    use std::io::Write;
+    const MAX: u64 = 512 * 1024;
+    let dir = app.path().app_log_dir().map_err(|e| e.to_string())?;
+    std::fs::create_dir_all(&dir).map_err(|e| e.to_string())?;
+    let path = dir.join("frontend.log");
+    if std::fs::metadata(&path).map(|m| m.len() > MAX).unwrap_or(false) {
+        let _ = std::fs::rename(&path, dir.join("frontend.log.1"));
+    }
+    let secs = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .map(|d| d.as_millis())
+        .unwrap_or(0);
+    let line: String = line.chars().filter(|c| *c != '\n' && *c != '\r').take(2000).collect();
+    let mut f = std::fs::OpenOptions::new()
+        .create(true)
+        .append(true)
+        .open(&path)
+        .map_err(|e| e.to_string())?;
+    writeln!(f, "{secs} {line}").map_err(|e| e.to_string())
+}
+
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
     tauri::Builder::default()
@@ -216,6 +242,7 @@ pub fn run() {
             api_key_status,
             agent_send,
             agent_restart,
+            log_frontend,
             oauth::google_sign_in,
             cli::cli_status,
             cli::install_cli,

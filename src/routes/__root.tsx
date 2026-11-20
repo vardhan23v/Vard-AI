@@ -12,6 +12,8 @@ import { toast } from "sonner";
 import { ThemeProvider } from "../lib/theme";
 import { MotionProvider } from "../lib/motion";
 import { Toaster } from "../components/ui/sonner";
+import { BOOT_LOG_PATH, bootLog, mark } from "../lib/boot";
+import { StartupTimeoutError } from "../lib/guard";
 
 function NotFoundComponent() {
   return (
@@ -35,9 +37,54 @@ function NotFoundComponent() {
   );
 }
 
+function SlowStart({ onRetry }: { onRetry: () => void }) {
+  return (
+    <div className="flex min-h-screen items-center justify-center bg-background px-4">
+      <div className="max-w-md text-center animate-enter" role="alert">
+        <img src="/icon.svg" alt="" className="mx-auto mb-4 size-12 rounded-xl" />
+        <h1 className="text-xl font-semibold tracking-tight text-foreground">
+          Vard is taking longer than usual to start
+        </h1>
+        <p className="mt-2 text-sm text-muted-foreground">
+          Your saved session hasn't loaded yet. Try again, or reload the window. If this keeps
+          happening, the startup log is in{" "}
+          <code className="font-mono text-xs">{BOOT_LOG_PATH}</code>.
+        </p>
+        <div className="mt-6 flex flex-wrap justify-center gap-2">
+          <button
+            onClick={onRetry}
+            className="press inline-flex items-center justify-center rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90"
+          >
+            Try again
+          </button>
+          <button
+            onClick={() => window.location.reload()}
+            className="press inline-flex items-center justify-center rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-foreground hover:bg-accent"
+          >
+            Reload window
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
+  useEffect(() => {
+    bootLog(`route error ${error.name}: ${error.message}`);
+  }, [error]);
+  if (error instanceof StartupTimeoutError || error.name === "StartupTimeoutError") {
+    return (
+      <SlowStart
+        onRetry={() => {
+          router.invalidate();
+          reset();
+        }}
+      />
+    );
+  }
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-background px-4">
@@ -78,6 +125,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootComponent() {
   const { queryClient } = Route.useRouteContext();
+  useEffect(() => mark("first-render"), []);
 
   useEffect(() => {
     if (typeof window === "undefined") return;
@@ -96,30 +144,31 @@ function RootComponent() {
         banner.id = "vard-reload-banner";
         banner.setAttribute(
           "style",
-          "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.85);backdrop-filter:blur(8px);font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;",
+          "position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:color-mix(in oklab, var(--background) 85%, transparent);backdrop-filter:blur(8px);font-family:'DM Sans',ui-sans-serif,system-ui,sans-serif;",
         );
         const esc = (s: string) =>
-          s.replace(/[&<>"']/g, (c) =>
-            ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
+          s.replace(
+            /[&<>"']/g,
+            (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!,
           );
         const chunkName = failedUrl ? failedUrl.split("/").pop()!.split("?")[0] : "unknown chunk";
         banner.innerHTML = `
-          <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:hsl(var(--card));border:1px solid hsl(var(--border));box-shadow:0 24px 60px rgba(0,0,0,0.4);text-align:center;color:hsl(var(--foreground));" role="alert" aria-live="polite">
-            <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(hsl(var(--primary)) 0deg, hsl(var(--accent)) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
+          <div style="max-width:420px;padding:28px 32px;border-radius:20px;background:var(--card);border:1px solid var(--border);box-shadow:0 24px 60px color-mix(in oklab, var(--background) 60%, transparent);text-align:center;color:var(--foreground);" role="alert" aria-live="polite">
+            <div style="width:48px;height:48px;margin:0 auto 16px;border-radius:50%;background:conic-gradient(var(--primary) 0deg, var(--accent) 360deg);animation:spin 1s linear infinite;mask-image:radial-gradient(circle,transparent 55%,black 56%);-webkit-mask-image:radial-gradient(circle,transparent 55%,black 56%);"></div>
             <h2 style="margin:0 0 8px;font-size:1.125rem;font-weight:600;">Updating VARD…</h2>
-            <p id="vard-reload-msg" style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:hsl(var(--muted-foreground));">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:hsl(var(--foreground));">5</span>s.</p>
-            <details style="margin:0 0 16px;text-align:left;font-size:0.8125rem;color:hsl(var(--muted-foreground));background:hsl(var(--muted)/0.4);border:1px solid hsl(var(--border));border-radius:10px;padding:10px 12px;">
-              <summary style="cursor:pointer;font-weight:600;color:hsl(var(--foreground));list-style:none;">Failed chunk: <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.75rem;">${esc(chunkName)}</code></summary>
+            <p id="vard-reload-msg" style="margin:0 0 18px;font-size:0.9375rem;line-height:1.5;color:var(--muted-foreground);">A new version is ready. Reloading in <span id="vard-reload-count" style="font-weight:600;color:var(--foreground);">5</span>s.</p>
+            <details style="margin:0 0 16px;text-align:left;font-size:0.8125rem;color:var(--muted-foreground);background:color-mix(in oklab, var(--muted) 40%, transparent);border:1px solid var(--border);border-radius:10px;padding:10px 12px;">
+              <summary style="cursor:pointer;font-weight:600;color:var(--foreground);list-style:none;">Failed chunk: <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.75rem;">${esc(chunkName)}</code></summary>
               <div style="margin-top:8px;word-break:break-all;">
                 ${failedUrl ? `<div style="margin-bottom:6px;"><span style="opacity:0.7;">URL:</span> <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;">${esc(failedUrl)}</code></div>` : ""}
                 <div><span style="opacity:0.7;">Error:</span> <code style="font-family:'JetBrains Mono',ui-monospace,monospace;font-size:0.7rem;">${esc(errorMessage)}</code></div>
               </div>
             </details>
             <div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;">
-              <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:hsl(var(--accent));color:hsl(var(--accent-foreground));font-weight:600;cursor:pointer;">Try again now</button>
-              <button id="vard-reload-copy" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Copy details</button>
-              <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:hsl(var(--primary));color:hsl(var(--primary-foreground));font-weight:600;cursor:pointer;">Reload now</button>
-              <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid hsl(var(--border));background:transparent;color:hsl(var(--foreground));font-weight:600;cursor:pointer;">Stay on page</button>
+              <button id="vard-reload-retry" style="padding:10px 20px;border-radius:999px;border:1px solid var(--border);background:var(--accent);color:var(--accent-foreground);font-weight:600;cursor:pointer;">Try again now</button>
+              <button id="vard-reload-copy" style="padding:10px 20px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--foreground);font-weight:600;cursor:pointer;">Copy details</button>
+              <button id="vard-reload-now" style="padding:10px 20px;border-radius:999px;border:none;background:var(--primary);color:var(--primary-foreground);font-weight:600;cursor:pointer;">Reload now</button>
+              <button id="vard-reload-cancel" style="padding:10px 20px;border-radius:999px;border:1px solid var(--border);background:transparent;color:var(--foreground);font-weight:600;cursor:pointer;">Stay on page</button>
             </div>
           </div>
           <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
@@ -147,11 +196,11 @@ function RootComponent() {
       const countEl = document.getElementById("vard-reload-count");
       const msgEl = document.getElementById("vard-reload-msg");
       const nowBtn = document.getElementById("vard-reload-now");
-        const cancelBtn = document.getElementById("vard-reload-cancel");
-        const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
-        const copyBtn = document.getElementById("vard-reload-copy") as HTMLButtonElement | null;
-        const banner = document.getElementById("vard-reload-banner");
-        const interval = window.setInterval(() => {
+      const cancelBtn = document.getElementById("vard-reload-cancel");
+      const retryBtn = document.getElementById("vard-reload-retry") as HTMLButtonElement | null;
+      const copyBtn = document.getElementById("vard-reload-copy") as HTMLButtonElement | null;
+      const banner = document.getElementById("vard-reload-banner");
+      const interval = window.setInterval(() => {
         remaining -= 1;
         if (countEl) countEl.textContent = String(remaining);
         if (remaining <= 0) {
@@ -234,15 +283,13 @@ function RootComponent() {
   return (
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        
-          <MotionProvider>
-            <RouteTransition>
+        <MotionProvider>
+          <RouteTransition>
             {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
             <Outlet />
-            </RouteTransition>
-            <Toaster />
-          </MotionProvider>
-        
+          </RouteTransition>
+          <Toaster />
+        </MotionProvider>
       </ThemeProvider>
     </QueryClientProvider>
   );

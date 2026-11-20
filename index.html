@@ -7,7 +7,31 @@
     <title>Vard AI</title>
   </head>
   <body>
-    <div id="root"></div>
+    <!-- Static splash until React mounts (replaced on first render). -->
+    <div id="root">
+      <div id="boot-splash" role="status" aria-label="Starting Vard">
+        <img src="/icon.svg" alt="" />
+        <p>Starting Vard…</p>
+      </div>
+    </div>
+    <style>
+      #boot-splash {
+        position: fixed;
+        inset: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 16px;
+        background: var(--background);
+        color: var(--muted-foreground);
+        font: 14px/1.4 ui-sans-serif, system-ui, sans-serif;
+      }
+      #boot-splash img { width: 48px; height: 48px; border-radius: 12px; }
+      #boot-splash p { margin: 0; opacity: 0; animation: boot-in 0.3s ease-out 1.2s forwards; }
+      @keyframes boot-in { to { opacity: 1; } }
+      @media (prefers-reduced-motion: reduce) { #boot-splash p { animation-duration: 0.001s; } }
+    </style>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
