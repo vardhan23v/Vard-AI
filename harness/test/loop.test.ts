@@ -11,12 +11,16 @@ import { scriptedModel, sh, tmpDir, tmpGitRepo, type Turn } from "./helpers";
 const provider = { provider: "anthropic" as const, model: "mock", apiKey: "test-key" };
 
 /** A Server wired to a scripted model that answers approvals with `answer`. */
-function harness(turns: Turn[], answer: (e: Extract<Event, { type: "approval_request" }>) => object) {
+function harness(
+  turns: Turn[],
+  answer: (e: Extract<Event, { type: "approval_request" }>) => object,
+) {
   const events: Event[] = [];
   const traceDir = tmpDir("vard-traces-");
   let server!: Server;
   let resolveDone!: (e: Event) => void;
   const done = new Promise<Event>((r) => (resolveDone = r));
+  // eslint-disable-next-line prefer-const -- declared earlier so callbacks created first can read it
   server = new Server({
     traceDir,
     modelFactory: () => scriptedModel(turns),
@@ -54,7 +58,10 @@ describe("agent loop (mock model, temp git repo)", () => {
             name: "todo_write",
             input: { todos: [{ id: "1", content: "edit hello.txt", status: "in_progress" }] },
           },
-          { name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } },
+          {
+            name: "edit_file",
+            input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+          },
         ],
       },
       { calls: [{ name: "run_command", input: { command: "cat hello.txt" } }] },
@@ -96,7 +103,13 @@ describe("agent loop (mock model, temp git repo)", () => {
     expect(approvals[1].tool).toBe("run_command");
     // state machine visited the expected states in order
     const states = h.events.filter((e) => e.type === "state").map((e: any) => e.state);
-    expect(states.slice(0, 5)).toEqual(["planning", "observing", "planning", "awaiting_plan_approval", "acting"]);
+    expect(states.slice(0, 5)).toEqual([
+      "planning",
+      "observing",
+      "planning",
+      "awaiting_plan_approval",
+      "acting",
+    ]);
     expect(states.at(-1)).toBe("done");
 
     const results = h.events.filter((e) => e.type === "tool_result") as any[];
@@ -106,9 +119,11 @@ describe("agent loop (mock model, temp git repo)", () => {
     expect(escaped.ok).toBe(false);
     expect(escaped.output).toContain("blocked by policy");
     // every event is stamped with the request and task id
-    expect(h.events.filter((e) => e.taskId === "t1").every((e) => e.id === "req-1" || e.id.startsWith("ans-"))).toBe(
-      true,
-    );
+    expect(
+      h.events
+        .filter((e) => e.taskId === "t1")
+        .every((e) => e.id === "req-1" || e.id.startsWith("ans-")),
+    ).toBe(true);
 
     // trace has the whole run, with the API key redacted
     const trace = readTrace(path.join(h.traceDir, "t1.jsonl"));
@@ -157,14 +172,25 @@ describe("agent loop (mock model, temp git repo)", () => {
   test("rejecting the plan with feedback re-plans", async () => {
     const repo = tmpGitRepo();
     let n = 0;
-    const h = harness(
-      [{ text: "Plan A" }, { text: "Plan B" }, { text: "finished" }],
-      () => (n++ === 0 ? { decision: "deny", reason: "use plan B" } : { decision: "allow_once" }),
+    const h = harness([{ text: "Plan A" }, { text: "Plan B" }, { text: "finished" }], () =>
+      n++ === 0 ? { decision: "deny", reason: "use plan B" } : { decision: "allow_once" },
     );
-    await h.server.handle({ id: "r", type: "task.start", taskId: "t3", projectRoot: repo, prompt: "x", provider, planFirst: true, useWorktree: false });
+    await h.server.handle({
+      id: "r",
+      type: "task.start",
+      taskId: "t3",
+      projectRoot: repo,
+      prompt: "x",
+      provider,
+      planFirst: true,
+      useWorktree: false,
+    });
     const done = (await h.done) as any;
     expect(done.status).toBe("done");
-    expect(h.events.filter((e) => e.type === "plan").map((e: any) => e.plan)).toEqual(["Plan A", "Plan B"]);
+    expect(h.events.filter((e) => e.type === "plan").map((e: any) => e.plan)).toEqual([
+      "Plan A",
+      "Plan B",
+    ]);
   });
 });
 
@@ -188,7 +214,9 @@ describe("loop limits", () => {
       },
     };
   };
-  const forever: Turn[] = Array.from({ length: 50 }, () => ({ calls: [{ name: "list_dir", input: {} }] }));
+  const forever: Turn[] = Array.from({ length: 50 }, () => ({
+    calls: [{ name: "list_dir", input: {} }],
+  }));
 
   test("blocks at maxSteps", async () => {
     const b = base();
@@ -200,7 +228,11 @@ describe("loop limits", () => {
 
   test("blocks when the token budget is exhausted", async () => {
     const b = base();
-    const r = await new AgentLoop({ ...b.opts, model: scriptedModel(forever), tokenBudget: 250 }).run();
+    const r = await new AgentLoop({
+      ...b.opts,
+      model: scriptedModel(forever),
+      tokenBudget: 250,
+    }).run();
     expect(r.status).toBe("blocked");
     expect(r.reason).toContain("token budget");
     expect(r.usage.totalTokens).toBeGreaterThanOrEqual(250);

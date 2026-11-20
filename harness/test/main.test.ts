@@ -21,7 +21,10 @@ async function roundTrip(cmd: string[], lines: string[]): Promise<any[]> {
 
 test("stdio entry answers ping with pong and reports bad requests", async () => {
   const main = path.join(import.meta.dir, "..", "src", "main.ts");
-  const events = await roundTrip([process.execPath, main], ['{"id":"1","type":"ping"}', "not json", '{"id":"2","type":"nope"}']);
+  const events = await roundTrip(
+    [process.execPath, main],
+    ['{"id":"1","type":"ping"}', "not json", '{"id":"2","type":"nope"}'],
+  );
   expect(events.find((e) => e.id === "1")).toMatchObject({ type: "pong", id: "1" });
   expect(events.filter((e) => e.type === "error")).toHaveLength(2);
   expect(events.find((e) => e.id === "2")?.type).toBe("error");

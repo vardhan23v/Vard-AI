@@ -1,4 +1,12 @@
-export type SkillErrorCode = "invalid" | "not_found" | "untrusted" | "shadowed" | "disabled" | "path" | "too_large" | "exists";
+export type SkillErrorCode =
+  | "invalid"
+  | "not_found"
+  | "untrusted"
+  | "shadowed"
+  | "disabled"
+  | "path"
+  | "too_large"
+  | "exists";
 
 export class SkillError extends Error {
   constructor(

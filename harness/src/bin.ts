@@ -6,7 +6,8 @@ import { runCli } from "./cli/main";
 
 const args = process.argv.slice(2);
 
-const run = args[0] === "agent" && args.includes("--stdio") ? runStdio().then(() => 0) : runCli(args);
+const run =
+  args[0] === "agent" && args.includes("--stdio") ? runStdio().then(() => 0) : runCli(args);
 
 run.then(
   (code) => process.exit(code ?? 0),

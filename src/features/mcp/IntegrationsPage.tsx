@@ -18,7 +18,14 @@ import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
-import { StarField } from "@/components/StarField";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import {
   isTauri,
   mcp,
@@ -106,66 +113,59 @@ export function IntegrationsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-5xl space-y-6 px-6 py-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl">
-              <Plug className="size-6 text-agent-foreground" aria-hidden /> Integrations
-            </h1>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Connect MCP servers to give the agent new tools, data and prompts. Every tool call
-              asks for your approval unless you allow it, and nothing outside your project is
-              reachable.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm">
-              <span className="sr-only">Show servers for</span>
-              <select
-                value={projectId}
-                onChange={(e) => {
-                  setProjectId(e.target.value);
-                  setSelected(null);
-                }}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-              >
-                <option value="">All projects (global servers)</option>
-                {projects.data
-                  ?.filter((p) => projectPath(p.id))
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      Project: {p.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            {(q.data?.importSources?.length ?? 0) > 0 && (
-              <details className="relative">
-                <summary className="inline-flex min-h-9 cursor-pointer list-none items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent">
-                  <Download className="size-4" /> Import
-                </summary>
-                <ul className="absolute right-0 z-20 mt-1 w-64 rounded-md border border-border bg-popover p-1 shadow-lg">
-                  {q.data!.importSources!.map((s) => (
-                    <li key={s.file}>
-                      <button
-                        onClick={() => void importFrom(s.file, s.label)}
-                        className="w-full rounded px-2 py-2 text-left text-sm hover:bg-accent"
-                        title={s.file}
+        <PageHeader
+          icon={Plug}
+          title="Integrations"
+          description="Connect MCP servers to give the agent new tools, data and prompts. Every tool call asks for your approval unless you allow it, and nothing outside your project is reachable."
+          actions={
+            <>
+              <label className="text-sm">
+                <span className="sr-only">Show servers for</span>
+                <select
+                  value={projectId}
+                  onChange={(e) => {
+                    setProjectId(e.target.value);
+                    setSelected(null);
+                  }}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">All projects (global servers)</option>
+                  {projects.data
+                    ?.filter((p) => projectPath(p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        Project: {p.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              {(q.data?.importSources?.length ?? 0) > 0 && (
+                <DropdownMenu>
+                  <DropdownMenuTrigger className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none">
+                    <Download className="size-4" aria-hidden /> Import
+                  </DropdownMenuTrigger>
+                  <DropdownMenuContent align="end" className="w-64">
+                    {q.data!.importSources!.map((src) => (
+                      <DropdownMenuItem
+                        key={src.file}
+                        title={src.file}
+                        onSelect={() => void importFrom(src.file, src.label)}
                       >
-                        {s.label}
-                      </button>
-                    </li>
-                  ))}
-                </ul>
-              </details>
-            )}
-            <button
-              onClick={() => setDialog({ open: true, scope: projectRoot ? "project" : "global" })}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
-            >
-              <Plus className="size-4" /> Add server
-            </button>
-          </div>
-        </header>
+                        {src.label}
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
+              )}
+              <button
+                onClick={() => setDialog({ open: true, scope: projectRoot ? "project" : "global" })}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+              >
+                <Plus className="size-4" /> Add server
+              </button>
+            </>
+          }
+        />
 
         {needsTrust && (
           <div
@@ -202,73 +202,74 @@ export function IntegrationsPage() {
             <AlertTriangle className="size-4" /> {String(q.error)}
           </p>
         ) : !servers.length ? (
-          <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
-            <StarField seed={23} />
-            <div className="relative space-y-3">
-              <p className="text-lg">No servers yet</p>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
+          <EmptyState
+            size="lg"
+            seed={23}
+            title="No servers yet"
+            text={
+              <>
                 Add a local server (for example{" "}
                 <code>npx -y @modelcontextprotocol/server-everything</code>) or a remote one by URL
                 {(q.data?.importSources?.length ?? 0) > 0
                   ? ", or import the ones you use in other apps"
                   : ""}
                 .
-              </p>
-              <button
-                onClick={() => setDialog({ open: true, scope: projectRoot ? "project" : "global" })}
-                className="inline-flex min-h-10 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
-              >
-                <Plus className="size-4" /> Add your first server
-              </button>
-            </div>
-          </div>
+              </>
+            }
+          >
+            <button
+              onClick={() => setDialog({ open: true, scope: projectRoot ? "project" : "global" })}
+              className="press mt-1 inline-flex min-h-10 items-center gap-1.5 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+            >
+              <Plus className="size-4" /> Add your first server
+            </button>
+          </EmptyState>
         ) : (
           <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
-            <ul className="space-y-2" aria-label="Servers">
+            <ul className="stagger space-y-2" aria-label="Servers">
               {servers.map((s) => (
-                <li key={s.key}>
-                  <div
-                    role="button"
-                    tabIndex={0}
+                <li
+                  key={s.key}
+                  className={cn(
+                    "relative rounded-lg border transition-colors",
+                    current?.key === s.key
+                      ? "border-primary bg-accent"
+                      : "border-border bg-card hover:bg-accent/60",
+                  )}
+                >
+                  {/* The row opens the server; the switch beside it is a separate control. */}
+                  <button
+                    type="button"
                     onClick={() => setSelected(s.key)}
-                    onKeyDown={(e) => (e.key === "Enter" || e.key === " ") && setSelected(s.key)}
                     aria-current={current?.key === s.key}
-                    className={cn(
-                      "cursor-pointer rounded-lg border p-3 transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
-                      current?.key === s.key
-                        ? "border-primary bg-accent"
-                        : "border-border bg-card hover:bg-accent/60",
-                    )}
+                    className="w-full rounded-lg p-3 pr-16 text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
                   >
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="flex min-w-0 items-center gap-2">
-                        {s.transport === "stdio" ? (
-                          <Server className="size-4 shrink-0 text-agent-foreground" />
-                        ) : (
-                          <Wifi className="size-4 shrink-0 text-agent-foreground" />
-                        )}
-                        <span className="truncate text-sm font-medium">{s.name}</span>
-                      </div>
-                      <span onClick={(e) => e.stopPropagation()}>
-                        <Switch
-                          checked={s.enabled}
-                          onCheckedChange={(v) => void toggle(s, v)}
-                          aria-label={`${s.enabled ? "Disable" : "Enable"} ${s.name}`}
-                        />
-                      </span>
-                    </div>
-                    <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                    <span className="flex min-w-0 items-center gap-2">
+                      {s.transport === "stdio" ? (
+                        <Server className="size-4 shrink-0 text-agent-foreground" aria-hidden />
+                      ) : (
+                        <Wifi className="size-4 shrink-0 text-agent-foreground" aria-hidden />
+                      )}
+                      <span className="truncate text-sm font-medium">{s.name}</span>
+                    </span>
+                    <span className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                       <StateBadge state={s.state} />
                       {s.state === "connected" && <span>{s.toolCount} tools</span>}
                       <span>{s.scope === "global" ? "global" : "project"}</span>
                       {s.lastConnectedAt && s.state !== "connected" && (
                         <span>last {new Date(s.lastConnectedAt).toLocaleTimeString()}</span>
                       )}
-                    </div>
+                    </span>
                     {s.error && (
-                      <p className="mt-1 line-clamp-2 text-xs text-destructive">{s.error}</p>
+                      <span className="mt-1 line-clamp-2 text-xs text-destructive">{s.error}</span>
                     )}
-                  </div>
+                  </button>
+                  <Switch
+                    checked={s.enabled}
+                    onCheckedChange={(v) => void toggle(s, v)}
+                    aria-label={`${s.enabled ? "Disable" : "Enable"} ${s.name}`}
+                    className="absolute top-3 right-3"
+                  />
                 </li>
               ))}
             </ul>

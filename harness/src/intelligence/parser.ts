@@ -93,7 +93,8 @@ function keepDef(lang: Lang, kind: string, def: Node): { keep: boolean; kind?: S
         const top = decl?.parent?.type;
         if (top !== "program" && top !== "export_statement") return { keep: false };
         const value = def.childForFieldName("value");
-        if (value && ["arrow_function", "function_expression", "function"].includes(value.type)) return { keep: true, kind: "function" };
+        if (value && ["arrow_function", "function_expression", "function"].includes(value.type))
+          return { keep: true, kind: "function" };
         return { keep: true, kind: "variable" };
       }
       if (kind === "function" && ancestor(def, ["statement_block"])) return { keep: false };
@@ -106,7 +107,8 @@ function keepDef(lang: Lang, kind: string, def: Node): { keep: boolean; kind?: S
       }
       return { keep: true };
     case "rust":
-      if (kind === "function" && ancestor(def, ["impl_item", "trait_item"])) return { keep: true, kind: "method" };
+      if (kind === "function" && ancestor(def, ["impl_item", "trait_item"]))
+        return { keep: true, kind: "method" };
       if (kind === "function" && ancestor(def, ["function_item"])) return { keep: false };
       return { keep: true };
     case "go":
@@ -188,27 +190,46 @@ function parseTree(lang: Lang, text: string, parser: Parser, queries: Query[]): 
         for (const c of m.captures) {
           if (c.name === "import") {
             const stmt = ["typescript", "tsx", "javascript"].includes(lang) ? c.node.parent : null;
-            imports.push({ source: unquote(c.node.text.trim()), names: importNames(stmt), line: c.node.startPosition.row + 1 });
+            imports.push({
+              source: unquote(c.node.text.trim()),
+              names: importNames(stmt),
+              line: c.node.startPosition.row + 1,
+            });
           } else if (c.name.startsWith("ref.") && refs.length < MAX_REFS) {
-            refs.push({ name: c.node.text, line: c.node.startPosition.row + 1, kind: c.name === "ref.call" ? "call" : "type" });
+            refs.push({
+              name: c.node.text,
+              line: c.node.startPosition.row + 1,
+              kind: c.name === "ref.call" ? "call" : "type",
+            });
           }
         }
       }
     }
     // Rust `mod foo;` (no body) is a file dependency.
     if (lang === "rust")
-      for (const s of symbols) if (s.kind === "module" && /;\s*$/.test(s.signature ?? "")) imports.push({ source: `mod:${s.name}`, names: [], line: s.line });
+      for (const s of symbols)
+        if (s.kind === "module" && /;\s*$/.test(s.signature ?? ""))
+          imports.push({ source: `mod:${s.name}`, names: [], line: s.line });
   } finally {
     tree.delete();
   }
   // Parents by range: the nearest enclosing container.
-  const containers = symbols.filter((s) => CONTAINERS.includes(s.kind)).sort((a, b) => (b.start ?? 0) - (a.start ?? 0));
+  const containers = symbols
+    .filter((s) => CONTAINERS.includes(s.kind))
+    .sort((a, b) => (b.start ?? 0) - (a.start ?? 0));
   for (const s of symbols) {
     if (s.parent) continue;
-    const p = containers.find((c) => c !== s && (c.start ?? 0) <= (s.start ?? 0) && (c.end ?? 0) >= (s.end ?? 0) && (c.end! - c.start!) > (s.end! - s.start!));
+    const p = containers.find(
+      (c) =>
+        c !== s &&
+        (c.start ?? 0) <= (s.start ?? 0) &&
+        (c.end ?? 0) >= (s.end ?? 0) &&
+        c.end! - c.start! > s.end! - s.start!,
+    );
     if (p) {
       s.parent = p.name;
-      if (s.kind === "function" && ["class", "interface", "struct", "trait"].includes(p.kind)) s.kind = "method";
+      if (s.kind === "function" && ["class", "interface", "struct", "trait"].includes(p.kind))
+        s.kind = "method";
     }
   }
   const dedup = new Set<string>();
@@ -240,7 +261,14 @@ function parseMarkdown(text: string): ParseResult {
     if (!m) return;
     const level = m[1].length;
     while (open.length && open[open.length - 1].level >= level) open.pop()!.s.endLine = i;
-    const s: ParsedSymbol = { name: m[2], kind: "heading", line: i + 1, endLine: lines.length, exported: true, parent: open.at(-1)?.s.name };
+    const s: ParsedSymbol = {
+      name: m[2],
+      kind: "heading",
+      line: i + 1,
+      endLine: lines.length,
+      exported: true,
+      parent: open.at(-1)?.s.name,
+    };
     symbols.push(s);
     open.push({ level, s });
   });
@@ -254,9 +282,16 @@ function parseJson(text: string, file: string): ParseResult {
   } catch (e) {
     // JSON with comments (tsconfig) is common; strip comments and trailing commas once.
     try {
-      data = JSON.parse(text.replace(/\/\*[\s\S]*?\*\/|(^|[^:"])\/\/.*$/gm, "$1").replace(/,\s*([}\]])/g, "$1"));
+      data = JSON.parse(
+        text.replace(/\/\*[\s\S]*?\*\/|(^|[^:"])\/\/.*$/gm, "$1").replace(/,\s*([}\]])/g, "$1"),
+      );
     } catch {
-      return { symbols: [], refs: [], imports: [], error: `invalid JSON: ${(e as Error).message.slice(0, 120)}` };
+      return {
+        symbols: [],
+        refs: [],
+        imports: [],
+        error: `invalid JSON: ${(e as Error).message.slice(0, 120)}`,
+      };
     }
   }
   const symbols: ParsedSymbol[] = [];
@@ -265,12 +300,19 @@ function parseJson(text: string, file: string): ParseResult {
     const lines = text.split("\n");
     for (const key of Object.keys(data).slice(0, 200)) {
       const idx = lines.findIndex((l) => l.includes(`"${key}"`));
-      symbols.push({ name: key, kind: "key", line: idx + 1 || 1, endLine: idx + 1 || 1, exported: true });
+      symbols.push({
+        name: key,
+        kind: "key",
+        line: idx + 1 || 1,
+        endLine: idx + 1 || 1,
+        exported: true,
+      });
     }
     if (/(^|\/)package\.json$/.test(file)) {
       const pkg = data as Record<string, Record<string, string>>;
       for (const k of ["dependencies", "devDependencies", "peerDependencies"])
-        for (const dep of Object.keys(pkg[k] ?? {})) imports.push({ source: `pkg:${dep}`, names: [k], line: 1 });
+        for (const dep of Object.keys(pkg[k] ?? {}))
+          imports.push({ source: `pkg:${dep}`, names: [k], line: 1 });
     }
   }
   return { symbols, refs: [], imports };
@@ -284,6 +326,11 @@ export async function parseSource(lang: Lang, text: string, file = ""): Promise<
     if (!p) return { symbols: [], refs: [], imports: [] };
     return parseTree(lang, text, p.parser, p.queries);
   } catch (e) {
-    return { symbols: [], refs: [], imports: [], error: `parse failed: ${(e as Error)?.message ?? e}` };
+    return {
+      symbols: [],
+      refs: [],
+      imports: [],
+      error: `parse failed: ${(e as Error)?.message ?? e}`,
+    };
   }
 }

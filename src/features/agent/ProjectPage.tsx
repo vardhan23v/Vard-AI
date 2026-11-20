@@ -1,10 +1,19 @@
 import { useEffect, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Link, useNavigate } from "@tanstack/react-router";
-import { AlertCircle, Brain, FolderSearch, Play, Settings2 } from "lucide-react";
+import {
+  AlertCircle,
+  Brain,
+  FolderSearch,
+  PanelLeftClose,
+  PanelLeftOpen,
+  Play,
+  Settings2,
+} from "lucide-react";
 import { toast } from "sonner";
 
 import { ModelPicker } from "@/features/chat/ModelPicker";
+import { EmptyState } from "@/components/EmptyState";
 import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
@@ -12,6 +21,7 @@ import { SkillPicker } from "@/features/skills/SkillPicker";
 import { agentRoles, send } from "@/lib/agent-client";
 import { MemoryTab } from "./MemoryTab";
 import { providerConfig, useModelChoice } from "@/lib/models";
+import { useListEntrance } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 import {
   createTask,
@@ -26,12 +36,38 @@ import {
 import { startTaskStore, useTask } from "./store";
 import { StatusBadge, TaskView } from "./TaskView";
 
+const COLLAPSED_KEY = "vard-project-tasks-collapsed";
+
+/** Whether the task column is collapsed, remembered across projects and launches. */
+function useTasksCollapsed() {
+  const [collapsed, setCollapsed] = useState(() => {
+    try {
+      return localStorage.getItem(COLLAPSED_KEY) === "1";
+    } catch {
+      return false;
+    }
+  });
+  useEffect(() => {
+    try {
+      localStorage.setItem(COLLAPSED_KEY, collapsed ? "1" : "0");
+    } catch {
+      // Storage unavailable: the choice lasts for this session only.
+    }
+  }, [collapsed]);
+  return [collapsed, setCollapsed] as const;
+}
+
 export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?: string }) {
   const { data: projects, isLoading } = useQuery(projectsQuery());
   const project = projects?.find((p) => p.id === projectId);
   const tasks = useQuery(tasksQuery(projectId));
   const [path, setPath] = useState(() => projectPath(projectId));
   const [showMemory, setShowMemory] = useState(false);
+  const [collapsed, setCollapsed] = useTasksCollapsed();
+  const entrance = useListEntrance(
+    (tasks.data ?? []).map((t) => t.id),
+    !tasks.isLoading,
+  );
 
   useEffect(() => {
     startTaskStore();
@@ -53,23 +89,25 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
 
   if (!path) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
-        <FolderSearch className="size-6 text-muted-foreground" />
-        <p className="max-w-sm text-sm text-muted-foreground">
-          {project.name} was added on another Mac. Choose where its folder is on this one.
-        </p>
-        <button
-          onClick={async () => {
-            const dir = await pickFolder();
-            if (dir) {
-              setProjectPath(project.id, dir);
-              setPath(dir);
-            }
-          }}
-          className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+      <div className="flex h-full flex-col items-center justify-center px-6">
+        <EmptyState
+          className="max-w-sm border-none"
+          icon={<FolderSearch className="size-6" aria-hidden />}
+          text={`${project.name} was added on another Mac. Choose where its folder is on this one.`}
         >
-          Locate folder
-        </button>
+          <button
+            onClick={async () => {
+              const dir = await pickFolder();
+              if (dir) {
+                setProjectPath(project.id, dir);
+                setPath(dir);
+              }
+            }}
+            className="min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground"
+          >
+            Locate folder
+          </button>
+        </EmptyState>
       </div>
     );
   }
@@ -78,43 +116,72 @@ export function ProjectPage({ projectId, taskId }: { projectId: string; taskId?:
 
   return (
     <div className="flex h-full">
-      <div className="flex w-80 shrink-0 flex-col border-r border-border">
-        <ProjectHeader
-          project={project}
-          path={path}
-          memoryOpen={showMemory}
-          onToggleMemory={() => setShowMemory((v) => !v)}
-        />
-        <NewTask project={project} path={path} />
-        <div className="flex-1 overflow-y-auto px-2 pb-3">
-          <h2 className="px-2 pt-3 pb-1 font-sans text-xs font-medium text-muted-foreground">
-            Tasks
-          </h2>
-          {tasks.isLoading && <Skeleton className="mx-2 h-12" />}
-          {tasks.error && (
-            <p className="flex items-center gap-2 px-2 text-sm text-muted-foreground">
-              <AlertCircle className="size-4" /> {tasks.error.message}
-            </p>
-          )}
-          {tasks.data?.length === 0 && (
-            <p className="px-2 text-sm text-muted-foreground">
-              No tasks yet. Describe one above; several can run at once.
-            </p>
-          )}
-          <ul className="space-y-1">
-            {tasks.data?.map((t) => (
-              <TaskRow
-                key={t.id}
-                projectId={projectId}
-                id={t.id}
-                prompt={t.prompt}
-                status={t.status}
-                active={t.id === taskId}
-              />
-            ))}
-          </ul>
+      {collapsed ? (
+        <div className="flex w-12 shrink-0 animate-fade-in flex-col items-center gap-1 border-r border-border py-3">
+          <button
+            onClick={() => setCollapsed(false)}
+            aria-label="Show tasks"
+            title="Show tasks"
+            aria-expanded={false}
+            className="press inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <PanelLeftOpen className="size-4" aria-hidden />
+          </button>
+          <button
+            onClick={() => setShowMemory((v) => !v)}
+            aria-pressed={showMemory}
+            aria-label="Project memory"
+            title="Project memory"
+            className={cn(
+              "inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground",
+              showMemory && "bg-accent text-foreground",
+            )}
+          >
+            <Brain className="size-4" aria-hidden />
+          </button>
         </div>
-      </div>
+      ) : (
+        <div className="flex w-64 shrink-0 animate-fade-in flex-col border-r border-border min-[1100px]:w-80">
+          <ProjectHeader
+            project={project}
+            path={path}
+            memoryOpen={showMemory}
+            onToggleMemory={() => setShowMemory((v) => !v)}
+            onCollapse={() => setCollapsed(true)}
+          />
+          <NewTask project={project} path={path} />
+          <div className="flex-1 overflow-y-auto px-2 pb-3">
+            <h2 className="px-2 pt-3 pb-1 font-sans text-xs font-medium text-muted-foreground">
+              Tasks
+            </h2>
+            {tasks.isLoading && <Skeleton className="mx-2 h-12" />}
+            {tasks.error && (
+              <p className="flex items-center gap-2 px-2 text-sm text-muted-foreground">
+                <AlertCircle className="size-4" /> {tasks.error.message}
+              </p>
+            )}
+            {tasks.data?.length === 0 && (
+              <EmptyState
+                className="mx-2"
+                text="No tasks yet. Describe one above; several can run at once."
+              />
+            )}
+            <ul className={cn("space-y-1", entrance.list)}>
+              {tasks.data?.map((t) => (
+                <TaskRow
+                  key={t.id}
+                  className={entrance.item(t.id)}
+                  projectId={projectId}
+                  id={t.id}
+                  prompt={t.prompt}
+                  status={t.status}
+                  active={t.id === taskId}
+                />
+              ))}
+            </ul>
+          </div>
+        </div>
+      )}
       <div className="relative min-w-0 flex-1">
         {showMemory ? (
           <MemoryTab path={path} />
@@ -140,7 +207,9 @@ function TaskRow({
   prompt,
   status,
   active,
+  className,
 }: {
+  className?: string;
   projectId: string;
   id: string;
   prompt: string;
@@ -152,7 +221,7 @@ function TaskRow({
     live?.worktree?.action === "merged" ? "merged" : (live?.done?.status ?? live?.state ?? status);
   const needsYou = !!live?.pending;
   return (
-    <li>
+    <li className={className}>
       <Link
         to="/projects/$projectId"
         params={{ projectId }}
@@ -175,11 +244,13 @@ function ProjectHeader({
   path,
   memoryOpen,
   onToggleMemory,
+  onCollapse,
 }: {
   project: Project;
   path: string;
   memoryOpen: boolean;
   onToggleMemory: () => void;
+  onCollapse: () => void;
 }) {
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
@@ -228,6 +299,15 @@ function ProjectHeader({
             className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
           >
             <Settings2 className="size-4" />
+          </button>
+          <button
+            onClick={onCollapse}
+            aria-label="Hide tasks"
+            title="Hide tasks"
+            aria-expanded
+            className="press inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-foreground"
+          >
+            <PanelLeftClose className="size-4" aria-hidden />
           </button>
         </div>
       </div>

@@ -65,7 +65,12 @@ describe("key splitting", () => {
 
   test("control keys, arrows and a pasted multi-line block", () => {
     const keys = splitKeys("\t\x7f\x1b[A\x03");
-    expect(keys.map((k) => Object.keys(k.key)[0] ?? k.input)).toEqual(["tab", "backspace", "upArrow", "ctrl"]);
+    expect(keys.map((k) => Object.keys(k.key)[0] ?? k.input)).toEqual([
+      "tab",
+      "backspace",
+      "upArrow",
+      "ctrl",
+    ]);
     expect(keys[3].input).toBe("c");
     expect(splitKeys("line one\rline two")).toEqual([{ input: "line one\nline two", key: {} }]);
     expect(splitKeys("\x1b")).toEqual([{ input: "", key: { escape: true } }]);
@@ -96,7 +101,9 @@ describe("editor", () => {
 
 describe("markdown", () => {
   test("parses fences, headings and lists", () => {
-    const kinds = parseBlocks("# Title\n\n- one\n1. two\n```ts\nconst a = 1;\n```\nplain").map((b) => b.kind);
+    const kinds = parseBlocks("# Title\n\n- one\n1. two\n```ts\nconst a = 1;\n```\nplain").map(
+      (b) => b.kind,
+    );
     expect(kinds).toEqual(["heading", "blank", "bullet", "bullet", "code", "text"]);
   });
 });
@@ -146,7 +153,14 @@ describe("TUI", () => {
     const turns: Turn[] = [
       { calls: [{ name: "read_file", input: { path: "hello.txt" } }] },
       { text: "1. Change world to vard" },
-      { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
+      {
+        calls: [
+          {
+            name: "edit_file",
+            input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+          },
+        ],
+      },
       { calls: [{ name: "run_command", input: { command: "cat hello.txt" } }] },
       { text: "Changed hello.txt." },
     ];
@@ -166,10 +180,22 @@ describe("TUI", () => {
 
   test("after a task, the memory checklist saves the checked notes; /memory shows them", async () => {
     const repo = tmpGitRepo({ "hello.txt": "hello world\n" });
-    const m = mount({ cwd: repo, reflect: '[{"category":"architecture","text":"Greetings live in hello.txt"},{"category":"issues","text":"Do not touch the old greeting file"}]', turns: [
-      { calls: [{ name: "edit_file", input: { path: "hello.txt", old_string: "world", new_string: "vard" } }] },
-      { text: "Done." },
-    ] });
+    const m = mount({
+      cwd: repo,
+      reflect:
+        '[{"category":"architecture","text":"Greetings live in hello.txt"},{"category":"issues","text":"Do not touch the old greeting file"}]',
+      turns: [
+        {
+          calls: [
+            {
+              name: "edit_file",
+              input: { path: "hello.txt", old_string: "world", new_string: "vard" },
+            },
+          ],
+        },
+        { text: "Done." },
+      ],
+    });
     await until(m.screen, "Message vard");
     await m.type("/plan off\r");
     await m.type("/task fix the greeting\r");
@@ -180,7 +206,10 @@ describe("TUI", () => {
     await m.type(" "); // uncheck it
     await m.type("\r");
     await until(m.screen, "Remembered 1 note");
-    const mem = new MemoryStore(repo).active().map((e) => e.text).join("\n");
+    const mem = new MemoryStore(repo)
+      .active()
+      .map((e) => e.text)
+      .join("\n");
     expect(mem).toContain("Greetings live in hello.txt");
     expect(mem).not.toContain("old greeting");
     await m.type("/memory\r");
@@ -203,9 +232,31 @@ describe("team panel", () => {
   test("shows one line per agent with its status and activity", async () => {
     const { TeamPanel, COMMANDS } = await import("../src/tui/components");
     const agents = [
-      { agentId: "backend-api", role: "backend", status: "running", activity: "write_file api.txt", steps: 2, maxSteps: 40, usage: { totalTokens: 10 } },
-      { agentId: "frontend-ui", role: "frontend", status: "waiting_approval", steps: 1, maxSteps: 40, usage: { totalTokens: 5 } },
-      { agentId: "planner-1", role: "planner", status: "completed", steps: 3, maxSteps: 14, usage: { totalTokens: 9 } },
+      {
+        agentId: "backend-api",
+        role: "backend",
+        status: "running",
+        activity: "write_file api.txt",
+        steps: 2,
+        maxSteps: 40,
+        usage: { totalTokens: 10 },
+      },
+      {
+        agentId: "frontend-ui",
+        role: "frontend",
+        status: "waiting_approval",
+        steps: 1,
+        maxSteps: 40,
+        usage: { totalTokens: 5 },
+      },
+      {
+        agentId: "planner-1",
+        role: "planner",
+        status: "completed",
+        steps: 3,
+        maxSteps: 14,
+        usage: { totalTokens: 9 },
+      },
     ];
     const r = render(<TeamPanel agents={agents} />);
     const frame = r.lastFrame() ?? "";
@@ -214,6 +265,8 @@ describe("team panel", () => {
     expect(frame).toContain("waiting approval");
     expect(frame).toContain("✓ planner-1");
     r.unmount();
-    expect(COMMANDS.map((c) => c.name)).toEqual(expect.arrayContaining(["/team", "/retry", "/pause", "/resume", "/continue", "/skills"]));
+    expect(COMMANDS.map((c) => c.name)).toEqual(
+      expect.arrayContaining(["/team", "/retry", "/pause", "/resume", "/continue", "/skills"]),
+    );
   });
 });

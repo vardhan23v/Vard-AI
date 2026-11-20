@@ -27,7 +27,9 @@ export const BrowserInstall = z.object({
   name: z.string().optional(),
   version: z.string().optional(),
   /** What Install would download. */
-  installable: z.object({ name: z.string(), version: z.string(), url: z.string(), approxMB: z.number() }).optional(),
+  installable: z
+    .object({ name: z.string(), version: z.string(), url: z.string(), approxMB: z.number() })
+    .optional(),
 });
 export type BrowserInstall = z.infer<typeof BrowserInstall>;
 
@@ -54,7 +56,19 @@ export type NetworkEntry = z.infer<typeof NetworkEntry>;
 export const Finding = z.object({
   viewport: z.string(),
   severity: z.enum(["high", "medium", "low"]),
-  kind: z.enum(["horizontal_overflow", "clipped_text", "offscreen", "overlap", "small_target", "unlabeled_field", "hidden_navigation", "console_error", "network_error", "broken_image"]),
+  kind: z.enum([
+    "horizontal_overflow",
+    "clipped_text",
+    "offscreen",
+    "overlap",
+    "small_target",
+    "unlabeled_field",
+    "hidden_navigation",
+    "zero_size_control",
+    "console_error",
+    "network_error",
+    "broken_image",
+  ]),
   message: z.string(),
   selector: z.string().optional(),
   evidence: z.string(),
@@ -118,3 +132,10 @@ export const DevServerInfo = z.object({
   error: z.string().optional(),
 });
 export type DevServerInfo = z.infer<typeof DevServerInfo>;
+
+/** Global browser settings (<VARD_HOME or ~/.vard>/browser.json). */
+export const BrowserSettings = z.object({
+  /** Delete artifact runs older than this many days; 0 keeps them forever (the default). */
+  artifactRetentionDays: z.number().int().min(0).max(365),
+});
+export type BrowserSettings = z.infer<typeof BrowserSettings>;

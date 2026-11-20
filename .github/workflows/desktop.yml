@@ -8,7 +8,7 @@ on:
 
 jobs:
   check:
-    # Typecheck and harness tests don't need macOS; Linux runners start quickly.
+    # Typecheck, lint and harness tests don't need macOS; Linux runners start quickly.
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
@@ -19,6 +19,12 @@ jobs:
         working-directory: harness
       - name: Typecheck app
         run: bun run typecheck
+      - name: Lint app
+        run: bun run lint
+        continue-on-error: false
+      - name: Typecheck harness
+        run: bunx tsc --noEmit
+        working-directory: harness
       # The browser agent's tests drive a real headless Chromium (Playwright's Chrome Headless Shell).
       - name: Install a headless browser for the browser tests
         run: bunx playwright-core install --with-deps chromium-headless-shell
@@ -40,6 +46,15 @@ jobs:
         with:
           workspaces: src-tauri
       - run: bun install --frozen-lockfile
+      # Fails fast on Rust errors or a Cargo.lock out of step with Cargo.toml, before the
+      # slow universal build. tauri-build needs the frontend folder and the host sidecar to
+      # exist; desktop:build replaces both placeholders with the real ones.
+      - name: Rust check
+        working-directory: src-tauri
+        run: |
+          mkdir -p ../dist binaries
+          touch "binaries/vard-$(rustc -vV | sed -n 's/^host: //p')"
+          cargo check --locked
       - name: Build universal DMG (unsigned, ad-hoc)
         env:
           VITE_FIREBASE_API_KEY: ${{ secrets.VITE_FIREBASE_API_KEY }}

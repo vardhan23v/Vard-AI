@@ -61,7 +61,7 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - **Project memory:** Vard analyzes each project, remembers its stack, commands, conventions, decisions and past fixes, and uses the relevant ones on every task. After a task it suggests new notes; you choose what's saved
 
 **Skills**
-- Reusable instructions that teach the agent a kind of task (React, APIs, databases, testing, debugging, code review, security, docs, deployment, MCP servers, accessibility); 12 ship with Vard
+- Reusable instructions that teach the agent a kind of task (React, APIs, databases, testing, debugging, code review, security, docs, deployment, MCP servers, accessibility, browser and responsive testing, code search and impact analysis); 20 ship with Vard
 - Vard picks the relevant skills for each task and shows which it used; you can also pick them by hand
 - Write your own, import them, keep them global or per project. Skills are guidance only: they never skip approvals
 
@@ -69,12 +69,14 @@ Built with Tauri v2, React 19, TanStack Router, Tailwind v4 and shadcn/ui. You b
 - Turn on **Team** and a planner splits a bigger task into subtasks for frontend, backend, database and testing agents
 - You approve (or edit) the plan; independent subtasks run in parallel, each agent on its own branch with its own skills
 - Finished work is merged one subtask at a time with conflict checks, reviewed by a reviewer agent, and shown to you as one diff to merge
+- Each agent gets the codebase overview and the code relevant to its subtask
 - A live dashboard: plan graph, agent cards, approvals, review findings, pause/resume, retry and cancel
 
 **Code intelligence**
 - Vard indexes each project (files, symbols, imports, references) on your Mac and keeps it current as files change
 - Search code by what it does ("where is authentication handled?"), find definitions, references and callers, and explore a dependency graph
 - Before changing code, agents check what depends on it, which tests cover it and how to verify it; the Code page shows the same impact report
+- Open any search result or file from the Code page in your editor
 
 **Browser testing**
 - Agents start your dev server and test the app in an isolated headless browser: click, fill forms, take screenshots, and check mobile, tablet and desktop layouts with real measurements
@@ -137,12 +139,16 @@ vard run "add input validation to the signup form" --verify "bun test"
 | `vard` | Full-screen session. Type to chat; `/task <what to do>` runs the agent in this repo; `/code <query>`, `/impact <file or symbol>` and `/browser` use the code index and test browser; `/team <task>` runs a team (with `/pause`, `/resume`, `/retry <subtask> [note]`, `/continue`); `/skills` lists skills; `/model` and `/sessions` open pickers; `/plan on\|off`, `/diff`, `/merge`, `/discard`, `/keys`, `/clear`, `/help`. `vard -c` continues the last conversation; `vard --classic` is the plain line-by-line version. |
 | `vard ask "…"` | One streamed answer |
 | `vard run "…"` | Agent task on its own branch: approve the plan and risky commands, then merge, view, discard or keep the diff. Flags: `--no-plan`, `--verify "<cmd>"`, `--no-worktree`, `--max-steps <n>`, `--yes` (scripts). Exit code 0 done, 1 stopped, 2 cancelled. |
-| `vard run --team "…"` | A team run: approve the plan, watch each subtask, answer failures (retry with a note, continue, or stop), then merge the combined diff. `--max-agents <n>` (1–6, default 3) |
+| `vard run --team "…"` | A team run: approve the plan, watch each subtask, answer failures (retry with a note, continue, or stop), then merge the combined diff. `--max-agents <n>` (1–6, default 3), `--retest-rounds <n>` (browser fix-and-retest rounds, 0–3, default 2) |
 | `vard code [index\|status\|search\|symbols\|def\|refs\|callers\|deps\|dependents\|outline\|impact\|arch\|embeddings\|clean]` | The code index for this repo: `vard code search "where is auth handled"`, `vard code impact verifyToken` |
-| `vard browser [status\|install\|test <url>\|artifacts\|clean]` | The test browser: `vard browser test http://localhost:5173 --viewports mobile,desktop` saves screenshots and a report; exit code 1 if it finds high-severity problems |
+| `vard browser [status\|install\|test <url>\|artifacts\|clean\|origins]` | The test browser: `vard browser test http://localhost:5173 --viewports mobile,desktop` saves screenshots and a report; exit code 1 if it finds high-severity problems. `clean [--days N]` deletes saved artifacts (only those older than N days with `--days`); `origins [--project <dir>] [--remove <origin>]` lists or forgets the sites you allowed with "always" |
 | `vard skills [list\|show\|new\|edit\|import\|validate\|enable\|disable\|rm\|trust\|untrust\|path]` | Manage skills. `vard run --skill <name>` (repeatable) forces a skill; `--no-skills` turns automatic selection off |
+| `vard memory [list\|search\|show\|export\|add\|edit\|rm\|verify\|analyze\|rebuild\|clear\|config\|path]` | What Vard remembers about this project (see [Project memory](#project-memory)) |
+| `vard mcp [list\|add\|remove\|enable\|disable\|test\|tools\|resources\|prompts\|secret\|trust\|untrust\|import\|permissions\|revoke]` | MCP servers (see [Integrations](#integrations-mcp)) |
 | `vard keys [list\|set\|remove] <provider>` | Keys in the Keychain the app also uses |
 | `vard models [use <id>]` | List models or set the default |
+
+Options for `vard`, `ask` and `run`: `-m, --model <id>` picks the model (a catalog id from `vard models`, or any id for the provider given with `-p`); `-p, --provider <name>` picks the provider (`anthropic`, `openai`, `google`, `openrouter`, `groq` or `ollama`; on its own it uses that provider's first model, or your default if it's the same provider). Without them, the default from `vard models use` applies.
 
 In the full-screen UI: **Enter** sends, **Ctrl+J** adds a line, **Tab** completes a `/command`, **↑/↓** walk history, **Esc** stops a reply or task (typing a new message while a reply streams interrupts and redirects it), and **Ctrl+C** twice quits.
 
@@ -167,7 +173,7 @@ Vard learns each project and reuses that knowledge on every task, so the agent d
 |---|---|
 | App | Project page → brain icon: search, filter, edit, verify, delete, add notes, re-analyze, clear, replaced-notes history, and settings (on/off, use in tasks, updates after tasks, context size, excluded paths). A finished task shows "Using N project notes" and the suggested notes |
 | TUI | `/memory`, `/memory search <q>`, `/memory analyze`; a "Remember for next time?" checklist after tasks; `memory N` in the status bar |
-| CLI | `vard memory list [--category c] [--search q]`, `search`, `show`, `add <category> <text>`, `edit <id>`, `rm <id>`, `verify <id>`, `analyze`, `clear`, `config [key value]`, `path`; `vard run --no-memory` and `--remember` |
+| CLI | `vard memory list [--category c] [--search q]`, `search`, `show` (or `export`: all notes as Markdown), `add <category> <text>`, `edit <id>`, `rm <id>`, `verify <id>`, `analyze` (or `rebuild`), `clear`, `config [key value]`, `path` (where the file is); `vard run --no-memory` and `--remember` |
 
 ## Skills
 
@@ -192,7 +198,7 @@ scripts:
 - Follow existing project conventions.
 ```
 
-- **Where they live:** built-in (12, inside the app), global (`~/.vard/skills/<name>/`) and per project (`<project>/.vard/skills/<name>/`). A project or global skill can't replace one with the same name from a higher source (built-in › global › project); it's shown as *shadowed* instead.
+- **Where they live:** built-in (20, inside the app), global (`~/.vard/skills/<name>/`) and per project (`<project>/.vard/skills/<name>/`). A project or global skill can't replace one with the same name from a higher source (built-in › global › project); it's shown as *shadowed* instead.
 - **How they're chosen:** for each task (or each agent of a team), skills are ranked by the task's words against their name, tags, triggers and description, the project's files and dependencies, and the agent's role. Only the top few, within a size limit, go into the agent's context, and the task view shows which ones and why. You can force skills per task.
 - **Safety:** skill text is treated as untrusted guidance below Vard's own rules; it can't grant permissions or skip approvals. Paths are checked to stay inside the skill folder (no `..`, absolute paths or escaping symlinks). Scripts run only through `skill_run_script`, which asks you every time ("always" is never offered) and gets a clean environment. Skills that contain anything that looks like a credential are rejected. Project skills are used only after you **trust** that exact content; imported skills start turned off.
 - **Manage them:** the **Skills** page (search, filter by source, details, what the agent sees, resources, usage history, create, edit with live validation, import, enable, delete, trust), `vard skills …`, or `/skills` in the TUI.
@@ -203,9 +209,9 @@ Turn on **Team** when starting a task (or `vard run --team`). The run works like
 
 1. A **planner** agent inspects the project (read-only) and returns a task graph: subtasks for the frontend, backend, database and testing roles, with dependencies and the files each expects to touch. Duplicate subtasks are merged, and subtasks that touch the same files are ordered one after the other.
 2. You **approve** the plan, or edit titles, instructions and roles, remove subtasks, or ask for a new plan.
-3. Independent subtasks run **in parallel** (up to 3 at once by default, at most 6). Each agent is the normal Vard agent loop with its role's tools, its own skills, the project's memory notes relevant to its assignment, and the approved MCP tools. It works in **its own worktree**, branched from the run's integration branch, so it sees the work of the subtasks it depends on.
+3. Independent subtasks run **in parallel** (up to 3 at once by default, at most 6). Each agent is the normal Vard agent loop with its role's tools, its own skills, the project's memory notes relevant to its assignment, the codebase overview and the code most relevant to its subtask (from the code index), and the approved MCP tools. It works in **its own worktree**, branched from the run's integration branch, so it sees the work of the subtasks it depends on.
 4. When an agent finishes, its work is committed, checked for conflicts with `git merge-tree`, and merged into the integration branch one subtask at a time. A conflict is never forced: the subtask is retried on top of the latest work, or waits for you.
-5. **Browser checks:** for UI work the planner adds a browser-testing subtask. If the check fails (medium or worse findings), fix subtasks go to the agents whose code is responsible and the check runs again, up to 2 rounds by default (`team.retestRounds`, at most 3).
+5. **Browser checks:** for UI work the planner adds a browser-testing subtask. If the check fails (medium or worse findings), fix subtasks go to the agents whose code is responsible and the check runs again, up to 2 rounds by default (`team.retestRounds` or `vard run --team --retest-rounds <n>`, 0–3).
 6. A **reviewer** agent reads the combined diff (and the verify command's result, if set) and reports findings. If it requests changes, one round of fix subtasks runs and it reviews again.
 7. You review the **combined diff** and merge or discard it, exactly like a normal task.
 
@@ -224,8 +230,9 @@ Vard keeps an index of each project so agents (and you) can find the right code 
 - **Where:** `<project>/.vard/index/` (SQLite), separate from project memory. Only changed files are re-parsed, and an index that can't be read is rebuilt. Indexing Vite (2,200 indexable files) takes about 3 seconds and makes a 15 MB index. An update with no changes takes 60 ms.
 - **Search** combines keyword matches (weighted by how rare each word is), symbol names, file paths and import-graph neighbours, and shows why each result matched. **Vector search is optional and off by default:** you can turn it on with a local Ollama embedding model you already have, or with your OpenAI or Google key. Vard never downloads a model, and code that looks like it contains secrets is never sent.
 - **Impact analysis** reports direct and indirect dependents, references, the public API involved, related tests, config files and verification commands. Its risk level is computed from the counts, which are shown. References and callers are matched by name through imports, so they are best effort in dynamic code.
-- **In tasks** the agent gets a short codebase overview and read-only `code_*` tools. In team runs the planner runs impact analysis before splitting the work.
-- **Code page:** status and progress, build or delete the index, search, symbols, a file's outline and dependencies, an interactive dependency graph (capped so it stays readable), impact reports, exclusions and embedding settings.
+- **In tasks** the agent gets a short codebase overview and read-only `code_*` tools. In team runs the planner runs impact analysis before splitting the work, and each agent gets the overview plus the code relevant to its subtask.
+- **Code page:** status and progress, build or delete the index, search, symbols, a file's outline and dependencies, an interactive dependency graph (capped so it stays readable), impact reports, exclusions and embedding settings. **Open in editor** opens a result or file at its line in your editor.
+- **Settings → Code index:** the same index settings in one place.
 
 ## Browser testing
 
@@ -233,7 +240,7 @@ Agents can test your app in a real browser:
 
 1. **Start the dev server.** The agent finds the dev command (`dev_server_detect`) and starts it on a free port. It runs in the agent's own worktree, with your approval like any command, without your API keys in its environment. It stops when the task ends.
 2. **Open the page** in an isolated headless Chromium and interact through the accessibility tree: roles and names, labels and text, with CSS selectors only as a last resort.
-3. **Test viewports:** mobile 375×812, mobile-large 430×932, tablet 768×1024, laptop 1366×768 and desktop 1920×1080, or a custom size. Each problem reported comes from a measurement in the page, with the element and the numbers: sideways scrolling, clipped text, controls covered or off screen, tap targets under 24 px, fields without labels, broken images, navigation hidden with no menu button.
+3. **Test viewports:** mobile 375×812, mobile-large 430×932, tablet 768×1024, laptop 1366×768 and desktop 1920×1080, or a custom size. Each problem reported comes from a measurement in the page, with the element and the numbers: sideways scrolling, clipped text, controls covered or off screen, tap targets under 24 px, fields without labels, broken images, navigation hidden with no menu button (links in a `<nav>` or straight in a `<header>`).
 4. **Collect errors:** console errors and warnings, uncaught exceptions, failed requests and 4xx/5xx responses. Sensitive URL parameters are redacted; headers, cookies and bodies are never kept.
 5. **Report:** screenshots and a JSON and Markdown report go to `<project>/.vard/artifacts/<task>/`. Vision-capable models also get the screenshots as images; others work from the measurements.
 
@@ -247,7 +254,9 @@ Agents can test your app in a real browser:
 
 **Cost:** browser tools add about 3,000 tokens to each model call, so they're offered only when a task is about pages, layout or UI (or you turn them on), and to team roles that need them.
 
-**Browser page:** which Chromium is used, live sessions (address bar, back, reload, viewport, screenshot, stop), a screenshot gallery, console, network, report and activity, dev servers, and saved artifacts per project. Artifacts are never deleted automatically; use **Delete all** or `vard browser clean [--days N]`.
+**Browser page:** which Chromium is used, live sessions (address bar, back, reload, viewport, screenshot, stop), a screenshot gallery, console, network, report and activity, dev servers, and saved artifacts per project.
+
+**Artifacts and remembered sites.** **Settings → Browser** sets how long screenshots and reports are kept: forever (the default), 7, 30 or 90 days. You can also use **Delete all**, or `vard browser clean [--days N]` (with `--days`, only artifacts older than N days). Sites you allowed with "always" are listed by `vard browser origins [--project <dir>]`; `--remove <origin>` forgets one.
 
 ## Integrations (MCP)
 
@@ -269,7 +278,7 @@ Vard is an [MCP](https://modelcontextprotocol.io) client, built on the official 
 - **Remote URLs:** https only (http only to this Mac), no credentials in URLs, no link-local or cloud-metadata addresses. A project's config can't target private networks.
 - **Project configs:** a project can ship its own `.vard/mcp.json`, but it starts nothing until you **trust** it, and any change needs trust again. Global servers live in `~/.vard/mcp.json`.
 
-CLI: `vard mcp list | add | remove | enable | disable | test | tools | resources | prompts | secret | trust | import | permissions | revoke`. TUI: `/mcp`.
+CLI: `vard mcp list | add | remove | enable | disable | test | tools | resources | prompts | secret | trust | untrust | import | permissions | revoke`. TUI: `/mcp`.
 
 ```bash
 vard mcp add everything -- npx -y @modelcontextprotocol/server-everything
@@ -331,7 +340,10 @@ export PATH="$(brew --prefix rustup)/bin:$PATH"
 | `bun run desktop:dev` | Full desktop app in development |
 | `bun run build:agent` | Compile `harness/` to `src-tauri/binaries/vard-<triple>` (sidecar and CLI) |
 | `bun run desktop:build` | Universal (Apple Silicon + Intel) `.dmg` |
+| `bun run build` | Build the web UI into `dist/` |
 | `bun run typecheck` | Typecheck the app |
+| `bun run lint` | ESLint and Prettier for the app |
+| `cd harness && bunx tsc --noEmit` | Typecheck the harness |
 | `cd harness && bun test` | Harness, loop and CLI tests |
 | `bun harness/src/bin.ts` | Run the CLI from source |
 
@@ -368,7 +380,7 @@ bunx firebase-tools deploy --only firestore
 
 Builds are **unsigned** (ad-hoc signature) for now. On first launch, right-click the app and choose **Open**. Signing and notarization need an Apple Developer ID; add them in `src-tauri/tauri.conf.json` (`bundle.macOS.signingIdentity`) and the CI workflow.
 
-CI (`.github/workflows/desktop.yml`) typechecks, runs the harness tests and uploads a universal DMG and the standalone `vard` binary as build artifacts. It needs the six variables in `.env.example` as repository secrets.
+CI (`.github/workflows/desktop.yml`) typechecks the app and the harness, lints the app, runs the harness tests, runs `cargo check --locked` and uploads a universal DMG and the standalone `vard` binary as build artifacts. It needs the six variables in `.env.example` as repository secrets.
 
 ## Website
 

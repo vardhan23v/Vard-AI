@@ -17,7 +17,9 @@ export type StreamResult = {
 export function useChatStream() {
   const [streaming, setStreaming] = useState(false);
   const [text, setText] = useState("");
-  const active = useRef<{ id: string; resolve: (r: StreamResult) => void; text: string } | null>(null);
+  const active = useRef<{ id: string; resolve: (r: StreamResult) => void; text: string } | null>(
+    null,
+  );
 
   useEffect(
     () =>
@@ -60,8 +62,13 @@ export function useChatStream() {
         active.current = { id, resolve, text: "" };
         setText("");
         setStreaming(true);
-        send({ type: "chat.send", provider: providerConfig(choice), messages, system }, id).catch((err: unknown) =>
-          finish({ text: "", status: "error", error: err instanceof Error ? err.message : String(err) }),
+        send({ type: "chat.send", provider: providerConfig(choice), messages, system }, id).catch(
+          (err: unknown) =>
+            finish({
+              text: "",
+              status: "error",
+              error: err instanceof Error ? err.message : String(err),
+            }),
         );
       }),
     [],

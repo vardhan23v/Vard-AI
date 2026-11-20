@@ -25,9 +25,13 @@ describe("protocol", () => {
   });
 
   test("task.approve requires a valid decision", () => {
-    const ok = parseRequest('{"id":"2","type":"task.approve","taskId":"t","approvalId":"a","decision":"always"}');
+    const ok = parseRequest(
+      '{"id":"2","type":"task.approve","taskId":"t","approvalId":"a","decision":"always"}',
+    );
     expect(ok.ok).toBe(true);
-    const bad = parseRequest('{"id":"3","type":"task.approve","taskId":"t","approvalId":"a","decision":"maybe"}');
+    const bad = parseRequest(
+      '{"id":"3","type":"task.approve","taskId":"t","approvalId":"a","decision":"maybe"}',
+    );
     expect(bad.ok).toBe(false);
     if (!bad.ok) {
       expect(bad.id).toBe("3");
@@ -43,17 +47,24 @@ describe("protocol", () => {
 
   test("rejects unknown providers and unsafe task ids", () => {
     const base = { id: "1", type: "task.start", projectRoot: "/p", prompt: "x" };
-    expect(parseRequest(JSON.stringify({ ...base, provider: { provider: "acme", model: "m" } })).ok).toBe(false);
     expect(
-      parseRequest(JSON.stringify({ ...base, taskId: "../x", provider: { provider: "ollama", model: "m" } })).ok,
+      parseRequest(JSON.stringify({ ...base, provider: { provider: "acme", model: "m" } })).ok,
+    ).toBe(false);
+    expect(
+      parseRequest(
+        JSON.stringify({ ...base, taskId: "../x", provider: { provider: "ollama", model: "m" } }),
+      ).ok,
     ).toBe(false);
   });
 
   test("event schema validates events", () => {
     expect(Event.safeParse({ type: "token", id: "1", ts: 1, text: "hi" }).success).toBe(true);
-    expect(Event.safeParse({ type: "done", id: "1", taskId: "t", ts: 1, status: "done", summary: "" }).success).toBe(
-      true,
-    );
-    expect(Event.safeParse({ type: "done", id: "1", ts: 1, status: "maybe", summary: "" }).success).toBe(false);
+    expect(
+      Event.safeParse({ type: "done", id: "1", taskId: "t", ts: 1, status: "done", summary: "" })
+        .success,
+    ).toBe(true);
+    expect(
+      Event.safeParse({ type: "done", id: "1", ts: 1, status: "maybe", summary: "" }).success,
+    ).toBe(false);
   });
 });

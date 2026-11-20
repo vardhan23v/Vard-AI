@@ -10,7 +10,8 @@ import { AlertTriangle, Download, Plus, Search, ShieldAlert, Sparkles } from "lu
 import { toast } from "sonner";
 
 import { Skeleton } from "@/components/ui/skeleton";
-import { StarField } from "@/components/StarField";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
 import { isTauri, skills, type SkillSummary } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
@@ -97,52 +98,47 @@ export function SkillsPage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-5 px-6 py-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl">
-              <Sparkles className="size-6 text-agent-foreground" aria-hidden /> Skills
-            </h1>
-            <p className="mt-1 max-w-xl text-sm text-muted-foreground">
-              Reusable instructions that teach the agent how to do a kind of task. Vard picks the
-              relevant ones for each task and shows which it used. Skills are guidance only: they
-              never skip approvals.
-            </p>
-          </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <label className="text-sm">
-              <span className="sr-only">Show skills for</span>
-              <select
-                value={projectId}
-                onChange={(e) => {
-                  setProjectId(e.target.value);
-                  setSelected(null);
-                }}
-                className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+        <PageHeader
+          icon={Sparkles}
+          title="Skills"
+          description="Reusable instructions that teach the agent how to do a kind of task. Vard picks the relevant ones for each task and shows which it used. Skills are guidance only: they never skip approvals."
+          actions={
+            <>
+              <label className="text-sm">
+                <span className="sr-only">Show skills for</span>
+                <select
+                  value={projectId}
+                  onChange={(e) => {
+                    setProjectId(e.target.value);
+                    setSelected(null);
+                  }}
+                  className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+                >
+                  <option value="">Global and built-in</option>
+                  {projects.data
+                    ?.filter((p) => projectPath(p.id))
+                    .map((p) => (
+                      <option key={p.id} value={p.id}>
+                        Project: {p.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                onClick={() => void importSkill()}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
               >
-                <option value="">Global and built-in</option>
-                {projects.data
-                  ?.filter((p) => projectPath(p.id))
-                  .map((p) => (
-                    <option key={p.id} value={p.id}>
-                      Project: {p.name}
-                    </option>
-                  ))}
-              </select>
-            </label>
-            <button
-              onClick={() => void importSkill()}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
-            >
-              <Download className="size-4" /> Import
-            </button>
-            <button
-              onClick={() => setCreating(true)}
-              className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
-            >
-              <Plus className="size-4" /> New skill
-            </button>
-          </div>
-        </header>
+                <Download className="size-4" /> Import
+              </button>
+              <button
+                onClick={() => setCreating(true)}
+                className="press inline-flex min-h-9 items-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground"
+              >
+                <Plus className="size-4" /> New skill
+              </button>
+            </>
+          }
+        />
 
         {needsTrust && (
           <div
@@ -237,19 +233,16 @@ export function SkillsPage() {
             <AlertTriangle className="size-4" /> {String(q.error)}
           </p>
         ) : !shown.length ? (
-          <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
-            <StarField seed={31} />
-            <div className="relative space-y-3">
-              <p className="text-lg">
-                {search || filter !== "all" ? "No skills match" : "No skills"}
-              </p>
-              <p className="mx-auto max-w-md text-sm text-muted-foreground">
-                {filter === "project" && !projectRoot
-                  ? "Choose a project above to see its skills."
-                  : "Create a skill for how your team works, or import one from a folder."}
-              </p>
-            </div>
-          </div>
+          <EmptyState
+            size="lg"
+            seed={31}
+            title={search || filter !== "all" ? "No skills match" : "No skills"}
+            text={
+              filter === "project" && !projectRoot
+                ? "Choose a project above to see its skills."
+                : "Create a skill for how your team works, or import one from a folder."
+            }
+          />
         ) : (
           <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
             {/* Keyed by the filter and search so a new result set cascades in again. */}

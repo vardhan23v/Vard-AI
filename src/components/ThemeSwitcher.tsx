@@ -14,11 +14,7 @@ export function ThemeSwitcher() {
         <span className="hidden md:inline uppercase tracking-wider">
           {mode === "dark" ? "Dark" : "Light"}
         </span>
-        {mode === "dark" ? (
-          <Moon className="w-4 h-4" />
-        ) : (
-          <Sun className="w-4 h-4" />
-        )}
+        {mode === "dark" ? <Moon className="w-4 h-4" /> : <Sun className="w-4 h-4" />}
       </button>
       <div className="flex items-center justify-between gap-1 px-1">
         {ACCENTS.map((a) => {

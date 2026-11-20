@@ -1,6 +1,6 @@
 import { AlertTriangle, EyeOff, ShieldAlert } from "lucide-react";
+import { Pill } from "@/components/Pill";
 import type { SkillSummary } from "@/lib/agent-client";
-import { cn } from "@/lib/utils";
 
 export const SOURCE_LABEL: Record<SkillSummary["source"], string> = {
   builtin: "Built-in",
@@ -8,42 +8,34 @@ export const SOURCE_LABEL: Record<SkillSummary["source"], string> = {
   project: "Project",
 };
 
-const pill = "inline-flex items-center gap-1 rounded-full border px-2 py-0.5 text-xs font-normal";
-
 /** What state a skill is in: invalid, shadowed, needs trust, off or on. */
 export function SkillState({ skill }: { skill: SkillSummary }) {
   if (!skill.valid)
     return (
-      <span className={cn(pill, "border-destructive/50 text-destructive")}>
+      <Pill tone="bad">
         <AlertTriangle className="size-3" /> Invalid
-      </span>
+      </Pill>
     );
   if (skill.shadowedBy)
     return (
-      <span
-        className={cn(pill, "border-border text-muted-foreground")}
-        title={`A skill with this name from ${skill.shadowedBy} takes precedence`}
-      >
+      <Pill tone="muted" title={`A skill with this name from ${skill.shadowedBy} takes precedence`}>
         <EyeOff className="size-3" /> Shadowed
-      </span>
+      </Pill>
     );
   if (!skill.trusted)
     return (
-      <span className={cn(pill, "border-primary/60 text-primary")}>
+      <Pill tone="attention">
         <ShieldAlert className="size-3" /> Needs trust
-      </span>
+      </Pill>
     );
-  if (!skill.enabled)
-    return <span className={cn(pill, "border-border text-muted-foreground")}>Off</span>;
+  if (!skill.enabled) return <Pill tone="muted">Off</Pill>;
   return (
-    <span className={cn(pill, "border-diff-add/50 text-diff-add")}>
-      <span className="size-1.5 rounded-full bg-diff-add" aria-hidden /> On
-    </span>
+    <Pill tone="ok" dot>
+      On
+    </Pill>
   );
 }
 
 export function SourceBadge({ source }: { source: SkillSummary["source"] }) {
-  return (
-    <span className={cn(pill, "border-border text-muted-foreground")}>{SOURCE_LABEL[source]}</span>
-  );
+  return <Pill tone="muted">{SOURCE_LABEL[source]}</Pill>;
 }

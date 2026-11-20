@@ -29,11 +29,22 @@ export type TimelineItem =
   | { kind: "verify"; event: Ev<"verify"> }
   | { kind: "error"; message: string; ts: number };
 
+/** A transient provider error the agent is waiting out before retrying the step. */
+export type RetryWait = {
+  attempt: number;
+  maxAttempts: number;
+  /** Wall-clock time (ms) the retry is due. */
+  until: number;
+  message: string;
+};
+
 type OrchState = Ev<"orch_snapshot">["state"];
 export type TeamState = Omit<OrchState, "seq"> & {
   lastSeq: number;
   /** Each agent's own timeline (text, tool calls, approvals, errors). */
   timelines: Record<string, TimelineItem[]>;
+  /** Agents currently waiting out a rate limit, by agent id. */
+  retries?: Record<string, RetryWait>;
 };
 export type SubtaskState = OrchState["subtasks"][number];
 export type AgentRun = OrchState["agents"][number];
@@ -59,6 +70,8 @@ export type LiveTask = {
   recall?: { count: number; total: number };
   /** Skills chosen for this task. */
   skills?: Ev<"skills_activated">["skills"];
+  /** Set while the agent waits out a rate limit (cleared by the next progress event). */
+  retry?: RetryWait;
   /** Set for team runs. */
   team?: TeamState;
   /** The codebase overview the agent got from the code index. */
@@ -199,6 +212,7 @@ function applyTeam(t: LiveTask, e: AgentEvent): LiveTask | null {
       ...state,
       lastSeq: Math.max(team.lastSeq, e.seq ?? seq, seq),
       timelines: team.timelines,
+      retries: team.retries,
     };
     void updateTask(t.taskId, { status: PHASE_STATUS[state.phase] });
     return { ...t, team, state: PHASE_STATUS[state.phase] };
@@ -267,7 +281,37 @@ function applyBrowser(t: LiveTask, e: AgentEvent): LiveTask | null {
   }
 }
 
+/**
+ * Rate-limit waits: a `retry` event sets one (on the agent when it has an agentId), and any other
+ * event from the same source clears it, since it means the step went ahead.
+ */
+function trackRetry(prev: LiveTask, t: LiveTask, e: AgentEvent): LiveTask {
+  const agentId = e.agentId;
+  if (e.type === "retry") {
+    if (t === prev && e.seq !== undefined) return t; // duplicate team event
+    const wait: RetryWait = {
+      attempt: e.attempt,
+      maxAttempts: e.maxAttempts,
+      until: Date.now() + e.delayMs,
+      message: e.message,
+    };
+    if (agentId && t.team)
+      return { ...t, team: { ...t.team, retries: { ...t.team.retries, [agentId]: wait } } };
+    return { ...t, retry: wait };
+  }
+  if (agentId) {
+    if (!t.team?.retries?.[agentId]) return t;
+    const { [agentId]: _cleared, ...rest } = t.team.retries;
+    return { ...t, team: { ...t.team, retries: rest } };
+  }
+  return t.retry ? { ...t, retry: undefined } : t;
+}
+
 function apply(t: LiveTask, e: AgentEvent): LiveTask {
+  return trackRetry(t, applyEvent(t, e), e);
+}
+
+function applyEvent(t: LiveTask, e: AgentEvent): LiveTask {
   const br = applyBrowser(t, e);
   if (br) return br;
   const team = applyTeam(t, e);

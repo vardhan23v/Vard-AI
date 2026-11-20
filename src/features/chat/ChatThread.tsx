@@ -19,12 +19,16 @@ import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useModelChoice } from "@/lib/models";
 import { isTauri } from "@/lib/agent-client";
+import { useListEntrance } from "@/lib/motion";
+import { cn } from "@/lib/utils";
 
 const SYSTEM_PROMPT =
   "You are Vard, a helpful assistant in a macOS desktop app. Answer clearly and concisely. Use Markdown, and fenced code blocks with a language tag for code.";
 
 const toTurns = (msgs: Message[]): ChatTurn[] =>
-  msgs.filter((m) => m.role !== "system").map((m) => ({ role: m.role as ChatTurn["role"], content: m.content }));
+  msgs
+    .filter((m) => m.role !== "system")
+    .map((m) => ({ role: m.role as ChatTurn["role"], content: m.content }));
 
 export function NewChat() {
   const navigate = useNavigate();
@@ -36,13 +40,23 @@ export function NewChat() {
   const start = async (text: string) => {
     setBusy(true);
     try {
-      const conv = await createConversation({ title: titleFrom(text), provider: choice.provider, model: choice.model });
+      const conv = await createConversation({
+        title: titleFrom(text),
+        provider: choice.provider,
+        model: choice.model,
+      });
       await addMessage({ conversation_id: conv.id, role: "user", content: text });
       await qc.invalidateQueries({ queryKey: ["conversations"] });
       // The thread view generates the reply for a trailing user message.
-      await navigate({ to: "/chat/$conversationId", params: { conversationId: conv.id }, search: { reply: true } });
+      await navigate({
+        to: "/chat/$conversationId",
+        params: { conversationId: conv.id },
+        search: { reply: true },
+      });
     } catch (err) {
-      toast.error("Couldn't start the chat", { description: err instanceof Error ? err.message : String(err) });
+      toast.error("Couldn't start the chat", {
+        description: err instanceof Error ? err.message : String(err),
+      });
       setBusy(false);
     }
   };
@@ -52,7 +66,13 @@ export function NewChat() {
       <StarField />
       <div className="relative w-full max-w-2xl">
         <h1 className="mb-6 text-center text-3xl text-foreground">What are we making tonight?</h1>
-        <Composer key={draft.draft ?? ""} onSend={start} disabled={busy} placeholder="Ask anything" initial={draft.draft ?? ""} />
+        <Composer
+          key={draft.draft ?? ""}
+          onSend={start}
+          disabled={busy}
+          placeholder="Ask anything"
+          initial={draft.draft ?? ""}
+        />
         {!isTauri() && <DesktopOnlyNote />}
       </div>
     </div>
@@ -71,6 +91,11 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
   const autoReplied = useRef(false);
 
   const key = messagesQuery(conversationId).queryKey;
+  // Messages cascade in when the chat opens; later ones slide in once, never per streamed token.
+  const entrance = useListEntrance(
+    (messages ?? []).map((m) => m.id),
+    !isLoading,
+  );
 
   const generate = async (history: ChatTurn[]) => {
     setFailure(null);
@@ -85,7 +110,9 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
         input_tokens: result.usage?.inputTokens,
         output_tokens: result.usage?.outputTokens,
       }).catch((err: unknown) => {
-        toast.error("Reply not saved", { description: err instanceof Error ? err.message : String(err) });
+        toast.error("Reply not saved", {
+          description: err instanceof Error ? err.message : String(err),
+        });
         return null;
       });
       if (saved) qc.setQueryData<Message[]>(key, (old) => [...(old ?? []), saved]);
@@ -113,13 +140,21 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
         await deleteMessagesAfter(conversationId, editing.created_at);
         setEditing(null);
       }
-      const saved = await addMessage({ conversation_id: conversationId, role: "user", content: text });
-      const base = editing ? (messages ?? []).filter((m) => m.created_at < editing.created_at) : (messages ?? []);
+      const saved = await addMessage({
+        conversation_id: conversationId,
+        role: "user",
+        content: text,
+      });
+      const base = editing
+        ? (messages ?? []).filter((m) => m.created_at < editing.created_at)
+        : (messages ?? []);
       const next = [...base, saved];
       qc.setQueryData<Message[]>(key, next);
       await generate(toTurns(next));
     } catch (err) {
-      toast.error("Message not sent", { description: err instanceof Error ? err.message : String(err) });
+      toast.error("Message not sent", {
+        description: err instanceof Error ? err.message : String(err),
+      });
     }
   };
 
@@ -150,7 +185,10 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
       <div className="flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
         <AlertCircle className="size-6 text-destructive" />
         <p className="text-sm text-muted-foreground">Couldn't load this chat. {error.message}</p>
-        <button onClick={() => refetch()} className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent">
+        <button
+          onClick={() => refetch()}
+          className="rounded-md border border-border px-3 py-2 text-sm hover:bg-accent"
+        >
           Try again
         </button>
       </div>
@@ -163,23 +201,33 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
   return (
     <div className="flex h-full flex-col">
       <div className="flex-1 overflow-y-auto">
-        <ol className="mx-auto w-full max-w-3xl space-y-6 px-6 py-8" aria-live="polite" aria-busy={stream.streaming}>
+        <ol
+          className={cn("mx-auto w-full max-w-3xl space-y-6 px-6 py-8", entrance.list)}
+          aria-live="polite"
+          aria-busy={stream.streaming}
+        >
           {msgs.map((m, i) => (
             <MessageRow
               key={m.id}
+              // A saved reply replaces the streamed text in place, so only user turns slide in.
+              className={m.role === "user" ? entrance.item(m.id) : undefined}
               message={m}
               isLast={i === msgs.length - 1}
               onEdit={m.role === "user" && !stream.streaming ? () => setEditing(m) : undefined}
-              onRegenerate={m.role === "assistant" && i === msgs.length - 1 && !stream.streaming ? regenerate : undefined}
+              onRegenerate={
+                m.role === "assistant" && i === msgs.length - 1 && !stream.streaming
+                  ? regenerate
+                  : undefined
+              }
             />
           ))}
           {stream.streaming && (
-            <li>
+            <li className="animate-row-in">
               {stream.text ? (
                 <Markdown text={stream.text} />
               ) : (
                 <span className="inline-flex gap-1 py-2" aria-label="Thinking">
-                  <Dot /> <Dot d="150ms" /> <Dot d="300ms" />
+                  <Dot /> <Dot d="var(--motion-fast)" /> <Dot d="calc(var(--motion-fast) * 2)" />
                 </span>
               )}
             </li>
@@ -189,7 +237,10 @@ export function ChatThread({ conversationId, reply }: { conversationId: string; 
               <AlertCircle className="mt-0.5 size-4 shrink-0 text-destructive" />
               <div className="flex-1">
                 <p className="text-foreground">{failure}</p>
-                <button onClick={regenerate} className="mt-2 text-sm text-primary underline underline-offset-2">
+                <button
+                  onClick={regenerate}
+                  className="mt-2 text-sm text-primary underline underline-offset-2"
+                >
                   Retry
                 </button>
               </div>
@@ -226,7 +277,9 @@ function MessageRow({
   isLast,
   onEdit,
   onRegenerate,
+  className,
 }: {
+  className?: string;
   message: Message;
   isLast: boolean;
   onEdit?: () => void;
@@ -241,7 +294,7 @@ function MessageRow({
 
   if (message.role === "user") {
     return (
-      <li className="group flex flex-col items-end gap-1">
+      <li className={cn("group flex flex-col items-end gap-1", className)}>
         <div className="max-w-[85%] whitespace-pre-wrap rounded-2xl bg-secondary px-4 py-2.5 text-[15px] leading-6">
           {message.content}
         </div>
@@ -258,13 +311,17 @@ function MessageRow({
   }
 
   return (
-    <li className="group">
+    <li className={cn("group", className)}>
       <Markdown text={message.content} />
       <div
         className={`mt-1 flex items-center gap-1 text-xs text-muted-foreground ${isLast ? "" : "opacity-0 focus-within:opacity-100 group-hover:opacity-100"}`}
       >
-        <button onClick={copy} className="inline-flex min-h-7 items-center gap-1 rounded px-1.5 hover:bg-accent hover:text-foreground">
-          {copied ? <Check className="size-3" /> : <Copy className="size-3" />} {copied ? "Copied" : "Copy"}
+        <button
+          onClick={copy}
+          className="inline-flex min-h-7 items-center gap-1 rounded px-1.5 hover:bg-accent hover:text-foreground"
+        >
+          {copied ? <Check className="size-3" /> : <Copy className="size-3" />}{" "}
+          {copied ? "Copied" : "Copy"}
         </button>
         {onRegenerate && (
           <button
@@ -281,7 +338,12 @@ function MessageRow({
 }
 
 function Dot({ d = "0ms" }: { d?: string }) {
-  return <span className="size-1.5 animate-pulse rounded-full bg-muted-foreground" style={{ animationDelay: d }} />;
+  return (
+    <span
+      className="size-1.5 animate-pulse rounded-full bg-muted-foreground"
+      style={{ animationDelay: d }}
+    />
+  );
 }
 
 function DesktopOnlyNote() {

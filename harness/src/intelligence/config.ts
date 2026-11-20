@@ -8,7 +8,9 @@ export const indexDir = (projectRoot: string) => path.join(projectRoot, ".vard",
 
 export function loadIndexConfig(projectRoot: string): IndexConfig {
   try {
-    const r = IndexConfig.safeParse(JSON.parse(fs.readFileSync(path.join(indexDir(projectRoot), "config.json"), "utf8")));
+    const r = IndexConfig.safeParse(
+      JSON.parse(fs.readFileSync(path.join(indexDir(projectRoot), "config.json"), "utf8")),
+    );
     if (r.success) return r.data;
   } catch {}
   return IndexConfig.parse({});
@@ -46,4 +48,8 @@ export const DEFAULT_EXCLUDES = [
   ".turbo/",
   ".cache/",
 ];
-export const DEFAULT_EXCLUDED_FILES = [/\.min\.(js|css)$/, /\.map$/, /(^|\/)(package-lock\.json|bun\.lockb?|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|go\.sum)$/];
+export const DEFAULT_EXCLUDED_FILES = [
+  /\.min\.(js|css)$/,
+  /\.map$/,
+  /(^|\/)(package-lock\.json|bun\.lockb?|yarn\.lock|pnpm-lock\.yaml|Cargo\.lock|poetry\.lock|go\.sum)$/,
+];

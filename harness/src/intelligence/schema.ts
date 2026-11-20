@@ -4,11 +4,36 @@
  */
 import { z } from "zod";
 
-export const LANGUAGES = ["typescript", "tsx", "javascript", "python", "rust", "go", "java", "cpp", "c", "json", "markdown"] as const;
+export const LANGUAGES = [
+  "typescript",
+  "tsx",
+  "javascript",
+  "python",
+  "rust",
+  "go",
+  "java",
+  "cpp",
+  "c",
+  "json",
+  "markdown",
+] as const;
 export const Lang = z.enum(LANGUAGES);
 export type Lang = z.infer<typeof Lang>;
 
-export const SymbolKind = z.enum(["class", "interface", "type", "enum", "function", "method", "variable", "struct", "trait", "module", "heading", "key"]);
+export const SymbolKind = z.enum([
+  "class",
+  "interface",
+  "type",
+  "enum",
+  "function",
+  "method",
+  "variable",
+  "struct",
+  "trait",
+  "module",
+  "heading",
+  "key",
+]);
 export type SymbolKind = z.infer<typeof SymbolKind>;
 
 export const CodeSymbol = z.object({
@@ -59,7 +84,12 @@ export const IndexStatus = z.object({
   indexedAt: z.number().optional(),
   durationMs: z.number().optional(),
   progress: z.object({ done: z.number(), total: z.number() }).optional(),
-  embeddings: z.object({ provider: z.string(), model: z.string().optional(), chunks: z.number(), embedded: z.number() }),
+  embeddings: z.object({
+    provider: z.string(),
+    model: z.string().optional(),
+    chunks: z.number(),
+    embedded: z.number(),
+  }),
   error: z.string().optional(),
 });
 export type IndexStatus = z.infer<typeof IndexStatus>;
@@ -102,7 +132,9 @@ export const ImpactReport = z.object({
   resolved: z.object({ files: z.array(z.string()), symbols: z.array(CodeSymbol) }),
   direct: z.array(z.object({ path: z.string(), via: z.string() })),
   indirect: z.array(z.object({ path: z.string(), depth: z.number() })),
-  referencing: z.array(z.object({ path: z.string(), line: z.number(), symbol: z.string().optional() })),
+  referencing: z.array(
+    z.object({ path: z.string(), line: z.number(), symbol: z.string().optional() }),
+  ),
   publicApi: z.array(CodeSymbol),
   tests: z.array(z.string()),
   config: z.array(z.string()),

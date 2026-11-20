@@ -1,7 +1,13 @@
 import { describe, expect, test } from "bun:test";
 import fs from "node:fs";
 import path from "node:path";
-import { classifyCommand, FileRulesStore, matchesAllowlist, MemoryRulesStore, Policy } from "../src/policy";
+import {
+  classifyCommand,
+  FileRulesStore,
+  matchesAllowlist,
+  MemoryRulesStore,
+  Policy,
+} from "../src/policy";
 import { runCommand } from "../src/tools/command";
 import { editFile, readFile, writeFile } from "../src/tools/fs";
 import { search } from "../src/tools/search";
@@ -12,7 +18,12 @@ function setup(opts: { allowlist?: string[] } = {}) {
   const work = path.join(project, ".vard", "worktrees", "t1");
   fs.mkdirSync(work, { recursive: true });
   const store = new MemoryRulesStore();
-  const policy = new Policy({ projectRoot: project, workRoot: work, allowlist: opts.allowlist, store });
+  const policy = new Policy({
+    projectRoot: project,
+    workRoot: work,
+    allowlist: opts.allowlist,
+    store,
+  });
   return { project, work, policy, store };
 }
 
@@ -42,10 +53,17 @@ describe("path confinement", () => {
 
   test("allows writes inside the worktree, asks outside it, denies .git and .vard", () => {
     const { project, policy } = setup();
-    expect(policy.decide(editFile, { path: "src/a.ts", old_string: "a", new_string: "b" }).action).toBe("allow");
-    expect(policy.decide(writeFile, { path: path.join(project, "main.ts"), content: "" }).action).toBe("ask");
+    expect(
+      policy.decide(editFile, { path: "src/a.ts", old_string: "a", new_string: "b" }).action,
+    ).toBe("allow");
+    expect(
+      policy.decide(writeFile, { path: path.join(project, "main.ts"), content: "" }).action,
+    ).toBe("ask");
     expect(policy.decide(writeFile, { path: ".git/config", content: "" }).action).toBe("deny");
-    expect(policy.decide(writeFile, { path: path.join(project, ".vard/policy.json"), content: "" }).action).toBe("deny");
+    expect(
+      policy.decide(writeFile, { path: path.join(project, ".vard/policy.json"), content: "" })
+        .action,
+    ).toBe("deny");
   });
 });
 
@@ -113,7 +131,9 @@ describe("always-for-this-project", () => {
   test("remembered tools skip 'ask' but never 'deny'", () => {
     const { project, policy } = setup();
     policy.remember(writeFile, {});
-    expect(policy.decide(writeFile, { path: path.join(project, "x.ts"), content: "" }).action).toBe("allow");
+    expect(policy.decide(writeFile, { path: path.join(project, "x.ts"), content: "" }).action).toBe(
+      "allow",
+    );
     expect(policy.decide(writeFile, { path: "/etc/x", content: "" }).action).toBe("deny");
   });
 

@@ -21,10 +21,12 @@ import { toast } from "sonner";
 import { Progress } from "@/components/ui/progress";
 import type { AgentTask } from "@/features/agent/projects";
 import { Card } from "@/features/agent/TaskView";
+import { RetryNotice } from "@/features/agent/RetryNotice";
 import {
   taskActions,
   type AgentRun,
   type LiveTask,
+  type RetryWait,
   type SubtaskState,
   type TeamState,
 } from "@/features/agent/store";
@@ -207,6 +209,7 @@ export function TeamDashboard({ task, live }: { task: AgentTask; live: LiveTask 
                 <li key={a.agentId}>
                   <AgentCard
                     agent={a}
+                    retry={team.retries?.[a.agentId]}
                     subtask={team.subtasks.find((s) => s.id === a.subtaskId)}
                     onOpen={() => setAgentId(a.agentId)}
                   />
@@ -359,10 +362,12 @@ function PlanGraph({
 
 function AgentCard({
   agent: a,
+  retry,
   subtask,
   onOpen,
 }: {
   agent: AgentRun;
+  retry?: RetryWait;
   subtask?: SubtaskState;
   onOpen: () => void;
 }) {
@@ -390,6 +395,7 @@ function AgentCard({
               : a.agentId)}
       </p>
       {a.activity && live && <p className="mt-1.5 truncate font-mono text-xs">{a.activity}</p>}
+      {live && <RetryNotice wait={retry} className="mt-1.5" />}
       {a.error && <p className="mt-1.5 line-clamp-2 text-xs text-destructive">{a.error}</p>}
       <Progress
         value={Math.min(100, (a.steps / a.maxSteps) * 100)}

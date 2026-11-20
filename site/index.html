@@ -81,6 +81,35 @@
             <p>Starts free with a Groq key (GPT-OSS 120B). Also works with Anthropic, OpenAI, Gemini, OpenRouter or local Ollama. Keys live in the macOS Keychain and only go to the provider you chose.</p>
           </article>
         </div>
+
+        <h3 class="subhead" id="agent-features">For bigger tasks</h3>
+        <div class="cards">
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">❖</div>
+            <h3>Agent skills</h3>
+            <p>Reusable instructions that teach the agent a kind of work: React, APIs, databases, testing, debugging, security, docs and more. 20 ship with Vard; write your own or import them. Vard picks the relevant ones per task and shows which it used. Skills are guidance only and never skip approvals.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">⁂</div>
+            <h3>Agent teams</h3>
+            <p>A planner splits a larger task for frontend, backend, database and testing specialists. You approve or edit the plan; independent subtasks run in parallel, each on its own branch. Work is merged with conflict checks, a reviewer agent reads the combined diff, and you merge it as one.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">◎</div>
+            <h3>Browser testing</h3>
+            <p>Agents start your dev server and test the app in an isolated headless Chromium with a fresh profile. Responsive checks on mobile, tablet and desktop report each problem with the element and its measurements, alongside screenshots, console errors and failed requests.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">{ }</div>
+            <h3>Code intelligence</h3>
+            <p>A local index of files, symbols, imports and references that stays current as you edit. Search by what code does, find definitions and callers, and see an impact report (dependents, related tests, how to verify) before changing anything.</p>
+          </article>
+          <article class="card">
+            <div class="card-icon" aria-hidden="true">⇄</div>
+            <h3>Integrations (MCP)</h3>
+            <p>Connect local or remote MCP servers to give the agent new tools, data and prompts. Every call goes through Vard's approvals, stays inside the project, and is marked as coming from an external server. Secrets stay in the Keychain.</p>
+          </article>
+        </div>
       </div>
     </section>
 
@@ -108,8 +137,16 @@
               <tr><th scope="row"><code>vard</code></th><td>Full-screen session: chat, and <code>/task</code> to run the agent in this repo</td></tr>
               <tr><th scope="row"><code>vard ask "…"</code></th><td>One answer. Pipe in context: <code>git diff | vard ask "review"</code></td></tr>
               <tr><th scope="row"><code>vard run "…"</code></th><td>Agent task with inline approvals, for scripts too</td></tr>
+              <tr><th scope="row"><code>vard run --team "…"</code></th><td>A team of agents: approve the plan, watch the subtasks, merge one diff</td></tr>
+              <tr><th scope="row"><code>vard skills</code></th><td>List, create, import, validate and trust skills</td></tr>
+              <tr><th scope="row"><code>vard code</code></th><td>The code index: <code>vard code search "where is auth handled"</code>, <code>vard code impact &lt;symbol&gt;</code></td></tr>
+              <tr><th scope="row"><code>vard browser</code></th><td>The test browser: <code>vard browser test &lt;url&gt;</code> saves screenshots and a report</td></tr>
+              <tr><th scope="row"><code>vard mcp</code></th><td>Add, test, trust and manage MCP servers</td></tr>
+              <tr><th scope="row"><code>vard memory</code></th><td>What Vard remembers about this project</td></tr>
               <tr><th scope="row"><code>vard keys</code>, <code>vard models</code></th><td>Keys in the shared Keychain; the default model</td></tr>
               <tr><th scope="row"><code>vard --classic</code></th><td>Plain line-by-line mode</td></tr>
+              <tr><th scope="row"><code>/team</code>, <code>/code</code></th><td>In the full-screen UI: run a team; search the code index</td></tr>
+              <tr><th scope="row"><code>/impact</code>, <code>/browser</code></th><td>What a change to a file or symbol affects; the test browser</td></tr>
             </tbody>
           </table>
         </div>

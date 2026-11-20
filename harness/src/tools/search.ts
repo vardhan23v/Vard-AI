@@ -36,12 +36,18 @@ export const search: ToolDef<SearchInput> = {
       return m ? `${rel(ctx, path.resolve(abs, m[1]))}:${m[2]}:${m[3].slice(0, 300)}` : l;
     });
     if (!shown.length) return "no matches";
-    const more = lines.length > MAX_MATCHES ? `\n…(${lines.length - MAX_MATCHES} more matches)` : "";
+    const more =
+      lines.length > MAX_MATCHES ? `\n…(${lines.length - MAX_MATCHES} more matches)` : "";
     return shown.join("\n") + more;
   },
 };
 
-async function ripgrep(rg: string, abs: string, input: SearchInput, signal?: AbortSignal): Promise<string[]> {
+async function ripgrep(
+  rg: string,
+  abs: string,
+  input: SearchInput,
+  signal?: AbortSignal,
+): Promise<string[]> {
   const args = [rg, "--line-number", "--no-heading", "--color", "never", "--max-columns", "400"];
   if (input.ignoreCase) args.push("-i");
   if (input.glob) args.push("--glob", input.glob);
@@ -52,7 +58,10 @@ async function ripgrep(rg: string, abs: string, input: SearchInput, signal?: Abo
   const r = await run(args, { cwd, timeoutMs: 30_000, signal });
   if (r.code === 1) return [];
   if (r.code !== 0) throw new ToolError(`ripgrep failed: ${r.stderr.trim()}`);
-  return r.stdout.split("\n").filter(Boolean).map((l) => l.replace(/^\.\//, ""));
+  return r.stdout
+    .split("\n")
+    .filter(Boolean)
+    .map((l) => l.replace(/^\.\//, ""));
 }
 
 function globToRegex(glob: string): RegExp {

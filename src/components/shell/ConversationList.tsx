@@ -12,6 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useListEntrance } from "@/lib/motion";
 import { cn } from "@/lib/utils";
 
 function bucket(c: Conversation) {
@@ -40,6 +41,10 @@ export function ConversationList() {
     }
     return [...out.entries()];
   }, [data, filter]);
+  const entrance = useListEntrance(
+    (data ?? []).map((c) => c.id),
+    !isLoading,
+  );
 
   return (
     <div className="flex h-full flex-col">
@@ -67,7 +72,7 @@ export function ConversationList() {
         </label>
       </div>
 
-      <nav aria-label="Chats" className="flex-1 overflow-y-auto px-2 pb-3">
+      <nav aria-label="Chats" className={cn("flex-1 overflow-y-auto px-2 pb-3", entrance.list)}>
         {isLoading && (
           <div className="space-y-2 px-1 pt-2">
             {Array.from({ length: 6 }, (_, i) => (
@@ -79,7 +84,10 @@ export function ConversationList() {
           <div className="px-2 pt-2 text-sm text-muted-foreground">
             <p>Couldn't load chats.</p>
             <p className="mt-1 text-xs">{error.message}</p>
-            <button onClick={() => refetch()} className="mt-2 text-primary underline underline-offset-2">
+            <button
+              onClick={() => refetch()}
+              className="mt-2 text-primary underline underline-offset-2"
+            >
               Try again
             </button>
           </div>
@@ -91,18 +99,22 @@ export function ConversationList() {
         )}
         {groups.map(([label, rows]) => (
           <section key={label} className="mt-3 first:mt-1">
-            <h3 className="px-2 pb-1 font-sans text-xs font-medium text-muted-foreground">{label}</h3>
+            <h3 className="px-2 pb-1 font-sans text-xs font-medium text-muted-foreground">
+              {label}
+            </h3>
             <ul>
               {rows.map((c) => {
                 const active = params.conversationId === c.id;
                 return (
-                  <li key={c.id} className="group relative">
+                  <li key={c.id} className={cn("group relative", entrance.item(c.id))}>
                     <Link
                       to="/chat/$conversationId"
                       params={{ conversationId: c.id }}
                       className={cn(
                         "block truncate rounded-md py-1.5 pr-8 pl-2 text-sm",
-                        active ? "bg-accent text-foreground" : "text-foreground/85 hover:bg-accent/60",
+                        active
+                          ? "bg-accent text-foreground"
+                          : "text-foreground/85 hover:bg-accent/60",
                       )}
                       aria-current={active ? "page" : undefined}
                     >
@@ -124,14 +136,17 @@ export function ConversationList() {
                         >
                           <Pencil className="size-4" /> Rename
                         </DropdownMenuItem>
-                        <DropdownMenuItem onSelect={() => togglePin.mutate({ id: c.id, pinned: !c.pinned })}>
+                        <DropdownMenuItem
+                          onSelect={() => togglePin.mutate({ id: c.id, pinned: !c.pinned })}
+                        >
                           {c.pinned ? <PinOff className="size-4" /> : <Pin className="size-4" />}
                           {c.pinned ? "Unpin" : "Pin"}
                         </DropdownMenuItem>
                         <DropdownMenuItem
                           className="text-destructive focus:text-destructive"
                           onSelect={() => {
-                            if (!window.confirm(`Delete “${c.title}”? This can't be undone.`)) return;
+                            if (!window.confirm(`Delete “${c.title}”? This can't be undone.`))
+                              return;
                             remove.mutate(c.id);
                             if (active) void navigate({ to: "/chat" });
                           }}

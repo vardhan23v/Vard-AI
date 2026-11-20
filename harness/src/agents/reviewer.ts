@@ -15,7 +15,8 @@ import type { AgentRun } from "./schema";
 export function reviewDiffTool(base: string): ToolDef<{ path?: string }> {
   return {
     name: "review_diff",
-    description: "Show the combined diff of everything the team changed in this run (optionally for one path).",
+    description:
+      "Show the combined diff of everything the team changed in this run (optionally for one path).",
     inputSchema: z.object({ path: z.string().optional().describe("Limit the diff to this path") }),
     risk: "read",
     pathFields: ["path"],
@@ -39,10 +40,19 @@ const ReviewReply = z.object({
   findings: z.array(ReviewFinding).max(50).default([]),
 });
 
-export function reviewPrompt(o: { goal: string; subtasks: SubtaskState[]; stat: string; verify?: ReviewResult["verify"]; round: number }): string {
+export function reviewPrompt(o: {
+  goal: string;
+  subtasks: SubtaskState[];
+  stat: string;
+  verify?: ReviewResult["verify"];
+  round: number;
+}): string {
   const work = o.subtasks
     .filter((s) => s.status === "completed")
-    .map((s) => `- [${s.id}] ${s.title} (${s.role}): ${s.result?.summary.replace(/\n+/g, " ").slice(0, 400) ?? ""}\n  Files: ${s.result?.files.join(", ") || "none"}`)
+    .map(
+      (s) =>
+        `- [${s.id}] ${s.title} (${s.role}): ${s.result?.summary.replace(/\n+/g, " ").slice(0, 400) ?? ""}\n  Files: ${s.result?.files.join(", ") || "none"}`,
+    )
     .join("\n");
   return `Review the combined change a team of agents made for this request:
 
@@ -106,11 +116,22 @@ export async function runReview(
   });
   const parsed = result.status === "done" ? parseReview(result.summary) : null;
   const review: ReviewResult = parsed
-    ? { round: o.round, verdict: parsed.verdict, summary: parsed.summary, findings: parsed.findings, verify: o.verify, agentId, at: Date.now() }
+    ? {
+        round: o.round,
+        verdict: parsed.verdict,
+        summary: parsed.summary,
+        findings: parsed.findings,
+        verify: o.verify,
+        agentId,
+        at: Date.now(),
+      }
     : {
         round: o.round,
         verdict: "unavailable",
-        summary: result.status === "done" ? `The reviewer's answer couldn't be read: ${result.summary.slice(0, 500)}` : `The review stopped: ${result.reason ?? result.status}`,
+        summary:
+          result.status === "done"
+            ? `The reviewer's answer couldn't be read: ${result.summary.slice(0, 500)}`
+            : `The review stopped: ${result.reason ?? result.status}`,
         findings: [],
         verify: o.verify,
         agentId,

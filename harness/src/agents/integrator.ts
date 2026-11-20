@@ -34,9 +34,21 @@ export class Integrator {
 
   /** Files that conflict when merging `branch` into the integration branch ([] when clean). */
   async conflicts(branch: string): Promise<string[]> {
-    const r = await git(this.integration.path, ["merge-tree", "--write-tree", "--name-only", "--no-messages", "HEAD", branch]);
+    const r = await git(this.integration.path, [
+      "merge-tree",
+      "--write-tree",
+      "--name-only",
+      "--no-messages",
+      "HEAD",
+      branch,
+    ]);
     if (r.code === 0) return [];
-    if (r.code === 1) return r.stdout.split("\n").slice(1).map((l) => l.trim()).filter(Boolean);
+    if (r.code === 1)
+      return r.stdout
+        .split("\n")
+        .slice(1)
+        .map((l) => l.trim())
+        .filter(Boolean);
     throw new Error(`git merge-tree failed: ${(r.stderr || r.stdout).trim()}`);
   }
 
@@ -48,15 +60,31 @@ export class Integrator {
       const conflicts = await this.conflicts(sub.branch);
       if (conflicts.length) return { status: "conflict", files: conflicts };
       const before = await this.head();
-      const r = await git(this.integration.path, [...ID, "merge", "--no-ff", "--no-edit", "-m", message, sub.branch]);
+      const r = await git(this.integration.path, [
+        ...ID,
+        "merge",
+        "--no-ff",
+        "--no-edit",
+        "-m",
+        message,
+        sub.branch,
+      ]);
       if (r.code !== 0) {
         await git(this.integration.path, ["merge", "--abort"]);
-        const files = (await git(this.integration.path, ["diff", "--name-only", "--diff-filter=U"])).stdout.split("\n").filter(Boolean);
+        const files = (
+          await git(this.integration.path, ["diff", "--name-only", "--diff-filter=U"])
+        ).stdout
+          .split("\n")
+          .filter(Boolean);
         return { status: "conflict", files: files.length ? files : ["(merge failed)"] };
       }
       const after = await this.head();
-      const files = (await gitOk(this.integration.path, ["diff", "--name-only", before, after])).split("\n").filter(Boolean);
-      const stat = (await gitOk(this.integration.path, ["diff", "--stat", "--no-color", before, after])).trim();
+      const files = (await gitOk(this.integration.path, ["diff", "--name-only", before, after]))
+        .split("\n")
+        .filter(Boolean);
+      const stat = (
+        await gitOk(this.integration.path, ["diff", "--stat", "--no-color", before, after])
+      ).trim();
       return { status: "merged", files, stat, commit: after };
     });
   }
@@ -64,8 +92,16 @@ export class Integrator {
   /** Combined diff of the run so far against where it started. */
   async diff(): Promise<{ diff: string; stat: string }> {
     const base = this.integration.base;
-    const diff = await gitOk(this.integration.path, ["diff", "--no-color", "--no-ext-diff", base, "HEAD"]);
-    const stat = (await gitOk(this.integration.path, ["diff", "--stat", "--no-color", base, "HEAD"])).trim();
+    const diff = await gitOk(this.integration.path, [
+      "diff",
+      "--no-color",
+      "--no-ext-diff",
+      base,
+      "HEAD",
+    ]);
+    const stat = (
+      await gitOk(this.integration.path, ["diff", "--stat", "--no-color", base, "HEAD"])
+    ).trim();
     return { diff, stat };
   }
 }

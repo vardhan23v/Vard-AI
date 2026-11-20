@@ -12,7 +12,13 @@
 import crypto from "node:crypto";
 import fs from "node:fs";
 import path from "node:path";
-import { globalSkillsDir, type LoadedSkill, loadBuiltins, loadRoot, projectSkillsDir } from "./loader";
+import {
+  globalSkillsDir,
+  type LoadedSkill,
+  loadBuiltins,
+  loadRoot,
+  projectSkillsDir,
+} from "./loader";
 import type { SkillSummary, SkillUsage } from "./schema";
 
 const MAX_USAGE = 500;
@@ -119,18 +125,28 @@ export class SkillRegistry {
 
   private state(): StateFile {
     const s = readJson<Partial<StateFile>>(this.stateFile, {});
-    return { version: 1, disabled: Array.isArray(s.disabled) ? s.disabled : [], usage: Array.isArray(s.usage) ? s.usage : [] };
+    return {
+      version: 1,
+      disabled: Array.isArray(s.disabled) ? s.disabled : [],
+      usage: Array.isArray(s.usage) ? s.usage : [],
+    };
   }
 
   /** The key a skill's state is stored under (project skills include the project path). */
   stateKey(r: { source: string; name: string }) {
-    return r.source === "project" ? `project:${this.projectRoot}:${r.name}` : `${r.source}:${r.name}`;
+    return r.source === "project"
+      ? `project:${this.projectRoot}:${r.name}`
+      : `${r.source}:${r.name}`;
   }
 
   projectTrusted(): boolean {
     if (!this.projectRoot) return false;
     const h = projectSkillsHash(this.projectRoot);
-    return !!h && h !== "too_large" && readJson<Record<string, string>>(this.trustFile, {})[this.projectRoot] === h;
+    return (
+      !!h &&
+      h !== "too_large" &&
+      readJson<Record<string, string>>(this.trustFile, {})[this.projectRoot] === h
+    );
   }
 
   setTrusted(trusted: boolean) {
@@ -138,7 +154,9 @@ export class SkillRegistry {
     const all = readJson<Record<string, string>>(this.trustFile, {});
     const h = projectSkillsHash(this.projectRoot);
     if (trusted && h === "too_large")
-      throw new Error("This project's .vard/skills folder is too large to trust (over 2,000 files or 20 MB).");
+      throw new Error(
+        "This project's .vard/skills folder is too large to trust (over 2,000 files or 20 MB).",
+      );
     if (trusted && h) all[this.projectRoot] = h;
     else delete all[this.projectRoot];
     writeJsonAtomic(this.trustFile, all);
@@ -160,10 +178,20 @@ export class SkillRegistry {
     this.records = loaded.map((s) => {
       const id = `${s.source}:${s.name}`;
       const w = winner.get(s.name);
-      const shadowedBy = w && w !== s && PRECEDENCE[w.source] < PRECEDENCE[s.source] ? `${w.source}:${w.name}` : undefined;
+      const shadowedBy =
+        w && w !== s && PRECEDENCE[w.source] < PRECEDENCE[s.source]
+          ? `${w.source}:${w.name}`
+          : undefined;
       const enabled = !disabled.has(this.stateKey(s));
       const trusted = s.source !== "project" || projectTrusted;
-      return { ...s, id, enabled, trusted, shadowedBy, usable: !s.errors.length && enabled && trusted && !shadowedBy };
+      return {
+        ...s,
+        id,
+        enabled,
+        trusted,
+        shadowedBy,
+        usable: !s.errors.length && enabled && trusted && !shadowedBy,
+      };
     });
   }
 
@@ -179,7 +207,10 @@ export class SkillRegistry {
   find(ref: string): SkillRecord | undefined {
     if (ref.includes(":")) return this.records.find((r) => r.id === ref);
     const named = this.records.filter((r) => r.name === ref);
-    return named.find((r) => r.usable) ?? named.sort((a, b) => PRECEDENCE[a.source] - PRECEDENCE[b.source])[0];
+    return (
+      named.find((r) => r.usable) ??
+      named.sort((a, b) => PRECEDENCE[a.source] - PRECEDENCE[b.source])[0]
+    );
   }
 
   setEnabled(ref: string, enabled: boolean) {
@@ -216,7 +247,10 @@ export class SkillRegistry {
   usage(r?: SkillRecord): SkillUsage[] {
     const all = this.state().usage;
     const mine = r
-      ? all.filter((u) => u.skillId === r.id && (r.source !== "project" || u.projectRoot === this.projectRoot))
+      ? all.filter(
+          (u) =>
+            u.skillId === r.id && (r.source !== "project" || u.projectRoot === this.projectRoot),
+        )
       : all.filter((u) => !u.skillId.startsWith("project:") || u.projectRoot === this.projectRoot);
     return mine.reverse();
   }

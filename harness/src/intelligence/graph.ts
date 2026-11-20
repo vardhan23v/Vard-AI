@@ -56,7 +56,13 @@ export class CodeGraph {
   }
 
   outline(path: string): CodeSymbol[] {
-    return (this.db.query("SELECT s.*, f.path FROM symbols s JOIN files f ON f.id = s.file_id WHERE f.path = ? ORDER BY s.start_line").all(path) as Row[]).map(toSymbol);
+    return (
+      this.db
+        .query(
+          "SELECT s.*, f.path FROM symbols s JOIN files f ON f.id = s.file_id WHERE f.path = ? ORDER BY s.start_line",
+        )
+        .all(path) as Row[]
+    ).map(toSymbol);
   }
 
   /** The definition enclosing a line (the innermost one). */
@@ -71,14 +77,22 @@ export class CodeGraph {
 
   /** Files that define `name` (used to keep name-matched references to the right definition). */
   private definingFiles(name: string): Set<number> {
-    return new Set((this.db.query("SELECT DISTINCT file_id FROM symbols WHERE name = ?").all(name) as Row[]).map((r) => r.file_id));
+    return new Set(
+      (this.db.query("SELECT DISTINCT file_id FROM symbols WHERE name = ?").all(name) as Row[]).map(
+        (r) => r.file_id,
+      ),
+    );
   }
 
   /**
    * References by name. When the name is defined in exactly one file, only files that define it
    * or import that file count; otherwise every name match is returned (labelled ambiguous).
    */
-  references(name: string, kinds: ("call" | "type")[] = ["call", "type"], limit = 200): { path: string; line: number; kind: string; in?: string; ambiguous: boolean }[] {
+  references(
+    name: string,
+    kinds: ("call" | "type")[] = ["call", "type"],
+    limit = 200,
+  ): { path: string; line: number; kind: string; in?: string; ambiguous: boolean }[] {
     const defs = this.definingFiles(name);
     const rows = this.db
       .query(
@@ -88,13 +102,25 @@ export class CodeGraph {
     let importers: Set<number> | null = null;
     if (defs.size === 1) {
       const [def] = defs;
-      importers = new Set((this.db.query("SELECT DISTINCT file_id FROM imports WHERE target_id = ?").all(def) as Row[]).map((r) => r.file_id));
+      importers = new Set(
+        (
+          this.db
+            .query("SELECT DISTINCT file_id FROM imports WHERE target_id = ?")
+            .all(def) as Row[]
+        ).map((r) => r.file_id),
+      );
       importers.add(def);
     }
     return rows
       .filter((r) => !importers || importers.has(r.file_id))
       .slice(0, limit)
-      .map((r) => ({ path: r.path, line: r.line, kind: r.kind, in: this.enclosing(r.file_id, r.line), ambiguous: defs.size !== 1 }));
+      .map((r) => ({
+        path: r.path,
+        line: r.line,
+        kind: r.kind,
+        in: this.enclosing(r.file_id, r.line),
+        ambiguous: defs.size !== 1,
+      }));
   }
 
   callers(name: string, limit = 100) {
@@ -104,15 +130,33 @@ export class CodeGraph {
   dependencies(path: string): { files: string[]; packages: string[] } {
     const id = this.fileId(path);
     if (id === undefined) return { files: [], packages: [] };
-    const files = (this.db.query("SELECT DISTINCT t.path FROM imports i JOIN files t ON t.id = i.target_id WHERE i.file_id = ? ORDER BY t.path").all(id) as Row[]).map((r) => r.path);
-    const packages = (this.db.query("SELECT DISTINCT package FROM imports WHERE file_id = ? AND package IS NOT NULL ORDER BY package").all(id) as Row[]).map((r) => r.package);
+    const files = (
+      this.db
+        .query(
+          "SELECT DISTINCT t.path FROM imports i JOIN files t ON t.id = i.target_id WHERE i.file_id = ? ORDER BY t.path",
+        )
+        .all(id) as Row[]
+    ).map((r) => r.path);
+    const packages = (
+      this.db
+        .query(
+          "SELECT DISTINCT package FROM imports WHERE file_id = ? AND package IS NOT NULL ORDER BY package",
+        )
+        .all(id) as Row[]
+    ).map((r) => r.package);
     return { files, packages };
   }
 
   dependents(path: string): string[] {
     const id = this.fileId(path);
     if (id === undefined) return [];
-    return (this.db.query("SELECT DISTINCT f.path FROM imports i JOIN files f ON f.id = i.file_id WHERE i.target_id = ? ORDER BY f.path").all(id) as Row[]).map((r) => r.path);
+    return (
+      this.db
+        .query(
+          "SELECT DISTINCT f.path FROM imports i JOIN files f ON f.id = i.file_id WHERE i.target_id = ? ORDER BY f.path",
+        )
+        .all(id) as Row[]
+    ).map((r) => r.path);
   }
 
   /** Transitive dependents (breadth first), bounded. */
@@ -135,26 +179,44 @@ export class CodeGraph {
 
   /** Test files that import `path` (directly or within two hops), or are named after it. */
   testsFor(path: string): string[] {
-    const near = this.dependentsDeep([path], 2).map((d) => d.path).filter((p) => this.isTest(p));
+    const near = this.dependentsDeep([path], 2)
+      .map((d) => d.path)
+      .filter((p) => this.isTest(p));
     const stem = path.replace(/^.*\//, "").replace(/\.[^.]+$/, "");
-    const named = (this.db.query("SELECT path FROM files WHERE test = 1 AND path LIKE ?").all(`%${stem}%`) as Row[]).map((r) => r.path).filter((p) => p.replace(/^.*\//, "").startsWith(stem));
+    const named = (
+      this.db
+        .query("SELECT path FROM files WHERE test = 1 AND path LIKE ?")
+        .all(`%${stem}%`) as Row[]
+    )
+      .map((r) => r.path)
+      .filter((p) => p.replace(/^.*\//, "").startsWith(stem));
     return [...new Set([...near, ...named])].sort();
   }
 
   fanIn(path: string): number {
     const id = this.fileId(path);
-    return id === undefined ? 0 : ((this.db.query("SELECT COUNT(DISTINCT file_id) AS n FROM imports WHERE target_id = ?").get(id) as Row).n as number);
+    return id === undefined
+      ? 0
+      : ((
+          this.db
+            .query("SELECT COUNT(DISTINCT file_id) AS n FROM imports WHERE target_id = ?")
+            .get(id) as Row
+        ).n as number);
   }
 
   topImported(limit = 10): { path: string; n: number }[] {
     return this.db
-      .query("SELECT t.path, COUNT(DISTINCT i.file_id) AS n FROM imports i JOIN files t ON t.id = i.target_id GROUP BY t.path ORDER BY n DESC LIMIT ?")
+      .query(
+        "SELECT t.path, COUNT(DISTINCT i.file_id) AS n FROM imports i JOIN files t ON t.id = i.target_id GROUP BY t.path ORDER BY n DESC LIMIT ?",
+      )
       .all(limit) as { path: string; n: number }[];
   }
 
   packages(limit = 40): { name: string; files: number }[] {
     return this.db
-      .query("SELECT package AS name, COUNT(DISTINCT file_id) AS files FROM imports WHERE package IS NOT NULL GROUP BY package ORDER BY files DESC LIMIT ?")
+      .query(
+        "SELECT package AS name, COUNT(DISTINCT file_id) AS files FROM imports WHERE package IS NOT NULL GROUP BY package ORDER BY files DESC LIMIT ?",
+      )
       .all(limit) as { name: string; files: number }[];
   }
 
@@ -174,7 +236,14 @@ export class CodeGraph {
           return false;
         }
         const r = this.db.query("SELECT lang, test FROM files WHERE path = ?").get(p) as Row | null;
-        nodes.set(p, { id: p, label: p.replace(/^.*\//, ""), kind: "file", lang: r?.lang, test: !!r?.test, fanIn: this.fanIn(p) });
+        nodes.set(p, {
+          id: p,
+          label: p.replace(/^.*\//, ""),
+          kind: "file",
+          lang: r?.lang,
+          test: !!r?.test,
+          fanIn: this.fanIn(p),
+        });
       }
       return true;
     };
@@ -198,16 +267,33 @@ export class CodeGraph {
         frontier = [...new Set(next)];
       }
       const seen = new Set<string>();
-      return { nodes: [...nodes.values()], edges: edges.filter((e) => !seen.has(`${e.from}>${e.to}`) && !!seen.add(`${e.from}>${e.to}`)), truncated, focus: o.focus };
+      return {
+        nodes: [...nodes.values()],
+        edges: edges.filter(
+          (e) => !seen.has(`${e.from}>${e.to}`) && !!seen.add(`${e.from}>${e.to}`),
+        ),
+        truncated,
+        focus: o.focus,
+      };
     }
     // Folder view: two path segments deep.
-    const folder = (p: string) => p.split("/").slice(0, Math.min(2, p.split("/").length - 1)).join("/") || ".";
-    const rows = this.db.query("SELECT f.path AS src, t.path AS dst FROM imports i JOIN files f ON f.id = i.file_id JOIN files t ON t.id = i.target_id").all() as Row[];
+    const folder = (p: string) =>
+      p
+        .split("/")
+        .slice(0, Math.min(2, p.split("/").length - 1))
+        .join("/") || ".";
+    const rows = this.db
+      .query(
+        "SELECT f.path AS src, t.path AS dst FROM imports i JOIN files f ON f.id = i.file_id JOIN files t ON t.id = i.target_id",
+      )
+      .all() as Row[];
     const counts = new Map<string, number>();
-    for (const r of this.db.query("SELECT path FROM files").all() as Row[]) counts.set(folder(r.path), (counts.get(folder(r.path)) ?? 0) + 1);
+    for (const r of this.db.query("SELECT path FROM files").all() as Row[])
+      counts.set(folder(r.path), (counts.get(folder(r.path)) ?? 0) + 1);
     const top = [...counts].sort((a, b) => b[1] - a[1]).slice(0, limit);
     truncated = counts.size > limit;
-    for (const [f, n] of top) nodes.set(f, { id: f, label: `${f} (${n})`, kind: "package", fanIn: 0 });
+    for (const [f, n] of top)
+      nodes.set(f, { id: f, label: `${f} (${n})`, kind: "package", fanIn: 0 });
     const ek = new Map<string, number>();
     for (const r of rows) {
       const a = folder(r.src);

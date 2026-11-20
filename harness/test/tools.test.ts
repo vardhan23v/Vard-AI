@@ -18,38 +18,41 @@ describe("edit_file", () => {
 
   test("replaces a unique occurrence", async () => {
     const { ctx, file } = setup("const a = 1;\nconst b = 2;\n");
-    const out = await editFile.execute({ path: "a.ts", old_string: "const b = 2;", new_string: "const b = 3;" }, ctx);
+    const out = await editFile.execute(
+      { path: "a.ts", old_string: "const b = 2;", new_string: "const b = 3;" },
+      ctx,
+    );
     expect(out).toContain("line 2");
     expect(fs.readFileSync(file, "utf8")).toBe("const a = 1;\nconst b = 3;\n");
   });
 
   test("errors when old_string is missing", async () => {
     const { ctx } = setup("x\n");
-    await expect(editFile.execute({ path: "a.ts", old_string: "nope", new_string: "y" }, ctx)).rejects.toThrow(
-      /not found/,
-    );
+    await expect(
+      editFile.execute({ path: "a.ts", old_string: "nope", new_string: "y" }, ctx),
+    ).rejects.toThrow(/not found/);
   });
 
   test("errors when old_string is not unique, and leaves the file untouched", async () => {
     const { ctx, file } = setup("foo\nbar\nfoo\n");
-    await expect(editFile.execute({ path: "a.ts", old_string: "foo", new_string: "baz" }, ctx)).rejects.toThrow(
-      /occurs 2 times/,
-    );
+    await expect(
+      editFile.execute({ path: "a.ts", old_string: "foo", new_string: "baz" }, ctx),
+    ).rejects.toThrow(/occurs 2 times/);
     expect(fs.readFileSync(file, "utf8")).toBe("foo\nbar\nfoo\n");
   });
 
   test("counts overlapping occurrences", async () => {
     const { ctx } = setup("aaa");
-    await expect(editFile.execute({ path: "a.ts", old_string: "aa", new_string: "b" }, ctx)).rejects.toThrow(
-      /occurs 2 times/,
-    );
+    await expect(
+      editFile.execute({ path: "a.ts", old_string: "aa", new_string: "b" }, ctx),
+    ).rejects.toThrow(/occurs 2 times/);
   });
 
   test("refuses paths outside the project", async () => {
     const { ctx } = setup("x");
-    await expect(editFile.execute({ path: "../outside.ts", old_string: "x", new_string: "y" }, ctx)).rejects.toThrow(
-      ToolError,
-    );
+    await expect(
+      editFile.execute({ path: "../outside.ts", old_string: "x", new_string: "y" }, ctx),
+    ).rejects.toThrow(ToolError);
   });
 });
 
@@ -74,7 +77,9 @@ describe("filesystem tools", () => {
   test("write_file creates parent dirs; list_dir shows them", async () => {
     const dir = tmpDir();
     const ctx = toolCtx(dir);
-    expect(await writeFile.execute({ path: "src/x/y.ts", content: "export {}\n" }, ctx)).toContain("created");
+    expect(await writeFile.execute({ path: "src/x/y.ts", content: "export {}\n" }, ctx)).toContain(
+      "created",
+    );
     const listing = await listDir.execute({ path: ".", depth: 3 }, ctx);
     expect(listing).toContain("src/");
     expect(listing).toContain("y.ts");
@@ -125,7 +130,10 @@ describe("run_command / git / todo", () => {
   test("a timeout also stops the command's child processes", async () => {
     // The shell can't exec `sleep` here (it still has to run `echo`), so sleep is a child.
     const start = Date.now();
-    const out = await runCommand.execute({ command: "sleep 5; echo finished-anyway", timeoutSec: 1 }, toolCtx(tmpDir()));
+    const out = await runCommand.execute(
+      { command: "sleep 5; echo finished-anyway", timeoutSec: 1 },
+      toolCtx(tmpDir()),
+    );
     expect(out).toContain("timed out");
     expect(out).not.toContain("finished-anyway");
     expect(Date.now() - start).toBeLessThan(3500);

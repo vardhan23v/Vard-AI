@@ -1,6 +1,8 @@
 /** Query tokenising shared by search and impact analysis. */
 const STOP = new Set(
-  "the a an and or of to in on for with where what which who how is are was be it this that these those my our your from by at as do does handled handle code file files find show me all any".split(" "),
+  "the a an and or of to in on for with where what which who how is are was be it this that these those my our your from by at as do does handled handle code file files find show me all any".split(
+    " ",
+  ),
 );
 
 /** Splits identifiers and text into lowercase words: "getUserToken" → get, user, token. */
@@ -15,7 +17,21 @@ export function words(s: string): string[] {
 
 /** Related terms for common concepts, so "authentication" also finds "login" and "jwt". */
 const CONCEPTS: string[][] = [
-  ["auth", "authentication", "authenticate", "login", "logout", "signin", "signup", "session", "token", "jwt", "oauth", "password", "credential"],
+  [
+    "auth",
+    "authentication",
+    "authenticate",
+    "login",
+    "logout",
+    "signin",
+    "signup",
+    "session",
+    "token",
+    "jwt",
+    "oauth",
+    "password",
+    "credential",
+  ],
   ["db", "database", "sql", "query", "schema", "migration", "repository", "model", "orm"],
   ["route", "router", "routing", "endpoint", "handler", "controller", "api"],
   ["test", "tests", "spec", "fixture", "mock"],

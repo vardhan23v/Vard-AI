@@ -1,4 +1,13 @@
-export type BrowserErrorCode = "not_installed" | "launch" | "crashed" | "timeout" | "blocked" | "sensitive" | "not_found" | "closed" | "install";
+export type BrowserErrorCode =
+  | "not_installed"
+  | "launch"
+  | "crashed"
+  | "timeout"
+  | "blocked"
+  | "sensitive"
+  | "not_found"
+  | "closed"
+  | "install";
 export class BrowserError extends Error {
   constructor(
     readonly code: BrowserErrorCode,

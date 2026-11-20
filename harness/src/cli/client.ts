@@ -8,7 +8,12 @@ import { Server } from "../server";
 
 export type ChatTurn = { role: "user" | "assistant"; content: string };
 export type Usage = { inputTokens: number; outputTokens: number; totalTokens: number };
-export type ChatResult = { text: string; status: "done" | "cancelled" | "error"; error?: string; usage?: Usage };
+export type ChatResult = {
+  text: string;
+  status: "done" | "cancelled" | "error";
+  error?: string;
+  usage?: Usage;
+};
 type DoneEvent = Extract<Event, { type: "done" }>;
 
 let seq = 0;
@@ -19,7 +24,14 @@ export class Client {
   readonly server: Server;
   private routes = new Map<string, (e: Event) => void>();
 
-  constructor(opts: { modelFactory?: ModelFactory; traceDir?: string; mcpHome?: string; mcpSecrets?: SecretStore } = {}) {
+  constructor(
+    opts: {
+      modelFactory?: ModelFactory;
+      traceDir?: string;
+      mcpHome?: string;
+      mcpSecrets?: SecretStore;
+    } = {},
+  ) {
     this.server = new Server({
       modelFactory: opts.modelFactory,
       traceDir: opts.traceDir,
@@ -45,7 +57,11 @@ export class Client {
         } else if (e.type === "retry") on.retry?.(e.message, e.delayMs);
         else if (e.type === "done") {
           this.routes.delete(id);
-          resolve({ text, status: e.status === "cancelled" ? "cancelled" : "done", usage: e.usage as Usage });
+          resolve({
+            text,
+            status: e.status === "cancelled" ? "cancelled" : "done",
+            usage: e.usage as Usage,
+          });
         } else if (e.type === "error") {
           this.routes.delete(id);
           resolve({ text, status: "error", error: e.message });
@@ -56,7 +72,11 @@ export class Client {
         resolve({ text, status: "error", error: (err as Error).message });
       });
     });
-    return { result, cancel: () => void this.server.handle({ id: newId("cancel"), type: "task.cancel", taskId: id }) };
+    return {
+      result,
+      cancel: () =>
+        void this.server.handle({ id: newId("cancel"), type: "task.cancel", taskId: id }),
+    };
   }
 
   /** Starts an agent task. Every task event goes to `onEvent`; resolves with the final `done`. */
@@ -86,12 +106,36 @@ export class Client {
   }
 
   /** Team runs: pause, resume, retry or cancel a subtask, or continue past failures. */
-  control(taskId: string, action: "pause" | "resume" | "cancel_subtask" | "retry_subtask" | "continue", subtaskId?: string, note?: string) {
-    return this.server.handle({ id: newId("orch"), type: "orch.control", taskId, action, subtaskId, note });
+  control(
+    taskId: string,
+    action: "pause" | "resume" | "cancel_subtask" | "retry_subtask" | "continue",
+    subtaskId?: string,
+    note?: string,
+  ) {
+    return this.server.handle({
+      id: newId("orch"),
+      type: "orch.control",
+      taskId,
+      action,
+      subtaskId,
+      note,
+    });
   }
 
-  approve(taskId: string, approvalId: string, decision: ApprovalDecision, extra: { reason?: string; plan?: string } = {}) {
-    return this.server.handle({ id: newId("ans"), type: "task.approve", taskId, approvalId, decision, ...extra });
+  approve(
+    taskId: string,
+    approvalId: string,
+    decision: ApprovalDecision,
+    extra: { reason?: string; plan?: string } = {},
+  ) {
+    return this.server.handle({
+      id: newId("ans"),
+      type: "task.approve",
+      taskId,
+      approvalId,
+      decision,
+      ...extra,
+    });
   }
 
   cancel(taskId: string) {

@@ -73,7 +73,14 @@ export function applySkillChange(reg: SkillRegistry, c: SkillChange): ApplyResul
       return {};
     case "validate": {
       const v = validateSkillText(c.text);
-      return { validation: { valid: !v.errors.length, errors: v.errors, warnings: v.warnings, name: v.frontmatter?.name } };
+      return {
+        validation: {
+          valid: !v.errors.length,
+          errors: v.errors,
+          warnings: v.warnings,
+          name: v.frontmatter?.name,
+        },
+      };
     }
     case "trust":
       reg.setTrusted(c.trusted);
@@ -84,7 +91,8 @@ export function applySkillChange(reg: SkillRegistry, c: SkillChange): ApplyResul
     case "create": {
       const root = rootFor(reg, c.scope);
       const dir = path.join(root, c.name);
-      if (fs.existsSync(dir)) throw new SkillError("exists", `a ${c.scope} skill named "${c.name}" already exists`);
+      if (fs.existsSync(dir))
+        throw new SkillError("exists", `a ${c.scope} skill named "${c.name}" already exists`);
       // Creating a skill in Vard is the user's own change: keep (or, for the first one, grant) trust.
       const wasTrusted = c.scope === "project" && (reg.projectTrusted() || isOnlyProjectSkill(reg));
       writeAtomic(path.join(dir, "SKILL.md"), skillTemplate(c.name, c.description));
@@ -94,13 +102,19 @@ export function applySkillChange(reg: SkillRegistry, c: SkillChange): ApplyResul
     case "save": {
       const v = validateSkillText(c.text, { folderName: c.name });
       if (v.errors.length) throw new SkillError("invalid", v.errors.join("; "));
-      if (Buffer.byteLength(c.text) > MAX_SKILL_BYTES) throw new SkillError("too_large", "SKILL.md is larger than 64 KB");
+      if (Buffer.byteLength(c.text) > MAX_SKILL_BYTES)
+        throw new SkillError("too_large", "SKILL.md is larger than 64 KB");
       const root = rootFor(reg, c.scope);
       const dir = path.join(root, c.name);
       // Script paths must exist once the file is on disk.
-      const onDisk = validateSkillText(c.text, { folderName: c.name, dir: fs.existsSync(dir) ? dir : undefined });
-      if (fs.existsSync(dir) && onDisk.errors.length) throw new SkillError("invalid", onDisk.errors.join("; "));
-      const wasTrusted = c.scope === "project" && (reg.projectTrusted() || isOnlyProjectSkill(reg, c.name));
+      const onDisk = validateSkillText(c.text, {
+        folderName: c.name,
+        dir: fs.existsSync(dir) ? dir : undefined,
+      });
+      if (fs.existsSync(dir) && onDisk.errors.length)
+        throw new SkillError("invalid", onDisk.errors.join("; "));
+      const wasTrusted =
+        c.scope === "project" && (reg.projectTrusted() || isOnlyProjectSkill(reg, c.name));
       writeAtomic(path.join(dir, "SKILL.md"), c.text);
       keepTrust(reg, c.scope, wasTrusted);
       return { id: `${c.scope}:${c.name}` };
@@ -110,10 +124,14 @@ export function applySkillChange(reg: SkillRegistry, c: SkillChange): ApplyResul
     case "delete": {
       const r = reg.find(c.id);
       if (!r) throw new SkillError("not_found", `no skill "${c.id}"`);
-      if (r.source === "builtin") throw new SkillError("invalid", "built-in skills can't be deleted; disable them instead");
+      if (r.source === "builtin")
+        throw new SkillError("invalid", "built-in skills can't be deleted; disable them instead");
       const root = r.source === "global" ? reg.globalDir : reg.projectDir!;
       const dir = r.dir!;
-      if (!isInside(path.resolve(dir), path.resolve(root)) || path.resolve(dir) === path.resolve(root))
+      if (
+        !isInside(path.resolve(dir), path.resolve(root)) ||
+        path.resolve(dir) === path.resolve(root)
+      )
         throw new SkillError("path", "refusing to delete outside the skills folder");
       const wasTrusted = r.source === "project" && reg.projectTrusted();
       fs.rmSync(dir, { recursive: true, force: true });
@@ -139,14 +157,16 @@ export function importSkill(reg: SkillRegistry, scope: "global" | "project", fro
   } catch {
     throw new SkillError("not_found", `nothing at ${from}`);
   }
-  if (st.isSymbolicLink()) throw new SkillError("path", "import a real folder or file, not a symlink");
+  if (st.isSymbolicLink())
+    throw new SkillError("path", "import a real folder or file, not a symlink");
   const srcDir = st.isDirectory() ? src : path.dirname(src);
   const skillFile = st.isDirectory() ? path.join(src, "SKILL.md") : src;
   if (path.basename(skillFile) !== "SKILL.md" && st.isFile() && !skillFile.endsWith(".md"))
     throw new SkillError("invalid", "choose a skill folder or a SKILL.md file");
   let text: string;
   try {
-    if (fs.statSync(skillFile).size > MAX_SKILL_BYTES) throw new SkillError("too_large", "SKILL.md is larger than 64 KB");
+    if (fs.statSync(skillFile).size > MAX_SKILL_BYTES)
+      throw new SkillError("too_large", "SKILL.md is larger than 64 KB");
     text = fs.readFileSync(skillFile, "utf8");
   } catch (e) {
     if (e instanceof SkillError) throw e;
@@ -158,7 +178,8 @@ export function importSkill(reg: SkillRegistry, scope: "global" | "project", fro
   if (v.errors.length) throw new SkillError("invalid", v.errors.join("; "));
   const root = rootFor(reg, scope);
   const dest = path.join(root, name);
-  if (fs.existsSync(dest)) throw new SkillError("exists", `a ${scope} skill named "${name}" already exists`);
+  if (fs.existsSync(dest))
+    throw new SkillError("exists", `a ${scope} skill named "${name}" already exists`);
 
   // Collect files to copy: SKILL.md plus references/, scripts/, assets/ when importing a folder.
   const files: { rel: string; abs: string }[] = [{ rel: "SKILL.md", abs: skillFile }];
@@ -170,23 +191,29 @@ export function importSkill(reg: SkillRegistry, scope: "global" | "project", fro
         if (e.name.startsWith(".")) continue;
         const r = `${rel}/${e.name}`;
         if (!isSafeRelPath(r)) continue;
-        if (e.isSymbolicLink()) throw new SkillError("path", `"${r}" is a symlink; skills can't contain links`);
+        if (e.isSymbolicLink())
+          throw new SkillError("path", `"${r}" is a symlink; skills can't contain links`);
         const abs = path.join(dir, e.name);
         if (e.isDirectory()) walk(abs, r, depth + 1);
         else if (e.isFile()) {
           const size = fs.statSync(abs).size;
-          if (size > MAX_RESOURCE_BYTES) throw new SkillError("too_large", `"${r}" is larger than 256 KB`);
+          if (size > MAX_RESOURCE_BYTES)
+            throw new SkillError("too_large", `"${r}" is larger than 256 KB`);
           bytes += size;
           files.push({ rel: r, abs });
           if (files.length > MAX_IMPORT_FILES || bytes > MAX_IMPORT_BYTES)
-            throw new SkillError("too_large", "the skill has too many or too large files (limit 200 files, 5 MB)");
+            throw new SkillError(
+              "too_large",
+              "the skill has too many or too large files (limit 200 files, 5 MB)",
+            );
         }
       }
     };
     for (const kind of ["references", "scripts", "assets"]) {
       const d = path.join(srcDir, kind);
       if (fs.existsSync(d)) {
-        if (fs.lstatSync(d).isSymbolicLink()) throw new SkillError("path", `"${kind}" is a symlink`);
+        if (fs.lstatSync(d).isSymbolicLink())
+          throw new SkillError("path", `"${kind}" is a symlink`);
         walk(d, kind, 0);
       }
     }

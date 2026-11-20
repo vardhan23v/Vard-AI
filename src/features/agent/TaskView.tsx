@@ -26,11 +26,13 @@ import { Markdown } from "@/features/chat/Markdown";
 import { TeamDashboard } from "@/features/agents/TeamDashboard";
 import { CodeContextCard, TaskBrowserPanel } from "@/features/browser/TaskBrowserPanel";
 import { DiffView } from "./DiffView";
+import { RetryNotice } from "./RetryNotice";
 import { isRunning, taskActions, useTask, type LiveTask, type TimelineItem } from "./store";
 import { projectPath, type AgentTask } from "./projects";
 import { MEMORY_CATEGORIES, memory } from "@/lib/agent-client";
 import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
+import { Pill, type Tone } from "@/components/Pill";
 
 export const STATUS_LABEL: Record<string, string> = {
   planning: "Planning",
@@ -46,27 +48,21 @@ export const STATUS_LABEL: Record<string, string> = {
 };
 
 export function StatusBadge({ status }: { status: string }) {
-  const tone =
+  const tone: Tone =
     status === "done" || status === "merged"
-      ? "border-diff-add/50 text-diff-add"
+      ? "ok"
       : status === "blocked"
-        ? "border-destructive/50 text-destructive"
+        ? "bad"
         : status === "awaiting_plan_approval"
-          ? "border-primary/60 text-primary"
+          ? "attention"
           : status === "cancelled" || status === "discarded"
-            ? "border-border text-muted-foreground"
-            : "border-agent/60 text-agent-foreground";
+            ? "muted"
+            : "live";
   const live = ["planning", "acting", "observing", "verifying"].includes(status);
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-xs",
-        tone,
-      )}
-    >
-      {live && <Loader2 className="size-3 animate-spin" />}
+    <Pill tone={tone} spin={live}>
       {STATUS_LABEL[status] ?? status}
-    </span>
+    </Pill>
   );
 }
 
@@ -97,6 +93,7 @@ export function TaskView({ task }: { task: AgentTask }) {
             )}
           </div>
           <h1 className="mt-2 line-clamp-2 font-sans text-base font-medium">{task.prompt}</h1>
+          {running && <RetryNotice wait={live?.retry} className="mt-1.5" />}
         </div>
         {running && (
           <button

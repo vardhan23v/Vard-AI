@@ -3,27 +3,30 @@
  * and dependencies, the dependency graph and change impact analysis. The index lives in the
  * project's .vard/index and is separate from project memory.
  */
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   Braces,
   Copy,
+  ExternalLink,
   FileCode,
   FolderOpen,
   Loader2,
+  Network,
   RefreshCw,
   Search,
   SearchX,
   Square,
   Trash2,
 } from "lucide-react";
-import { revealItemInDir } from "@tauri-apps/plugin-opener";
+import { openUrl, revealItemInDir } from "@tauri-apps/plugin-opener";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { StarField } from "@/components/StarField";
+import { EmptyState } from "@/components/EmptyState";
+import { PageHeader } from "@/components/PageHeader";
 import {
   code,
   isTauri,
@@ -38,8 +41,45 @@ import { CountUp, Flash } from "@/lib/motion";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { Pill } from "@/features/agents/Pill";
 import { DepGraph } from "./DepGraph";
+import { EmbeddingsEditor } from "./EmbeddingsEditor";
 
 type Loc = { path: string; line: number };
+
+/**
+ * Opens a project file at a line in VS Code (vscode://file/<abs>:<line>); falls back to the
+ * file's default app, then to Finder.
+ */
+async function openInEditor(root: string, loc: Loc) {
+  const abs = `${root.replace(/\/+$/, "")}/${loc.path}`;
+  try {
+    await openUrl(`vscode://file${encodeURI(abs)}:${loc.line}`);
+  } catch {
+    // No VS Code (or the link was refused). Showing the file in Finder is the safe fallback:
+    // opening an arbitrary repo file with its default app could run it (a .command file, say).
+    toast.error("Couldn't open VS Code", {
+      description: "Install VS Code (with its vscode:// link handler) to open files at a line.",
+      action: { label: "Show in Finder", onClick: () => void revealItemInDir(abs) },
+    });
+  }
+}
+
+/** Small icon button that opens a location in the editor. */
+function EditorButton({ root, loc, className }: { root: string; loc: Loc; className?: string }) {
+  return (
+    <button
+      type="button"
+      onClick={() => void openInEditor(root, loc)}
+      aria-label={`Open ${loc.path}:${loc.line} in editor`}
+      title="Open in editor"
+      className={cn(
+        "press inline-flex size-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground",
+        className,
+      )}
+    >
+      <ExternalLink className="size-3.5" aria-hidden />
+    </button>
+  );
+}
 
 export function CodePage() {
   const projects = useQuery(projectsQuery());
@@ -62,40 +102,40 @@ export function CodePage() {
   return (
     <div className="h-full overflow-y-auto">
       <div className="mx-auto max-w-6xl space-y-5 px-6 py-6">
-        <header className="flex flex-wrap items-end justify-between gap-4">
-          <div>
-            <h1 className="flex items-center gap-2 text-2xl">
-              <Braces className="size-6 text-agent-foreground" aria-hidden /> Code
-            </h1>
-            <p className="mt-1 max-w-2xl text-sm text-muted-foreground">
+        <PageHeader
+          icon={Braces}
+          title="Code"
+          description={
+            <>
               Vard indexes your project's files, symbols and imports (on this Mac, in{" "}
               <code>.vard/index</code>) so agents find the right code and check what a change
               affects before editing.
-            </p>
-          </div>
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Project"
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-          >
-            <option value="">Choose a project</option>
-            {projects.data
-              ?.filter((p) => projectPath(p.id))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
-        </header>
+            </>
+          }
+          actions={
+            <select
+              value={projectId}
+              onChange={(e) => setProjectId(e.target.value)}
+              aria-label="Project"
+              className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+            >
+              <option value="">Choose a project</option>
+              {projects.data
+                ?.filter((p) => projectPath(p.id))
+                .map((p) => (
+                  <option key={p.id} value={p.id}>
+                    {p.name}
+                  </option>
+                ))}
+            </select>
+          }
+        />
         {!root ? (
-          <div className="relative overflow-hidden rounded-xl border border-dashed border-border p-10 text-center">
-            <StarField seed={61} />
-            <p className="relative text-sm text-muted-foreground">
-              Add a project folder in Projects, then choose it here.
-            </p>
-          </div>
+          <EmptyState
+            size="lg"
+            seed={61}
+            text="Add a project folder in Projects, then choose it here."
+          />
         ) : (
           <Workspace key={root} root={root} open={open} setOpen={setOpen} />
         )}
@@ -374,6 +414,7 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
                 <li key={i} className="rounded-lg border border-border bg-card p-3">
                   <div className="flex flex-wrap items-baseline gap-2">
                     <LocButton path={h.path} line={h.line} onOpen={onOpen} />
+                    <EditorButton root={root} loc={h} className="-my-1 self-center" />
                     {h.symbol && (
                       <span className="text-sm">
                         {h.kind ? `${h.kind} ` : ""}
@@ -483,7 +524,10 @@ function SymbolsTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }
                     <strong>{s.name}</strong>{" "}
                     {s.exported && <span className="text-xs text-diff-add">exported</span>}
                   </span>
-                  <LocButton path={s.path} line={s.line} onOpen={onOpen} />
+                  <span className="flex items-center gap-1">
+                    <LocButton path={s.path} line={s.line} onOpen={onOpen} />
+                    <EditorButton root={root} loc={s} />
+                  </span>
                 </li>
               ))}
             </ul>
@@ -696,9 +740,71 @@ function ImpactTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
       </form>
       <Results
         r={r}
-        render={(d) => (d.impact ? <ImpactCard r={d.impact} onOpen={onOpen} /> : null)}
+        render={(d) =>
+          d.impact ? (
+            <div className="space-y-3">
+              <ImpactCard r={d.impact} onOpen={onOpen} />
+              <ImpactGraph key={d.impact.target} root={root} report={d.impact} onOpen={onOpen} />
+            </div>
+          ) : null
+        }
       />
     </div>
+  );
+}
+
+/** "Show in graph": the dependency graph around the target with the impacted files lit. */
+function ImpactGraph({
+  root,
+  report,
+  onOpen,
+}: {
+  root: string;
+  report: ImpactReport;
+  onOpen: (l: Loc) => void;
+}) {
+  const [shown, setShown] = useState(false);
+  const focus = report.resolved.files[0];
+  const highlight = useMemo(
+    () => new Set([...report.direct, ...report.indirect].map((d) => d.path)),
+    [report],
+  );
+  const g = useCodeQuery(
+    root,
+    shown && focus ? { kind: "graph", focus, depth: 2, limit: 150 } : null,
+  );
+  if (!focus) return null;
+  return (
+    <section className="space-y-2">
+      <button
+        type="button"
+        onClick={() => setShown((v) => !v)}
+        aria-expanded={shown}
+        className="press inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
+      >
+        <Network className="size-4" aria-hidden /> {shown ? "Hide graph" : "Show in graph"}
+      </button>
+      {shown && (
+        <div className="animate-enter space-y-2">
+          <p className="text-xs text-muted-foreground">
+            Around <span className="font-mono">{focus}</span>; the {highlight.size} impacted{" "}
+            {highlight.size === 1 ? "file is" : "files are"} highlighted. Click a file to open it.
+          </p>
+          <Results
+            r={g}
+            render={(d) =>
+              d.graph ? (
+                <DepGraph
+                  graph={d.graph}
+                  highlight={highlight}
+                  onOpen={(id, kind) => kind === "file" && onOpen({ path: id, line: 1 })}
+                />
+              ) : null
+            }
+          />
+        </div>
+      )}
+    </section>
   );
 }
 
@@ -864,17 +970,10 @@ function SettingsTab({ root }: { root: string }) {
           search with a local Ollama model you already have (nothing is downloaded), or with your
           OpenAI or Google key; code that looks like it holds secrets is never sent.
         </p>
-        <select
-          value={cfg.data.embeddings.provider}
-          onChange={(e) => void save({ embeddings: { provider: e.target.value as "none" } })}
-          aria-label="Embeddings provider"
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-        >
-          <option value="none">Off</option>
-          <option value="ollama">Ollama on this Mac (nomic-embed-text)</option>
-          <option value="openai">OpenAI (text-embedding-3-small)</option>
-          <option value="google">Google (text-embedding-004)</option>
-        </select>
+        <EmbeddingsEditor
+          value={cfg.data.embeddings}
+          onSave={(embeddings) => void save({ embeddings })}
+        />
       </section>
       <section className="space-y-1">
         <h3 className="font-medium">Limits</h3>
@@ -913,6 +1012,12 @@ function Snippet({ root, loc, onClose }: { root: string; loc: Loc; onClose: () =
             className="inline-flex size-8 items-center justify-center rounded hover:bg-accent"
           >
             <Copy className="size-3.5" />
+          </button>
+          <button
+            onClick={() => void openInEditor(root, loc)}
+            className="press inline-flex min-h-8 items-center gap-1 rounded px-2 text-xs hover:bg-accent"
+          >
+            <ExternalLink className="size-3.5" aria-hidden /> Open in editor
           </button>
           <button
             onClick={() => void revealItemInDir(abs)}

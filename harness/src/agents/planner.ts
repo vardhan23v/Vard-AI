@@ -9,7 +9,12 @@ import { type AgentEnv, runAgent } from "./worker";
 import type { AgentRun } from "./schema";
 import type { Usage } from "../protocol";
 
-export function plannerPrompt(goal: string, roles: RoleConfig[], maxSubtasks: number, feedback?: string): string {
+export function plannerPrompt(
+  goal: string,
+  roles: RoleConfig[],
+  maxSubtasks: number,
+  feedback?: string,
+): string {
   const roleList = roles
     .filter((r) => (WORKER_ROLES as readonly string[]).includes(r.id))
     .map((r) => `- ${r.id}: ${r.description}`)
@@ -60,7 +65,10 @@ export function extractJson(text: string): unknown {
   return JSON.parse(src.slice(start, end + 1));
 }
 
-export function parseGraph(text: string, maxSubtasks: number): { graph?: TaskGraphT; errors: string[]; merged: { dropped: string; into: string }[] } {
+export function parseGraph(
+  text: string,
+  maxSubtasks: number,
+): { graph?: TaskGraphT; errors: string[]; merged: { dropped: string; into: string }[] } {
   let raw: unknown;
   try {
     raw = extractJson(text);
@@ -68,7 +76,11 @@ export function parseGraph(text: string, maxSubtasks: number): { graph?: TaskGra
     return { errors: [`the reply is not valid JSON (${(e as Error).message})`], merged: [] };
   }
   const r = TaskGraph.safeParse(raw);
-  if (!r.success) return { errors: r.error.issues.map((i) => `${i.path.join(".") || "plan"}: ${i.message}`), merged: [] };
+  if (!r.success)
+    return {
+      errors: r.error.issues.map((i) => `${i.path.join(".") || "plan"}: ${i.message}`),
+      merged: [],
+    };
   const { graph, merged } = dedupeGraph(r.data);
   const errors = validateGraph(graph, { maxSubtasks });
   return errors.length ? { errors, merged } : { graph, errors, merged };
@@ -76,8 +88,21 @@ export function parseGraph(text: string, maxSubtasks: number): { graph?: TaskGra
 
 export async function planGraph(
   env: AgentEnv,
-  o: { goal: string; roles: RoleConfig[]; planner: RoleConfig; maxSubtasks: number; feedback?: string; signal: AbortSignal; round: number },
-): Promise<{ graph: TaskGraphT; merged: { dropped: string; into: string }[]; usage: Usage; agents: AgentRun[] }> {
+  o: {
+    goal: string;
+    roles: RoleConfig[];
+    planner: RoleConfig;
+    maxSubtasks: number;
+    feedback?: string;
+    signal: AbortSignal;
+    round: number;
+  },
+): Promise<{
+  graph: TaskGraphT;
+  merged: { dropped: string; into: string }[];
+  usage: Usage;
+  agents: AgentRun[];
+}> {
   const usage: Usage = { inputTokens: 0, outputTokens: 0, totalTokens: 0 };
   const agents: AgentRun[] = [];
   const add = (u: Usage) => {
@@ -100,19 +125,25 @@ export async function planGraph(
     agents.push(agent);
     add(result.usage);
     if (result.status === "cancelled") throw new OrchestrationError("cancelled", "cancelled");
-    if (result.status === "blocked") throw new OrchestrationError("plan_invalid", `the planner stopped: ${result.reason}`);
+    if (result.status === "blocked")
+      throw new OrchestrationError("plan_invalid", `the planner stopped: ${result.reason}`);
     const parsed = parseGraph(result.summary, o.maxSubtasks);
     if (parsed.graph) return { graph: parsed.graph, merged: parsed.merged, usage, agents };
     prompt = `${plannerPrompt(o.goal, o.roles, o.maxSubtasks, o.feedback)}\n\nYour previous answer could not be used:\n${parsed.errors.map((e) => `- ${e}`).join("\n")}\n\nPrevious answer:\n${result.summary.slice(0, 6_000)}\n\nReply with the corrected JSON only.`;
   }
-  throw new OrchestrationError("plan_invalid", "the planner did not produce a valid plan after 3 attempts");
+  throw new OrchestrationError(
+    "plan_invalid",
+    "the planner did not produce a valid plan after 3 attempts",
+  );
 }
 
 /** The plan as Markdown, for the approval card and terminals. */
 export function renderGraph(g: TaskGraphT): string {
   const lines = g.summary ? [g.summary, ""] : [];
   g.tasks.forEach((t, i) => {
-    lines.push(`${i + 1}. **${t.title}** (${t.role}, \`${t.id}\`)${t.dependsOn.length ? ` after ${t.dependsOn.map((d) => `\`${d}\``).join(", ")}` : ""}`);
+    lines.push(
+      `${i + 1}. **${t.title}** (${t.role}, \`${t.id}\`)${t.dependsOn.length ? ` after ${t.dependsOn.map((d) => `\`${d}\``).join(", ")}` : ""}`,
+    );
     lines.push(`   ${t.description.replace(/\n+/g, " ")}`);
     if (t.files.length) lines.push(`   Files: ${t.files.join(", ")}`);
   });

@@ -66,7 +66,10 @@ export function parseProvider(name: string): ProviderId {
   if (n === "openrouter") return "openai-compatible";
   if (n === "gemini") return "google";
   const p = PROVIDERS.find((x) => x.id === n);
-  if (!p) throw new Error(`Unknown provider "${name}". Use one of: anthropic, openai, google, openrouter, groq, ollama.`);
+  if (!p)
+    throw new Error(
+      `Unknown provider "${name}". Use one of: anthropic, openai, google, openrouter, groq, ollama.`,
+    );
   return p.id;
 }
 
@@ -114,5 +117,12 @@ export function providerWithKey(ctx: Ctx, choice: ModelChoice): ProviderConfig {
 }
 
 function envHint(p: ProviderId) {
-  return { anthropic: "ANTHROPIC_API_KEY", openai: "OPENAI_API_KEY", google: "GEMINI_API_KEY", "openai-compatible": "OPENROUTER_API_KEY", groq: "GROQ_API_KEY", ollama: "" }[p];
+  return {
+    anthropic: "ANTHROPIC_API_KEY",
+    openai: "OPENAI_API_KEY",
+    google: "GEMINI_API_KEY",
+    "openai-compatible": "OPENROUTER_API_KEY",
+    groq: "GROQ_API_KEY",
+    ollama: "",
+  }[p];
 }

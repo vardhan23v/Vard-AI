@@ -195,7 +195,10 @@ function compile(l: Lang, lang: Language): Query[] {
   const hit = queryCache.get(key);
   if (hit) return hit;
   const out: Query[] = [];
-  for (const pattern of (QUERIES[l] ?? "").split("\n").map((s) => s.trim()).filter(Boolean)) {
+  for (const pattern of (QUERIES[l] ?? "")
+    .split("\n")
+    .map((s) => s.trim())
+    .filter(Boolean)) {
     try {
       out.push(new Query(lang, pattern));
     } catch {

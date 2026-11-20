@@ -27,22 +27,49 @@ export function skillsForTask(o: {
   maxChars?: number;
   topK?: number;
 }): TaskSkills {
-  const resolved = resolveSkills(o.registry.usable().concat(o.registry.all().filter((r) => !r.usable && o.explicit?.some((e) => e === r.name || e === r.id))), {
-    prompt: o.prompt,
-    explicit: o.explicit,
-    auto: o.auto,
+  const resolved = resolveSkills(
+    o.registry
+      .usable()
+      .concat(
+        o.registry
+          .all()
+          .filter((r) => !r.usable && o.explicit?.some((e) => e === r.name || e === r.id)),
+      ),
+    {
+      prompt: o.prompt,
+      explicit: o.explicit,
+      auto: o.auto,
+      role: o.role,
+      hints: o.hints,
+      signals: o.signals,
+      maxChars: o.maxChars,
+      topK: o.topK,
+    },
+  );
+  const base = {
+    taskId: o.taskId,
+    agentId: o.agentId,
     role: o.role,
-    hints: o.hints,
-    signals: o.signals,
-    maxChars: o.maxChars,
-    topK: o.topK,
-  });
-  const base = { taskId: o.taskId, agentId: o.agentId, role: o.role, projectRoot: o.registry.projectRoot };
-  o.registry.recordUse(resolved.map((r) => ({ ...base, skillId: r.record.id, at: Date.now(), how: r.activation.explicit ? ("explicit" as const) : ("auto" as const) })));
+    projectRoot: o.registry.projectRoot,
+  };
+  o.registry.recordUse(
+    resolved.map((r) => ({
+      ...base,
+      skillId: r.record.id,
+      at: Date.now(),
+      how: r.activation.explicit ? ("explicit" as const) : ("auto" as const),
+    })),
+  );
   const block = renderSkillsBlock(resolved);
   const tools = skillTools({
     skills: resolved,
     onUse: (u) => o.registry.recordUse([{ ...base, ...u, at: Date.now() }]),
   });
-  return { resolved, activated: resolved.map((r) => r.activation), block, tools, tokens: block ? estimateTokens(block) : 0 };
+  return {
+    resolved,
+    activated: resolved.map((r) => r.activation),
+    block,
+    tools,
+    tokens: block ? estimateTokens(block) : 0,
+  };
 }
