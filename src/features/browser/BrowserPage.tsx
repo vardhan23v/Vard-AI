@@ -290,7 +290,8 @@ function SessionView({
           >
             <RotateCw className="size-4" />
           </button>
-          <label className="min-w-0 flex-1">
+          {/* Keeps room for a URL; the buttons wrap to the next line first. */}
+          <label className="min-w-48 flex-1">
             <span className="sr-only">Address</span>
             <input
               value={url}
