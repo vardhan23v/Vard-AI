@@ -5,9 +5,10 @@
  *  - Clicks or key presses that look like paying, buying, transferring money, deleting an account,
  *    deploying or changing production, and typing into password, card or one-time-code fields,
  *    need confirm_sensitive and then ask every time.
- *  - Uploads always ask.
+ *  - Uploads ask every time (no "always"), showing the file list; credential files are refused.
  * Page content is untrusted: tools wrap it, and nothing a page says changes these rules.
  */
+import { isSensitivePath } from "../memory/secrets";
 import type { ToolDef } from "../tools/types";
 
 export interface BrowserRules {
@@ -96,12 +97,24 @@ export function decideBrowser(
     const c = checkUrl(input.url, rules.browserOrigins ?? []);
     return { action: c.action, reason: c.reason };
   }
-  if (action === "upload")
+  if (action === "upload") {
+    const files = Array.isArray(input.files)
+      ? input.files.map(String)
+      : input.file !== undefined
+        ? [String(input.file)]
+        : [];
+    const secret = files.find((f) => isSensitivePath(f));
+    if (secret)
+      return { action: "deny", reason: `${secret.slice(0, 200)} looks like a credential file` };
+    const list = files.slice(0, 20).map((f) => f.slice(0, 200));
     return {
       action: "ask",
-      reason: `upload ${String(input.file ?? "a file")} to the page`,
+      reason: list.length
+        ? `upload ${list.length} file${list.length === 1 ? "" : "s"} to the page: ${list.join(", ")}${files.length > list.length ? ", …" : ""}`
+        : "upload a file to the page",
       noAlways: true,
     };
+  }
   if (input.confirm_sensitive === true) {
     const what = String(
       input.target ?? input.name ?? input.label ?? input.text ?? input.key ?? "this element",
