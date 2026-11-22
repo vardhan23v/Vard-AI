@@ -19,6 +19,8 @@ jobs:
         working-directory: harness
       - name: Typecheck app
         run: bun run typecheck
+      - name: App tests
+        run: bun run test:app
       - name: Lint app
         run: bun run lint
         continue-on-error: false
