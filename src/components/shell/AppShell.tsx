@@ -16,6 +16,7 @@ import {
 import { signOut } from "firebase/auth";
 import { auth } from "@/lib/firebase";
 import { cn } from "@/lib/utils";
+import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
 import { startTaskStore } from "@/features/agent/store";
 
 type RailItem = {
@@ -30,10 +31,11 @@ type RailItem = {
     | "/settings";
   label: string;
   icon: ComponentType<{ className?: string }>;
+  shortcut?: string;
 };
 
 const RAIL: RailItem[] = [
-  { to: "/chat", label: "Chats", icon: MessagesSquare },
+  { to: "/chat", label: "Chats", icon: MessagesSquare, shortcut: "⌘N" },
   { to: "/projects", label: "Projects", icon: FolderGit2 },
   { to: "/integrations", label: "Integrations", icon: Plug },
   { to: "/agents", label: "Agents", icon: Users },
@@ -89,33 +91,35 @@ export function AppShell({ list }: { list?: ReactNode }) {
         <div className="flex-1" data-tauri-drag-region />
         {/* Only pages with a list pane (Chats, Projects) have something to toggle. */}
         {list && (
-          <button
-            type="button"
-            onClick={() => setListOpen((v) => !v)}
-            className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-            aria-label={listOpen ? "Hide sidebar" : "Show sidebar"}
-            aria-pressed={listOpen}
-            title="Toggle sidebar (⌘\)"
-          >
-            <PanelLeft className="size-5" />
-          </button>
+          <RailTip label={listOpen ? "Hide sidebar" : "Show sidebar"} shortcut="⌘\">
+            <button
+              type="button"
+              onClick={() => setListOpen((v) => !v)}
+              className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+              aria-label={listOpen ? "Hide sidebar" : "Show sidebar"}
+              aria-pressed={listOpen}
+            >
+              <PanelLeft className="size-5" />
+            </button>
+          </RailTip>
         )}
         <RailLink
           item={{ to: "/settings", label: "Settings", icon: Settings }}
           active={isActive("/settings")}
         />
-        <button
-          type="button"
-          onClick={async () => {
-            await signOut(auth);
-            void navigate({ to: "/login" });
-          }}
-          className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-accent hover:text-foreground"
-          aria-label="Sign out"
-          title="Sign out"
-        >
-          <LogOut className="size-5" />
-        </button>
+        <RailTip label="Sign out">
+          <button
+            type="button"
+            onClick={async () => {
+              await signOut(auth);
+              void navigate({ to: "/login" });
+            }}
+            className="inline-flex size-11 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-accent hover:text-foreground"
+            aria-label="Sign out"
+          >
+            <LogOut className="size-5" />
+          </button>
+        </RailTip>
       </nav>
 
       {/* List pane */}
@@ -144,25 +148,47 @@ export function AppShell({ list }: { list?: ReactNode }) {
 function RailLink({ item, active }: { item: RailItem; active: boolean }) {
   const Icon = item.icon;
   return (
-    <Link
-      to={item.to}
-      aria-label={item.label}
-      title={item.label}
-      aria-current={active ? "page" : undefined}
-      className={cn(
-        "relative inline-flex size-11 items-center justify-center rounded-lg transition-colors",
-        active
-          ? "bg-accent text-foreground"
-          : "text-muted-foreground hover:bg-accent hover:text-foreground",
-      )}
-    >
-      {active && (
-        <span
-          className="absolute top-2 bottom-2 -left-2.5 w-0.5 rounded-full bg-primary"
-          aria-hidden
-        />
-      )}
-      <Icon className="size-5" />
-    </Link>
+    <RailTip label={item.label} shortcut={item.shortcut}>
+      <Link
+        to={item.to}
+        aria-label={item.label}
+        aria-current={active ? "page" : undefined}
+        className={cn(
+          "relative inline-flex size-11 items-center justify-center rounded-lg transition-colors",
+          active
+            ? "bg-accent text-foreground"
+            : "text-muted-foreground hover:bg-accent hover:text-foreground",
+        )}
+      >
+        {active && (
+          <span
+            className="absolute top-2 bottom-2 -left-2.5 w-0.5 rounded-full bg-primary"
+            aria-hidden
+          />
+        )}
+        <Icon className="size-5" />
+      </Link>
+    </RailTip>
+  );
+}
+
+/** Rail tooltip: the label, plus its keyboard shortcut when there is one. */
+function RailTip({
+  label,
+  shortcut,
+  children,
+}: {
+  label: string;
+  shortcut?: string;
+  children: ReactNode;
+}) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>{children}</TooltipTrigger>
+      <TooltipContent side="right" className="flex items-center gap-2">
+        {label}
+        {shortcut && <kbd className="font-mono text-[11px] opacity-70">{shortcut}</kbd>}
+      </TooltipContent>
+    </Tooltip>
   );
 }

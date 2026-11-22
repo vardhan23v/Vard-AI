@@ -62,6 +62,13 @@
   --color-agent-foreground: var(--agent-foreground);
   --color-diff-add: var(--diff-add);
   --color-diff-remove: var(--diff-remove);
+  --color-success: var(--success);
+  --color-success-foreground: var(--success-foreground);
+  --color-warning: var(--warning);
+  --color-warning-foreground: var(--warning-foreground);
+  /* Bare transition-* utilities use the functional motion tokens. */
+  --default-transition-duration: var(--motion-fast);
+  --default-transition-timing-function: var(--ease-out);
   --font-sans: "Inter Variable", ui-sans-serif, system-ui, -apple-system, sans-serif;
   --font-heading: "Fraunces Variable", ui-serif, Georgia, serif;
   --font-mono: "JetBrains Mono Variable", ui-monospace, "SF Mono", Menlo, monospace;
@@ -89,6 +96,8 @@
   --sn-cerulean-ink: #9db4d4;
   --sn-sage: #b2b580;        /* diff added */
   --sn-danger: #ff9b8f;      /* the one colour not in the painting */
+  --sn-cypress: #8cc49a;     /* cypress green, lifted — success; 7.21:1 on bg, 6.25:1 on card */
+  --sn-moon: #e0a867;        /* moon ochre, lifted — warning; 6.86:1 on bg, 5.95:1 on card */
 
   --background: var(--sn-bg);
   --foreground: var(--sn-ink);
@@ -113,6 +122,10 @@
   --agent-foreground: var(--sn-cerulean-ink);
   --diff-add: var(--sn-sage);
   --diff-remove: var(--sn-danger);
+  --success: var(--sn-cypress);
+  --success-foreground: var(--sn-bg);
+  --warning: var(--sn-moon);
+  --warning-foreground: var(--sn-bg);
   --chart-1: var(--sn-star);
   --chart-2: var(--sn-cerulean);
   --chart-3: var(--sn-sage);
@@ -145,7 +158,11 @@
   --sn-cerulean-ink: #2f4a7f;
   --sn-sage: #5b6a1f;
   --sn-danger: #b3261e;
+  --sn-cypress: #2e6b44;     /* 5.62:1 on bg, 6.03:1 on card */
+  --sn-moon: #8a4f0f;        /* 5.79:1 on bg, 6.21:1 on card */
   --destructive-foreground: #fbf9f0;
+  --success-foreground: #fbf9f0;
+  --warning-foreground: #fbf9f0;
   --sidebar: #ece8d6;
   color-scheme: light;
 }
@@ -177,81 +194,11 @@
   }
 }
 
-
-
-@keyframes spin-slow { to { transform: rotate(360deg); } }
-@utility animate-spin-slow { animation: spin-slow 14s linear infinite; }
-
-@utility orb-glow {
-  box-shadow:
-    0 0 60px 10px color-mix(in oklab, var(--primary) 45%, transparent),
-    0 0 160px 50px color-mix(in oklab, var(--accent) 32%, transparent),
-    inset 0 0 60px color-mix(in oklab, var(--primary) 38%, transparent);
-}
-
-@keyframes orb-pulse {
-  0%, 100% { transform: scale(1); filter: hue-rotate(0deg); }
-  50% { transform: scale(1.06); filter: hue-rotate(15deg); }
-}
-@keyframes orb-spin { to { transform: rotate(360deg); } }
-@keyframes orb-spin-rev { to { transform: rotate(-360deg); } }
-@keyframes wave { 0%,100% { transform: scaleY(0.3); } 50% { transform: scaleY(1); } }
+/* The "running" ring (live-dot). */
 @keyframes ring-expand {
   0% { transform: scale(0.6); opacity: 0.8; }
   100% { transform: scale(2.2); opacity: 0; }
 }
-
-@utility animate-orb-pulse { animation: orb-pulse 4s ease-in-out infinite; }
-@utility animate-orb-spin { animation: orb-spin 18s linear infinite; }
-@utility animate-orb-spin-rev { animation: orb-spin-rev 24s linear infinite; }
-@utility animate-wave { animation: wave 1s ease-in-out infinite; }
-@utility animate-ring { animation: ring-expand 2.4s ease-out infinite; }
-
-@keyframes float-y {
-  0%, 100% { transform: translateY(0); }
-  50% { transform: translateY(-14px); }
-}
-@keyframes drift {
-  0% { transform: translate(0,0); }
-  50% { transform: translate(20px,-30px); }
-  100% { transform: translate(0,0); }
-}
-@keyframes shimmer {
-  0% { background-position: 0% 50%; }
-  100% { background-position: 200% 50%; }
-}
-@keyframes fade-up {
-  0% { opacity: 0; transform: translateY(24px); }
-  100% { opacity: 1; transform: translateY(0); }
-}
-@keyframes twinkle {
-  0%, 100% { opacity: 0.2; transform: scale(0.8); }
-  50% { opacity: 1; transform: scale(1.2); }
-}
-@keyframes slide-in-left {
-  0% { opacity: 0; transform: translateX(-12px); }
-  100% { opacity: 1; transform: translateX(0); }
-}
-@keyframes pop-in {
-  0% { opacity: 0; transform: scale(0.94) translateY(10px); }
-  100% { opacity: 1; transform: scale(1) translateY(0); }
-}
-@keyframes glow-pulse {
-  0%, 100% { box-shadow: 0 0 0 0 color-mix(in oklab, var(--primary) 35%, transparent); }
-  50% { box-shadow: 0 0 22px 4px color-mix(in oklab, var(--primary) 35%, transparent); }
-}
-
-@utility animate-float { animation: float-y 6s ease-in-out infinite; }
-@utility animate-drift { animation: drift 12s ease-in-out infinite; }
-@utility animate-fade-up { animation: fade-up 0.9s ease-out both; }
-@utility animate-twinkle { animation: twinkle 3s ease-in-out infinite; }
-@utility animate-shimmer {
-  background-size: 200% auto;
-  animation: shimmer 4s linear infinite;
-}
-@utility animate-slide-in-left { animation: slide-in-left 0.5s ease-out both; }
-@utility animate-pop-in { animation: pop-in 0.6s cubic-bezier(0.2,0.8,0.2,1) both; }
-@utility animate-glow-pulse { animation: glow-pulse 2.4s ease-in-out infinite; }
 
 /* ── Functional motion tokens ─────────────────────────────────────────────
  * Durations scale with the user's Motion setting: MotionProvider sets
@@ -445,23 +392,11 @@ html[data-transition="blur"] .route-transition { animation-name: route-blur; }
     transition-duration: 0.001ms !important;
     transition-delay: 0ms !important;
   }
-  /* Loading indicators: stop spinners, pulses, shimmer, and custom ambient
-   * loops so the UI stays completely still. */
+  /* Loading indicators: stop spinners, pulses and skeletons so the UI stays completely still. */
   .animate-spin,
-  .animate-spin-slow,
   .animate-pulse,
   .animate-bounce,
   .animate-ping,
-  .animate-shimmer,
-  .animate-orb-pulse,
-  .animate-orb-spin,
-  .animate-orb-spin-rev,
-  .animate-wave,
-  .animate-ring,
-  .animate-float,
-  .animate-drift,
-  .animate-twinkle,
-  .animate-glow-pulse,
   [data-slot="skeleton"],
   [role="progressbar"] *,
   [role="status"] * {
@@ -505,20 +440,9 @@ html[data-reduced-motion="on"] [data-sonner-toast] * {
 }
 /* Force-stop loading animations when reduced motion is set to "on". */
 html[data-reduced-motion="on"] .animate-spin,
-html[data-reduced-motion="on"] .animate-spin-slow,
 html[data-reduced-motion="on"] .animate-pulse,
 html[data-reduced-motion="on"] .animate-bounce,
 html[data-reduced-motion="on"] .animate-ping,
-html[data-reduced-motion="on"] .animate-shimmer,
-html[data-reduced-motion="on"] .animate-orb-pulse,
-html[data-reduced-motion="on"] .animate-orb-spin,
-html[data-reduced-motion="on"] .animate-orb-spin-rev,
-html[data-reduced-motion="on"] .animate-wave,
-html[data-reduced-motion="on"] .animate-ring,
-html[data-reduced-motion="on"] .animate-float,
-html[data-reduced-motion="on"] .animate-drift,
-html[data-reduced-motion="on"] .animate-twinkle,
-html[data-reduced-motion="on"] .animate-glow-pulse,
 html[data-reduced-motion="on"] [data-slot="skeleton"],
 html[data-reduced-motion="on"] [role="progressbar"] *,
 html[data-reduced-motion="on"] [role="status"] * {
@@ -538,19 +462,15 @@ html[data-reduced-motion="on"] [data-motion-preview="full"] *::after {
 /* Preview opt-out for loading indicators, so the "Full motion" preview keeps
  * spinners/skeletons alive even under forced reduced motion. */
 html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-spin,
-html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-spin-slow,
 html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-pulse,
-html[data-reduced-motion="on"] [data-motion-preview="full"] .animate-shimmer,
 html[data-reduced-motion="on"] [data-motion-preview="full"] [data-slot="skeleton"] {
   animation: revert !important;
 }
 /* Reduced preview: neutralize loading animations regardless of global setting. */
 [data-motion-preview="reduced"] .animate-spin,
-[data-motion-preview="reduced"] .animate-spin-slow,
 [data-motion-preview="reduced"] .animate-pulse,
 [data-motion-preview="reduced"] .animate-bounce,
 [data-motion-preview="reduced"] .animate-ping,
-[data-motion-preview="reduced"] .animate-shimmer,
 [data-motion-preview="reduced"] [data-slot="skeleton"],
 [data-motion-preview="reduced"] [role="progressbar"] *,
 [data-motion-preview="reduced"] [role="status"] * {
@@ -571,31 +491,6 @@ html[data-reduced-motion="on"] [data-motion-preview="full"] [data-slot="skeleton
   animation-duration: 0.001ms !important;
   animation-iteration-count: 1 !important;
   transition-duration: 0.001ms !important;
-}
-
-@utility tile-hover {
-  transition: transform 0.35s ease, box-shadow 0.35s ease, border-color 0.35s ease;
-  &:hover {
-    transform: translateY(-4px);
-    border-color: color-mix(in oklab, var(--primary) 45%, transparent);
-    box-shadow: 0 20px 60px -25px color-mix(in oklab, var(--primary) 55%, transparent);
-  }
-}
-
-@utility nav-item {
-  position: relative;
-  transition: transform 0.25s ease, color 0.25s ease, background-color 0.25s ease;
-  &:hover { transform: translateX(3px); }
-  &::before {
-    content: "";
-    position: absolute;
-    left: -6px; top: 20%; bottom: 20%;
-    width: 2px; border-radius: 2px;
-    background: linear-gradient(to bottom, var(--primary), var(--accent));
-    opacity: 0;
-    transition: opacity 0.25s ease;
-  }
-  &:hover::before, &[data-active="true"]::before { opacity: 1; }
 }
 
 @layer base {

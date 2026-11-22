@@ -32,8 +32,16 @@ import {
 } from "@/components/ui/alert-dialog";
 import { EmptyState } from "@/components/EmptyState";
 import { Pill } from "@/components/Pill";
-import { useListEntrance } from "@/lib/motion";
+import { useListEntrance } from "@/lib/motion-hooks";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Slider } from "@/components/ui/slider";
+import { PageHeader } from "@/components/PageHeader";
 import { Switch } from "@/components/ui/switch";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -47,7 +55,7 @@ import {
 } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 
-export function ago(iso?: string) {
+function ago(iso?: string) {
   if (!iso) return "";
   const s = (Date.now() - Date.parse(iso)) / 1000;
   if (!Number.isFinite(s)) return "";
@@ -124,67 +132,68 @@ export function MemoryTab({ path }: { path: string }) {
   return (
     <div className="h-full overflow-y-auto">
       <div className={cn("mx-auto max-w-3xl space-y-6 px-6 py-6", entrance.list)}>
-        <header className="flex flex-wrap items-start justify-between gap-3">
-          <div>
-            <h1 className="flex items-center gap-2 text-xl">
-              <Brain className="size-5 text-agent-foreground" aria-hidden /> Project memory
-            </h1>
-            <p className="mt-1 text-sm text-muted-foreground">
+        <PageHeader
+          icon={Brain}
+          title="Project memory"
+          description={
+            <>
               {live.length} notes{inferred ? ` · ${inferred} inferred` : ""}
               {data.analyzedAt ? ` · analyzed ${ago(data.analyzedAt)}` : " · not analyzed yet"} ·
               stays on this Mac
-            </p>
-          </div>
-          <div className="flex flex-wrap gap-2">
-            <button
-              onClick={() => setAdding(true)}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
-            >
-              <Plus className="size-4" /> Add a note
-            </button>
-            <button
-              onClick={() =>
-                void change({ op: "analyze" }, "Project analyzed; your own notes were kept")
-              }
-              disabled={!!busy}
-              className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent disabled:opacity-50"
-            >
-              {busy === "analyze" ? (
-                <Loader2 className="size-4 animate-spin" />
-              ) : (
-                <RefreshCw className="size-4" />
-              )}{" "}
-              Re-analyze
-            </button>
-            <AlertDialog>
-              <AlertDialogTrigger asChild>
-                <button
-                  disabled={!live.length || !!busy}
-                  className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
-                >
-                  <Trash2 className="size-4" /> Clear
-                </button>
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>Delete all {live.length} notes?</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    Vard forgets everything it knows about this project. This can't be undone.
-                    Settings are kept.
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                  <AlertDialogAction
-                    onClick={() => void change({ op: "clear" }, "Project memory cleared")}
+            </>
+          }
+          actions={
+            <>
+              <button
+                onClick={() => setAdding(true)}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
+              >
+                <Plus className="size-4" /> Add a note
+              </button>
+              <button
+                onClick={() =>
+                  void change({ op: "analyze" }, "Project analyzed; your own notes were kept")
+                }
+                disabled={!!busy}
+                className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent disabled:opacity-50"
+              >
+                {busy === "analyze" ? (
+                  <Loader2 className="size-4 animate-spin" />
+                ) : (
+                  <RefreshCw className="size-4" />
+                )}{" "}
+                Re-analyze
+              </button>
+              <AlertDialog>
+                <AlertDialogTrigger asChild>
+                  <button
+                    disabled={!live.length || !!busy}
+                    className="inline-flex min-h-9 items-center gap-1.5 rounded-md px-3 text-sm text-destructive hover:bg-destructive/10 disabled:opacity-50"
                   >
-                    Delete all
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </header>
+                    <Trash2 className="size-4" /> Clear
+                  </button>
+                </AlertDialogTrigger>
+                <AlertDialogContent>
+                  <AlertDialogHeader>
+                    <AlertDialogTitle>Delete all {live.length} notes?</AlertDialogTitle>
+                    <AlertDialogDescription>
+                      Vard forgets everything it knows about this project. This can't be undone.
+                      Settings are kept.
+                    </AlertDialogDescription>
+                  </AlertDialogHeader>
+                  <AlertDialogFooter>
+                    <AlertDialogCancel>Cancel</AlertDialogCancel>
+                    <AlertDialogAction
+                      onClick={() => void change({ op: "clear" }, "Project memory cleared")}
+                    >
+                      Delete all
+                    </AlertDialogAction>
+                  </AlertDialogFooter>
+                </AlertDialogContent>
+              </AlertDialog>
+            </>
+          }
+        />
 
         {adding && (
           <AddNote
@@ -206,36 +215,32 @@ export function MemoryTab({ path }: { path: string }) {
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               placeholder="Search notes"
-              className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none focus:border-primary"
+              className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm"
             />
           </label>
-          <label>
-            <span className="sr-only">Category</span>
-            <select
-              value={category}
-              onChange={(e) => setCategory(e.target.value as MemoryCategory | "all")}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-            >
-              <option value="all">All categories</option>
+          <Select value={category} onValueChange={(v) => setCategory(v as MemoryCategory | "all")}>
+            <SelectTrigger aria-label="Category" className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All categories</SelectItem>
               {MEMORY_CATEGORIES.map((c) => (
-                <option key={c.id} value={c.id}>
+                <SelectItem key={c.id} value={c.id}>
                   {c.title}
-                </option>
+                </SelectItem>
               ))}
-            </select>
-          </label>
-          <label>
-            <span className="sr-only">Status</span>
-            <select
-              value={status}
-              onChange={(e) => setStatus(e.target.value as typeof status)}
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-            >
-              <option value="all">Verified and inferred</option>
-              <option value="verified">Verified only</option>
-              <option value="inferred">Inferred only</option>
-            </select>
-          </label>
+            </SelectContent>
+          </Select>
+          <Select value={status} onValueChange={(v) => setStatus(v as typeof status)}>
+            <SelectTrigger aria-label="Status" className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">Verified and inferred</SelectItem>
+              <SelectItem value="verified">Verified only</SelectItem>
+              <SelectItem value="inferred">Inferred only</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
 
         {!live.length ? (
@@ -318,21 +323,21 @@ function EntryRow({
           value={text}
           autoFocus
           onChange={(e) => setText(e.target.value)}
-          className="w-full rounded-md border border-input bg-background p-2 text-sm outline-none focus:border-primary"
+          className="w-full rounded-md border border-input bg-background p-2 text-sm"
         />
         <div className="flex flex-wrap items-center gap-2">
-          <select
-            value={cat}
-            onChange={(e) => setCat(e.target.value as MemoryCategory)}
-            aria-label="Category"
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-          >
-            {MEMORY_CATEGORIES.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.title}
-              </option>
-            ))}
-          </select>
+          <Select value={cat} onValueChange={(v) => setCat(v as MemoryCategory)}>
+            <SelectTrigger aria-label="Category" className="w-auto">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {MEMORY_CATEGORIES.map((c) => (
+                <SelectItem key={c.id} value={c.id}>
+                  {c.title}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           <button
             onClick={async () => {
               const ok = await change(
@@ -379,7 +384,7 @@ function EntryRow({
             disabled={busy}
             aria-label="Mark as verified"
             title="Mark as verified"
-            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-diff-add"
+            className="inline-flex size-9 items-center justify-center rounded-md text-muted-foreground hover:bg-accent hover:text-success"
           >
             <Check className="size-4" />
           </button>
@@ -444,21 +449,21 @@ function AddNote({
         value={text}
         onChange={(e) => setText(e.target.value)}
         placeholder="One fact per note, e.g. “API handlers live in src/server/routes”"
-        className="w-full rounded-md border border-input bg-background p-2 text-sm outline-none focus:border-primary"
+        className="w-full rounded-md border border-input bg-background p-2 text-sm"
       />
       <div className="flex flex-wrap items-center gap-2">
-        <select
-          value={cat}
-          onChange={(e) => setCat(e.target.value as MemoryCategory)}
-          aria-label="Category"
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm"
-        >
-          {MEMORY_CATEGORIES.filter((c) => c.id !== "overview").map((c) => (
-            <option key={c.id} value={c.id}>
-              {c.title}
-            </option>
-          ))}
-        </select>
+        <Select value={cat} onValueChange={(v) => setCat(v as MemoryCategory)}>
+          <SelectTrigger aria-label="Category" className="w-auto">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {MEMORY_CATEGORIES.filter((c) => c.id !== "overview").map((c) => (
+              <SelectItem key={c.id} value={c.id}>
+                {c.title}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
         <button
           type="submit"
           disabled={!text.trim()}
@@ -632,7 +637,7 @@ function SettingsCard({
           rows={3}
           value={exclude}
           onChange={(e) => setExclude(e.target.value)}
-          className="mt-2 w-full rounded-md border border-input bg-background p-2 font-mono text-xs outline-none focus:border-primary"
+          className="mt-2 w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
         />
         <button
           type="submit"

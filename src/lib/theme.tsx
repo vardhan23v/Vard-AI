@@ -1,23 +1,13 @@
-import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
+import {
+  ACCENTS,
+  ThemeContext,
+  type ThemeAccent,
+  type ThemeCtx,
+  type ThemeMode,
+} from "./theme-context";
 
-export type ThemeMode = "dark" | "light";
-export type ThemeAccent = "star" | "cerulean" | "sage";
-
-export const ACCENTS: { id: ThemeAccent; label: string; swatch: string }[] = [
-  { id: "star", label: "Star Yellow", swatch: "#c2b75d" },
-  { id: "cerulean", label: "Swirl Blue", swatch: "#7f97b0" },
-  { id: "sage", label: "Cypress Sage", swatch: "#b2b580" },
-];
-
-type ThemeCtx = {
-  mode: ThemeMode;
-  accent: ThemeAccent;
-  setMode: (m: ThemeMode) => void;
-  setAccent: (a: ThemeAccent) => void;
-  toggleMode: () => void;
-};
-
-const Ctx = createContext<ThemeCtx | null>(null);
+export type { ThemeAccent, ThemeMode } from "./theme-context";
 
 const MODE_KEY = "vard-theme-mode";
 const ACCENT_KEY = "vard-theme-accent";
@@ -56,13 +46,7 @@ export function ThemeProvider({ children }: { children: ReactNode }) {
     toggleMode: () => setModeState((m) => (m === "dark" ? "light" : "dark")),
   };
 
-  return <Ctx.Provider value={value}>{children}</Ctx.Provider>;
-}
-
-export function useTheme() {
-  const v = useContext(Ctx);
-  if (!v) throw new Error("useTheme must be used within ThemeProvider");
-  return v;
+  return <ThemeContext.Provider value={value}>{children}</ThemeContext.Provider>;
 }
 
 // Inline script that runs before hydration to prevent flash of wrong theme.

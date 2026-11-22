@@ -178,9 +178,9 @@ export function TeamDashboard({ task, live }: { task: AgentTask; live: LiveTask 
         {team.phase === "attention" && (
           <p
             role="alert"
-            className="mt-3 flex items-start gap-2 rounded-md border border-primary/50 bg-primary/5 p-3 text-sm"
+            className="mt-3 flex items-start gap-2 rounded-md border border-warning/50 bg-warning/5 p-3 text-sm"
           >
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" />
+            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
             Some subtasks failed or need your input. Open one to answer or retry it, or continue
             with what succeeded.
           </p>
@@ -292,7 +292,7 @@ function PlanGraph({
                 key={s.id}
                 onClick={() => onOpen(s.id)}
                 className={cn(
-                  "rounded-lg border bg-background/40 p-2.5 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+                  "rounded-lg border bg-background/40 p-2.5 text-left transition-colors hover:bg-accent",
                   s.status === "running" || s.status === "integrating"
                     ? "border-agent/60"
                     : s.status === "needs_attention"
@@ -375,7 +375,7 @@ function AgentCard({
   return (
     <button
       onClick={onOpen}
-      className="w-full rounded-lg border border-border bg-background/40 p-3 text-left transition-colors hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+      className="w-full rounded-lg border border-border bg-background/40 p-3 text-left transition-colors hover:bg-accent"
     >
       <div className="flex items-center justify-between gap-2">
         <span className="flex min-w-0 items-center gap-2 text-sm font-medium">
@@ -507,7 +507,7 @@ function ActivityLog({ team }: { team: TeamState }) {
         r.status === "conflict" ? (
           <AlertTriangle className="size-3.5 text-destructive" />
         ) : r.status === "merged" ? (
-          <GitMerge className="size-3.5 text-diff-add" />
+          <GitMerge className="size-3.5 text-success" />
         ) : (
           <CheckCircle2 className="size-3.5" />
         ),

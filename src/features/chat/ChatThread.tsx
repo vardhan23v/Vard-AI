@@ -19,7 +19,7 @@ import { StarField } from "@/components/StarField";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useModelChoice } from "@/lib/models";
 import { isTauri } from "@/lib/agent-client";
-import { useListEntrance } from "@/lib/motion";
+import { useListEntrance } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
 
 const SYSTEM_PROMPT =

@@ -1,5 +1,12 @@
 /** Semantic search settings for a project's code index: embeddings provider and model. */
 import { useState } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import type { CodeConfig } from "@/lib/agent-client";
 
 type Embeddings = CodeConfig["embeddings"];
@@ -24,20 +31,23 @@ export function EmbeddingsEditor({
     e.provider === "ollama" && value.baseUrl ? { ...e, baseUrl: value.baseUrl } : e;
   return (
     <div className="flex flex-wrap items-center gap-2">
-      <select
+      <Select
         value={value.provider}
-        onChange={(e) => {
+        onValueChange={(v) => {
           setModel(null);
-          onSave(keep({ provider: e.target.value as Embeddings["provider"] }));
+          onSave(keep({ provider: v as Embeddings["provider"] }));
         }}
-        aria-label="Embeddings provider"
-        className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
       >
-        <option value="none">Off</option>
-        <option value="ollama">Ollama on this Mac (nomic-embed-text)</option>
-        <option value="openai">OpenAI (text-embedding-3-small)</option>
-        <option value="google">Google (text-embedding-004)</option>
-      </select>
+        <SelectTrigger aria-label="Embeddings provider" className="w-auto">
+          <SelectValue />
+        </SelectTrigger>
+        <SelectContent>
+          <SelectItem value="none">Off</SelectItem>
+          <SelectItem value="ollama">Ollama on this Mac (nomic-embed-text)</SelectItem>
+          <SelectItem value="openai">OpenAI (text-embedding-3-small)</SelectItem>
+          <SelectItem value="google">Google (text-embedding-004)</SelectItem>
+        </SelectContent>
+      </Select>
       {value.provider !== "none" && (
         <form
           className="flex flex-1 gap-2"
@@ -53,7 +63,7 @@ export function EmbeddingsEditor({
             aria-label="Embeddings model"
             placeholder={`Model (default ${DEFAULT_MODEL[value.provider]})`}
             maxLength={200}
-            className="h-9 min-w-48 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+            className="h-9 min-w-48 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs"
           />
           <button
             disabled={model === null}

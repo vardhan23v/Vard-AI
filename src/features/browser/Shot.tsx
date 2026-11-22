@@ -1,37 +1,10 @@
 /** A screenshot artifact: lazily loaded thumbnail that opens full size. */
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { ImageOff } from "lucide-react";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
-import { browser } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
-
-const cache = new Map<string, Promise<string>>();
-
-/** The project folder an artifact belongs to (artifacts live in <project>/.vard/artifacts). */
-export const projectOfArtifact = (p: string) => p.split("/.vard/artifacts/")[0];
-
-export function useArtifactUrl(path: string | undefined) {
-  const [url, setUrl] = useState<string | null>(null);
-  const [error, setError] = useState(false);
-  useEffect(() => {
-    if (!path) return;
-    let live = true;
-    let p = cache.get(path);
-    if (!p) {
-      p = browser
-        .artifact(projectOfArtifact(path), path)
-        .then((a) => `data:${a.mediaType};base64,${a.data}`);
-      p.catch(() => cache.delete(path!));
-      cache.set(path, p);
-    }
-    p.then((u) => live && setUrl(u)).catch(() => live && setError(true));
-    return () => {
-      live = false;
-    };
-  }, [path]);
-  return { url, error };
-}
+import { useArtifactUrl } from "./artifacts";
 
 export function Shot({
   path,
@@ -52,7 +25,7 @@ export function Shot({
       <button
         onClick={() => url && setOpen(true)}
         className={cn(
-          "group lift relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md border border-border bg-muted/30 focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+          "group lift relative flex aspect-[4/3] w-full items-center justify-center overflow-hidden rounded-md border border-border bg-muted/30",
           className,
         )}
         aria-label={`Open screenshot ${label}`}

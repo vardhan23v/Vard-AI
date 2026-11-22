@@ -3,8 +3,15 @@ import { useEffect, useRef, useState } from "react";
 import { Check, CircleDot, Trash2 } from "lucide-react";
 
 import { Card } from "@/features/agent/TaskView";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { taskActions, type LiveTask } from "@/features/agent/store";
-import { prefersReducedMotion } from "@/lib/motion";
+import { prefersReducedMotion } from "@/lib/motion-context";
 import { ROLE_LABEL } from "./team-utils";
 
 type Graph = NonNullable<NonNullable<LiveTask["pending"]>["graph"]>;
@@ -81,7 +88,7 @@ export function TeamPlanApproval({ taskId, live }: { taskId: string; live: LiveT
                         id={`st-title-${t.id}`}
                         value={t.title}
                         onChange={(e) => update(i, { title: e.target.value })}
-                        className="w-full rounded border border-transparent bg-transparent px-1 text-sm font-medium outline-none hover:border-input focus:border-primary"
+                        className="w-full rounded border border-transparent bg-transparent px-1 text-sm font-medium hover:border-input"
                       />
                       <p className="px-1 text-xs text-muted-foreground">
                         <code>{t.id}</code>
@@ -99,20 +106,23 @@ export function TeamPlanApproval({ taskId, live }: { taskId: string; live: LiveT
                       <label className="sr-only" htmlFor={`st-role-${t.id}`}>
                         Role
                       </label>
-                      <select
-                        id={`st-role-${t.id}`}
+                      <Select
                         value={t.role}
-                        onChange={(e) =>
-                          update(i, { role: e.target.value as Graph["tasks"][number]["role"] })
+                        onValueChange={(v) =>
+                          update(i, { role: v as Graph["tasks"][number]["role"] })
                         }
-                        className="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
                       >
-                        {WORKERS.map((r) => (
-                          <option key={r} value={r}>
-                            {ROLE_LABEL[r]}
-                          </option>
-                        ))}
-                      </select>
+                        <SelectTrigger id={`st-role-${t.id}`} className="h-8 w-auto text-xs">
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          {WORKERS.map((r) => (
+                            <SelectItem key={r} value={r}>
+                              {ROLE_LABEL[r]}
+                            </SelectItem>
+                          ))}
+                        </SelectContent>
+                      </Select>
                       <button
                         onClick={() => remove(t.id)}
                         disabled={remaining <= 1 || removing.has(t.id)}
@@ -131,7 +141,7 @@ export function TeamPlanApproval({ taskId, live }: { taskId: string; live: LiveT
                     value={t.description}
                     onChange={(e) => update(i, { description: e.target.value })}
                     rows={2}
-                    className="mt-2 w-full resize-y rounded-md border border-input bg-background p-2 text-xs outline-none focus:border-primary"
+                    className="mt-2 w-full resize-y rounded-md border border-input bg-background p-2 text-xs"
                   />
                 </div>
               </div>
@@ -147,7 +157,7 @@ export function TeamPlanApproval({ taskId, live }: { taskId: string; live: LiveT
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
         placeholder="e.g. Keep the API and UI in one subtask"
-        className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+        className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
       />
       <div className="mt-4 flex flex-wrap gap-2">
         <button

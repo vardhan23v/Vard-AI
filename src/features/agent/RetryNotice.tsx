@@ -19,7 +19,7 @@ export function RetryNotice({ wait, className }: { wait?: RetryWait; className?:
     <span
       role="status"
       title={wait.message}
-      className={cn("flex animate-fade-in items-center gap-1.5 text-xs text-primary", className)}
+      className={cn("flex animate-fade-in items-center gap-1.5 text-xs text-warning", className)}
     >
       <Clock className="size-3.5 shrink-0" aria-hidden />
       <span>

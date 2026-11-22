@@ -35,8 +35,20 @@ export function mark(step: string) {
   bootLog(`mark ${step}`);
 }
 
-/** Records uncaught errors, which otherwise vanish in a release build. */
+/**
+ * Records uncaught errors, which otherwise vanish in a release build, and how this page was
+ * loaded and left, so the log tells a reload from a new launch.
+ */
 export function installErrorLogging() {
+  const nav = performance.getEntriesByType("navigation")[0] as
+    | PerformanceNavigationTiming
+    | undefined;
+  bootLog(`page ${nav?.type ?? "unknown"} ${location.pathname}`);
+  window.addEventListener("beforeunload", () => bootLog("page beforeunload"));
+  window.addEventListener("pagehide", (e) => bootLog(`page hide persisted=${e.persisted}`));
+  document.addEventListener("visibilitychange", () =>
+    bootLog(`page visibility ${document.visibilityState}`),
+  );
   window.addEventListener("error", (e) => {
     bootLog(`error ${e.message} at ${e.filename?.split("/").pop() ?? "?"}:${e.lineno ?? 0}`);
   });

@@ -297,7 +297,7 @@ function Overview({
               <span className="w-44 truncate font-mono text-xs">
                 {s.name.replace(/^header:/, "header ")}
               </span>
-              <span className={cn("text-xs", s.set ? "text-diff-add" : "text-destructive")}>
+              <span className={cn("text-xs", s.set ? "text-success" : "text-destructive")}>
                 {s.set ? "stored" : "missing"}
               </span>
               <input
@@ -307,7 +307,7 @@ function Overview({
                 value={values[s.name] ?? ""}
                 onChange={(e) => setValues((v) => ({ ...v, [s.name]: e.target.value }))}
                 placeholder={s.set ? "Replace…" : "Value"}
-                className="h-9 min-w-40 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+                className="h-9 min-w-40 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs"
               />
               <button
                 type="submit"
@@ -441,7 +441,7 @@ function Hint({
       className={cn(
         "rounded-full border px-1.5 py-px",
         tone === "ok"
-          ? "border-diff-add/40 text-diff-add"
+          ? "border-success/40 text-success"
           : tone === "danger"
             ? "border-destructive/40 text-destructive"
             : "border-border text-muted-foreground",
@@ -517,7 +517,7 @@ function Resources({ server, projectRoot }: { server: McpServerStatus; projectRo
           onChange={(e) => setUri(e.target.value)}
           placeholder="Read a URI (e.g. from a template)"
           aria-label="Resource URI"
-          className="h-9 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+          className="h-9 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs"
         />
         <button
           type="submit"
@@ -604,7 +604,7 @@ function Prompts({ server, projectRoot }: { server: McpServerStatus; projectRoot
               <input
                 value={args[a.name] ?? ""}
                 onChange={(e) => setArgs((v) => ({ ...v, [a.name]: e.target.value }))}
-                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+                className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
               />
             </label>
           ))}

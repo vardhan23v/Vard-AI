@@ -15,6 +15,13 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { mcp, type McpScope, type McpServerStatus, type McpTestResult } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
@@ -174,8 +181,7 @@ export function ServerDialog({
     }
   };
 
-  const field =
-    "h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary";
+  const field = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -266,7 +272,7 @@ export function ServerDialog({
               <span>Arguments (one per line)</span>
               <textarea
                 rows={3}
-                className="w-full rounded-md border border-input bg-background p-2 font-mono text-xs outline-none focus:border-primary"
+                className="w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
                 value={args}
                 onChange={(e) => setArgs(e.target.value)}
                 placeholder={"-y\n@modelcontextprotocol/server-everything"}
@@ -303,18 +309,19 @@ export function ServerDialog({
                 placeholder="https://mcp.example.com/mcp"
               />
             </label>
-            <label className="block space-y-1 text-sm">
-              <span>Authentication</span>
-              <select
-                className={field}
-                value={auth}
-                onChange={(e) => setAuth(e.target.value as typeof auth)}
-              >
-                <option value="none">None</option>
-                <option value="bearer">Bearer token</option>
-                <option value="oauth">OAuth (sign in in the browser)</option>
-              </select>
-            </label>
+            <div className="block space-y-1 text-sm">
+              <span id="server-auth-label">Authentication</span>
+              <Select value={auth} onValueChange={(v) => setAuth(v as typeof auth)}>
+                <SelectTrigger aria-labelledby="server-auth-label">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="none">None</SelectItem>
+                  <SelectItem value="bearer">Bearer token</SelectItem>
+                  <SelectItem value="oauth">OAuth (sign in in the browser)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
             {auth === "bearer" && (
               <label className="block space-y-1 text-sm">
                 <span>
@@ -397,7 +404,7 @@ export function ServerDialog({
             role="status"
             className={cn(
               "rounded-md border p-3 text-sm",
-              test.ok ? "border-diff-add/40" : "border-destructive/40",
+              test.ok ? "border-success/40" : "border-destructive/40",
             )}
           >
             {test.ok ? (
@@ -464,7 +471,7 @@ function Rows({
         <div key={i} className="flex flex-wrap items-center gap-2">
           <input
             aria-label="Name"
-            className="h-9 w-40 rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+            className="h-9 w-40 rounded-md border border-input bg-background px-2 font-mono text-xs"
             value={r.name}
             onChange={(e) => update(i, { name: e.target.value })}
             placeholder="NAME"
@@ -473,7 +480,7 @@ function Rows({
             aria-label="Value"
             type={r.secret && !show ? "password" : "text"}
             autoComplete="off"
-            className="h-9 min-w-40 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary"
+            className="h-9 min-w-40 flex-1 rounded-md border border-input bg-background px-2 font-mono text-xs"
             value={r.value}
             onChange={(e) => update(i, { value: e.target.value })}
             placeholder={r.stored ? "•••• stored (leave blank to keep)" : "value"}

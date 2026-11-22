@@ -5,6 +5,7 @@ import { Link } from "@tanstack/react-router";
 import { Loader2, Trash2 } from "lucide-react";
 import { toast } from "sonner";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { code, isTauri, type CodeConfig } from "@/lib/agent-client";
 import { projectPath } from "@/features/agent/projects";
 import { ProjectPicker } from "@/features/agent/ProjectPicker";
@@ -77,7 +78,14 @@ function CodeIndexSettings({ root }: { root: string }) {
       </p>
     );
   if (!cfg.data)
-    return <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />;
+    return (
+      <div className="space-y-3" role="status" aria-label="Loading">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-9 w-full max-w-sm" />
+        <Skeleton className="h-4 w-24" />
+        <Skeleton className="h-9 w-full" />
+      </div>
+    );
   const c = cfg.data;
   return (
     <div className="animate-enter space-y-5">
@@ -140,8 +148,7 @@ function Caps({
     patch.maxFiles !== c.maxFiles ||
     patch.maxFileBytes !== c.maxFileBytes ||
     patch.maxIndexBytes !== c.maxIndexBytes;
-  const field =
-    "h-9 w-full rounded-md border border-input bg-background px-2 text-sm tabular-nums outline-none focus:border-primary";
+  const field = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm tabular-nums";
   return (
     <form
       className="space-y-2"

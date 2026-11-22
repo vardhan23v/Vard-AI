@@ -4,9 +4,17 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Globe, Loader2, Trash2, X } from "lucide-react";
 import { toast } from "sonner";
 
+import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { browser, isTauri } from "@/lib/agent-client";
-import { usePresence } from "@/lib/motion";
+import { usePresence } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
 import { projectPath } from "@/features/agent/projects";
 import { ProjectPicker } from "@/features/agent/ProjectPicker";
@@ -91,20 +99,26 @@ function Retention() {
       </div>
       <span className="flex items-center gap-2">
         {saving && <Loader2 className="size-4 animate-spin text-muted-foreground" aria-hidden />}
-        <select
-          id="artifact-retention"
-          value={days ?? ""}
-          disabled={days === undefined || saving}
-          onChange={(e) => void change(Number(e.target.value))}
-          className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary disabled:opacity-60"
-        >
-          {days === undefined && <option value="">…</option>}
-          {options.map((r) => (
-            <option key={r.days} value={r.days}>
-              {r.label}
-            </option>
-          ))}
-        </select>
+        {q.isLoading ? (
+          <Skeleton className="h-9 w-36" role="status" aria-label="Loading" />
+        ) : (
+          <Select
+            value={days === undefined ? "" : String(days)}
+            disabled={days === undefined || saving}
+            onValueChange={(v) => void change(Number(v))}
+          >
+            <SelectTrigger id="artifact-retention" className="w-auto min-w-36">
+              <SelectValue placeholder="…" />
+            </SelectTrigger>
+            <SelectContent>
+              {options.map((r) => (
+                <SelectItem key={r.days} value={String(r.days)}>
+                  {r.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        )}
       </span>
     </div>
   );
@@ -157,7 +171,10 @@ function ProjectBrowserSettings({ root }: { root: string }) {
           means the agent asks again.
         </p>
         {origins.isLoading ? (
-          <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
+          <div className="space-y-2" role="status" aria-label="Loading">
+            <Skeleton className="h-8 w-full" />
+            <Skeleton className="h-8 w-full" />
+          </div>
         ) : origins.error ? (
           <p role="alert" className="text-xs text-destructive">
             {msg(origins.error)}

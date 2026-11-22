@@ -6,6 +6,13 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
   Braces,
   Copy,
   ExternalLink,
@@ -113,21 +120,20 @@ export function CodePage() {
             </>
           }
           actions={
-            <select
-              value={projectId}
-              onChange={(e) => setProjectId(e.target.value)}
-              aria-label="Project"
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-            >
-              <option value="">Choose a project</option>
-              {projects.data
-                ?.filter((p) => projectPath(p.id))
-                .map((p) => (
-                  <option key={p.id} value={p.id}>
-                    {p.name}
-                  </option>
-                ))}
-            </select>
+            <Select value={projectId} onValueChange={setProjectId}>
+              <SelectTrigger aria-label="Project" className="w-auto min-w-44">
+                <SelectValue placeholder="Choose a project" />
+              </SelectTrigger>
+              <SelectContent>
+                {projects.data
+                  ?.filter((p) => projectPath(p.id))
+                  .map((p) => (
+                    <SelectItem key={p.id} value={p.id}>
+                      {p.name}
+                    </SelectItem>
+                  ))}
+              </SelectContent>
+            </Select>
           }
         />
         {!root ? (
@@ -300,7 +306,7 @@ function IndexCard({
                     onClick={() => run("rebuild")}
                     className="press min-h-9 rounded-md border border-input px-3 text-sm hover:bg-accent"
                   >
-                    Re-index all
+                    Rebuild index
                   </button>
                   <button
                     onClick={() =>
@@ -397,7 +403,7 @@ function SearchTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
             value={text}
             onChange={(e) => setText(e.target.value)}
             placeholder="e.g. where is user authentication handled?"
-            className="h-10 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none focus:border-primary"
+            className="h-10 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm"
           />
         </label>
         <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
@@ -505,7 +511,7 @@ function SymbolsTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }
           onChange={(e) => setText(e.target.value)}
           aria-label="Symbol name"
           placeholder="Function, class or type name"
-          className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+          className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm"
         />
         <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Find
@@ -522,7 +528,7 @@ function SymbolsTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }
                     <span className="text-xs text-muted-foreground">{s.kind}</span>{" "}
                     {s.parent ? `${s.parent}.` : ""}
                     <strong>{s.name}</strong>{" "}
-                    {s.exported && <span className="text-xs text-diff-add">exported</span>}
+                    {s.exported && <span className="text-xs text-agent-foreground">exported</span>}
                   </span>
                   <span className="flex items-center gap-1">
                     <LocButton path={s.path} line={s.line} onOpen={onOpen} />
@@ -571,7 +577,7 @@ function FileTab({
           onChange={(e) => setPath(e.target.value)}
           aria-label="File path"
           placeholder="src/lib/agent-client.ts"
-          className="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:border-primary"
+          className="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm"
         />
         <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Open
@@ -683,17 +689,18 @@ function GraphTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void }) 
             >
               back to folders
             </button>
-            <label className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
+            <span className="ml-auto flex items-center gap-1 text-xs text-muted-foreground">
               Depth
-              <select
-                value={depth}
-                onChange={(e) => setDepth(Number(e.target.value))}
-                className="h-8 rounded border border-input bg-background px-1"
-              >
-                <option value={1}>1</option>
-                <option value={2}>2</option>
-              </select>
-            </label>
+              <Select value={String(depth)} onValueChange={(v) => setDepth(Number(v))}>
+                <SelectTrigger aria-label="Depth" className="h-8 w-auto gap-1 px-2 text-xs">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="1">1</SelectItem>
+                  <SelectItem value="2">2</SelectItem>
+                </SelectContent>
+              </Select>
+            </span>
           </>
         ) : (
           <span className="text-muted-foreground">
@@ -732,7 +739,7 @@ function ImpactTab({ root, onOpen }: { root: string; onOpen: (l: Loc) => void })
           onChange={(e) => setTarget(e.target.value)}
           aria-label="File or symbol"
           placeholder="A file path or a symbol name, e.g. verifyToken"
-          className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+          className="h-10 flex-1 rounded-md border border-input bg-background px-3 text-sm"
         />
         <button className="press min-h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground">
           Analyze
@@ -947,7 +954,7 @@ function SettingsTab({ root }: { root: string }) {
           value={value}
           onChange={(e) => setExclude(e.target.value)}
           rows={5}
-          className="w-full rounded-md border border-input bg-background p-2 font-mono text-xs outline-none focus:border-primary"
+          className="w-full rounded-md border border-input bg-background p-2 font-mono text-xs"
         />
         <button
           onClick={() =>

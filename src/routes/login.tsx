@@ -22,7 +22,7 @@ function isSameOriginPath(next: string): boolean {
 }
 
 const inputClass =
-  "h-11 w-full rounded-lg border border-input bg-background/60 px-3 text-sm outline-none placeholder:text-muted-foreground focus:border-primary";
+  "h-11 w-full rounded-lg border border-input bg-background/60 px-3 text-sm placeholder:text-muted-foreground";
 
 function LoginPage() {
   const { next } = Route.useSearch();
