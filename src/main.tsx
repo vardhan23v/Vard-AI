@@ -66,6 +66,21 @@ function showStartupFailure(message: string) {
   reload.textContent = "Reload window";
   reload.style.cssText =
     "padding:8px 16px;border-radius:6px;border:0;background:var(--primary);color:var(--primary-foreground);font:inherit;cursor:pointer;";
-  reload.onclick = () => window.location.reload();
+  // A failed start reloads in ~20 ms and draws this button in the same place, so every click of
+  // a double-click (or impatient clicking) landed on a fresh copy and reloaded again, which
+  // looked like a reload loop. Ignore clicks for a moment after it appears, and take only one.
+  const setEnabled = (on: boolean) => {
+    reload.disabled = !on;
+    reload.style.opacity = on ? "1" : "0.5";
+    reload.style.cursor = on ? "pointer" : "default";
+  };
+  setEnabled(false);
+  setTimeout(() => setEnabled(true), 1000);
+  reload.onclick = () => {
+    setEnabled(false);
+    reload.textContent = "Reloading…";
+    bootLog("startup reload requested");
+    window.location.reload();
+  };
   splash.append(detail, reload);
 }

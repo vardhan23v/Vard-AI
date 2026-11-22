@@ -16,6 +16,13 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { EmptyState } from "@/components/EmptyState";
@@ -38,6 +45,9 @@ import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { ServerDetails } from "./ServerDetails";
 import { ServerDialog } from "./ServerDialog";
 import { StateBadge } from "./StateBadge";
+
+/** Radix Select can't hold an empty value: the global scope ("" project) uses this sentinel. */
+const GLOBAL = "__global__";
 
 export function IntegrationsPage() {
   const qc = useQueryClient();
@@ -112,36 +122,37 @@ export function IntegrationsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-5xl space-y-6 px-6 py-6">
+      <div className="@container mx-auto max-w-6xl space-y-6 px-6 py-6">
         <PageHeader
           icon={Plug}
           title="Integrations"
           description="Connect MCP servers to give the agent new tools, data and prompts. Every tool call asks for your approval unless you allow it, and nothing outside your project is reachable."
           actions={
             <>
-              <label className="text-sm">
-                <span className="sr-only">Show servers for</span>
-                <select
-                  value={projectId}
-                  onChange={(e) => {
-                    setProjectId(e.target.value);
-                    setSelected(null);
-                  }}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">All projects (global servers)</option>
+              <Select
+                value={projectId || GLOBAL}
+                onValueChange={(v) => {
+                  setProjectId(v === GLOBAL ? "" : v);
+                  setSelected(null);
+                }}
+              >
+                <SelectTrigger aria-label="Show servers for" className="w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={GLOBAL}>All projects (global servers)</SelectItem>
                   {projects.data
                     ?.filter((p) => projectPath(p.id))
                     .map((p) => (
-                      <option key={p.id} value={p.id}>
+                      <SelectItem key={p.id} value={p.id}>
                         Project: {p.name}
-                      </option>
+                      </SelectItem>
                     ))}
-                </select>
-              </label>
+                </SelectContent>
+              </Select>
               {(q.data?.importSources?.length ?? 0) > 0 && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none">
+                  <DropdownMenuTrigger className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent">
                     <Download className="size-4" aria-hidden /> Import
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end" className="w-64">
@@ -170,10 +181,10 @@ export function IntegrationsPage() {
         {needsTrust && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/50 bg-primary/5 p-4"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/50 bg-warning/5 p-4"
           >
             <p className="flex items-start gap-2 text-sm">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-primary" />
+              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
               <span>
                 This project's <code>.vard/mcp.json</code> wants to run {projectServers.length}{" "}
                 server{projectServers.length > 1 ? "s" : ""}. Review them below; nothing starts
@@ -225,7 +236,7 @@ export function IntegrationsPage() {
             </button>
           </EmptyState>
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[18rem_1fr]">
+          <div className="grid gap-6 @3xl:grid-cols-[18rem_1fr]">
             <ul className="stagger space-y-2" aria-label="Servers">
               {servers.map((s) => (
                 <li
@@ -242,7 +253,7 @@ export function IntegrationsPage() {
                     type="button"
                     onClick={() => setSelected(s.key)}
                     aria-current={current?.key === s.key}
-                    className="w-full rounded-lg p-3 pr-16 text-left focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none"
+                    className="w-full rounded-lg p-3 pr-16 text-left"
                   >
                     <span className="flex min-w-0 items-center gap-2">
                       {s.transport === "stdio" ? (

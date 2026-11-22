@@ -12,6 +12,7 @@ import { toast } from "sonner";
 import { ThemeProvider } from "../lib/theme";
 import { MotionProvider } from "../lib/motion";
 import { Toaster } from "../components/ui/sonner";
+import { TooltipProvider } from "../components/ui/tooltip";
 import { BOOT_LOG_PATH, bootLog, mark } from "../lib/boot";
 import { StartupTimeoutError } from "../lib/guard";
 
@@ -260,7 +261,7 @@ function RootComponent() {
             copyBtn.textContent = originalLabel ?? "Copy details";
           }, 2000);
         } catch {
-          toast.error("Could not copy", { description: "Clipboard access was blocked." });
+          toast.error("Couldn't copy", { description: "Clipboard access was blocked." });
         }
       });
     };
@@ -284,10 +285,12 @@ function RootComponent() {
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
         <MotionProvider>
-          <RouteTransition>
-            {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
-            <Outlet />
-          </RouteTransition>
+          <TooltipProvider delayDuration={300}>
+            <RouteTransition>
+              {/* Required: nested routes render here. Removing <Outlet /> breaks all child routes. */}
+              <Outlet />
+            </RouteTransition>
+          </TooltipProvider>
           <Toaster />
         </MotionProvider>
       </ThemeProvider>

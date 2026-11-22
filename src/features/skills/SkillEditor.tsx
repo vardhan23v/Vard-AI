@@ -143,7 +143,7 @@ export function SkillEditor({
           value={text}
           onChange={(e) => setText(e.target.value)}
           spellCheck={false}
-          className="min-h-[22rem] flex-1 resize-y rounded-md border border-input bg-background p-3 font-mono text-xs leading-relaxed outline-none focus:border-primary"
+          className="min-h-[22rem] flex-1 resize-y rounded-md border border-input bg-background p-3 font-mono text-xs leading-relaxed"
         />
         <div aria-live="polite" className="min-h-10 space-y-1 text-xs">
           {checking && !check ? (
@@ -151,7 +151,7 @@ export function SkillEditor({
               <Loader2 className="size-3 animate-spin" /> Checking…
             </span>
           ) : check?.valid && !nameMismatch ? (
-            <span className="flex animate-row-in items-center gap-1 text-diff-add">
+            <span className="flex animate-row-in items-center gap-1 text-success">
               <CheckCircle2 className="size-3.5" /> Valid{check.name ? `: ${check.name}` : ""}
             </span>
           ) : (

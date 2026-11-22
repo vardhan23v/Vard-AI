@@ -9,13 +9,21 @@ import { open as openDialog } from "@tauri-apps/plugin-dialog";
 import { AlertTriangle, Download, Plus, Search, ShieldAlert, Sparkles } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { isTauri, skills, type SkillSummary } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
-import { SkillState, SOURCE_LABEL } from "./SkillBadges";
+import { SkillState } from "./SkillBadges";
+import { SOURCE_LABEL } from "./skill-labels";
 import { SkillDetails } from "./SkillDetails";
 import { NEW_SKILL_TEMPLATE, SkillEditor } from "./SkillEditor";
 
@@ -26,6 +34,9 @@ const FILTERS: { id: Filter; label: string }[] = [
   { id: "global", label: "Global" },
   { id: "project", label: "Project" },
 ];
+
+/** Radix Select can't hold an empty value: the global scope ("" project) uses this sentinel. */
+const GLOBAL = "__global__";
 
 export function SkillsPage() {
   const qc = useQueryClient();
@@ -97,33 +108,34 @@ export function SkillsPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl space-y-5 px-6 py-6">
+      <div className="@container mx-auto max-w-6xl space-y-5 px-6 py-6">
         <PageHeader
           icon={Sparkles}
           title="Skills"
           description="Reusable instructions that teach the agent how to do a kind of task. Vard picks the relevant ones for each task and shows which it used. Skills are guidance only: they never skip approvals."
           actions={
             <>
-              <label className="text-sm">
-                <span className="sr-only">Show skills for</span>
-                <select
-                  value={projectId}
-                  onChange={(e) => {
-                    setProjectId(e.target.value);
-                    setSelected(null);
-                  }}
-                  className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-                >
-                  <option value="">Global and built-in</option>
+              <Select
+                value={projectId || GLOBAL}
+                onValueChange={(v) => {
+                  setProjectId(v === GLOBAL ? "" : v);
+                  setSelected(null);
+                }}
+              >
+                <SelectTrigger aria-label="Show skills for" className="w-auto">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={GLOBAL}>Global and built-in</SelectItem>
                   {projects.data
                     ?.filter((p) => projectPath(p.id))
                     .map((p) => (
-                      <option key={p.id} value={p.id}>
+                      <SelectItem key={p.id} value={p.id}>
                         Project: {p.name}
-                      </option>
+                      </SelectItem>
                     ))}
-                </select>
-              </label>
+                </SelectContent>
+              </Select>
               <button
                 onClick={() => void importSkill()}
                 className="inline-flex min-h-9 items-center gap-1.5 rounded-md border border-input px-3 text-sm hover:bg-accent"
@@ -143,10 +155,10 @@ export function SkillsPage() {
         {needsTrust && (
           <div
             role="alert"
-            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-primary/50 bg-primary/5 p-4"
+            className="flex flex-wrap items-center justify-between gap-3 rounded-lg border border-warning/50 bg-warning/5 p-4"
           >
             <p className="flex items-start gap-2 text-sm">
-              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-primary" />
+              <ShieldAlert className="mt-0.5 size-4 shrink-0 text-warning" />
               <span>
                 This project's <code>.vard/skills</code> folder has skills the agent won't use until
                 you trust them. Review them below first: their text goes into the agent's context.
@@ -218,7 +230,7 @@ export function SkillsPage() {
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Search name, tag or role"
-              className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm outline-none focus:border-primary"
+              className="h-9 w-full rounded-md border border-input bg-background pr-2 pl-8 text-sm"
             />
           </label>
         </div>
@@ -244,7 +256,7 @@ export function SkillsPage() {
             }
           />
         ) : (
-          <div className="grid gap-6 lg:grid-cols-[20rem_1fr]">
+          <div className="grid gap-6 @3xl:grid-cols-[20rem_1fr]">
             {/* Keyed by the filter and search so a new result set cascades in again. */}
             <ul key={`${filter}:${projectId}`} className="stagger space-y-2" aria-label="Skills">
               {shown.map((k) => (
@@ -253,7 +265,7 @@ export function SkillsPage() {
                     onClick={() => setSelected(k.id)}
                     aria-current={current?.id === k.id}
                     className={cn(
-                      "lift w-full rounded-lg border p-3 text-left transition-colors focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none",
+                      "lift w-full rounded-lg border p-3 text-left transition-colors",
                       current?.id === k.id
                         ? "border-primary bg-accent"
                         : "border-border bg-card hover:bg-accent/60",

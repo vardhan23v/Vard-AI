@@ -12,30 +12,9 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
 import { isTauri } from "@/lib/agent-client";
-import { useListEntrance } from "@/lib/motion";
+import { useListEntrance } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
-
-export function useAddProject() {
-  const qc = useQueryClient();
-  const navigate = useNavigate();
-  return async () => {
-    if (!isTauri()) {
-      toast.error("Projects need the Vard AI desktop app");
-      return;
-    }
-    const dir = await pickFolder();
-    if (!dir) return;
-    try {
-      const p = await createProject(dir);
-      await qc.invalidateQueries({ queryKey: ["projects"] });
-      await navigate({ to: "/projects/$projectId", params: { projectId: p.id } });
-    } catch (err) {
-      toast.error("Project not added", {
-        description: err instanceof Error ? err.message : String(err),
-      });
-    }
-  };
-}
+import { useAddProject } from "./use-add-project";
 
 export function ProjectList() {
   const { data, isLoading, error, refetch } = useQuery(projectsQuery());

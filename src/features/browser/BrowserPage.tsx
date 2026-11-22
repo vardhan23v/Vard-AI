@@ -22,15 +22,24 @@ import {
 import { toast } from "sonner";
 
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { EmptyState } from "@/components/EmptyState";
 import { PageHeader } from "@/components/PageHeader";
 import { browser, isTauri, type BrowserSessionInfo, type ViewportPreset } from "@/lib/agent-client";
-import { Flash, usePresence } from "@/lib/motion";
+import { Flash } from "@/lib/motion";
+import { usePresence } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "@/features/agent/projects";
 import { Pill } from "@/features/agents/Pill";
-import { projectOfArtifact, Shot } from "./Shot";
+import { projectOfArtifact } from "./artifacts";
+import { Shot } from "./Shot";
 import { ChromiumStatus } from "./ChromiumStatus";
 import { useBrowserState } from "./useBrowser";
 
@@ -60,7 +69,7 @@ export function BrowserPage() {
 
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-6xl space-y-5 px-6 py-6">
+      <div className="@container mx-auto max-w-6xl space-y-5 px-6 py-6">
         <PageHeader
           icon={Globe}
           title="Browser"
@@ -89,14 +98,14 @@ export function BrowserPage() {
             }
           />
         ) : (
-          <div className="grid gap-5 lg:grid-cols-[17rem_1fr]">
+          <div className="grid gap-5 @3xl:grid-cols-[17rem_1fr]">
             <ul className="space-y-2" aria-label="Browser sessions">
               {sessionRows.map(({ item: s, leaving }) => (
                 <li
                   key={s.id}
                   aria-hidden={leaving || undefined}
                   className={cn(
-                    "animate-enter transition-opacity duration-[var(--motion-base)]",
+                    "animate-enter transition-opacity duration-(--motion-base)",
                     leaving && "pointer-events-none opacity-0",
                   )}
                 >
@@ -150,7 +159,7 @@ export function BrowserPage() {
             <ul className="space-y-2 text-sm">
               {st.servers.map((d) => (
                 <li key={d.id} className="flex animate-row-in flex-wrap items-center gap-2">
-                  {d.state === "ready" && <span className="live-dot text-diff-add" aria-hidden />}
+                  {d.state === "ready" && <span className="live-dot text-success" aria-hidden />}
                   <Flash value={d.state}>
                     <Pill
                       tone={
@@ -198,10 +207,7 @@ function SessionState({ s }: { s: BrowserSessionInfo }) {
     <span className="inline-flex items-center gap-1.5">
       {running && (
         <span
-          className={cn(
-            "live-dot",
-            s.state === "ready" ? "text-diff-add" : "text-agent-foreground",
-          )}
+          className={cn("live-dot", s.state === "ready" ? "text-success" : "text-agent-foreground")}
           aria-hidden
         />
       )}
@@ -284,34 +290,36 @@ function SessionView({
           >
             <RotateCw className="size-4" />
           </button>
-          <label className="min-w-0 flex-1">
+          {/* Keeps room for a URL; the buttons wrap to the next line first. */}
+          <label className="min-w-48 flex-1">
             <span className="sr-only">Address</span>
             <input
               value={url}
               onChange={(e) => setUrl(e.target.value)}
               disabled={!live}
               placeholder={s.url ?? "http://localhost:5173"}
-              className="h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-xs outline-none focus:border-primary disabled:opacity-60"
+              className="h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-xs disabled:opacity-60"
             />
           </label>
-          <label>
-            <span className="sr-only">Viewport</span>
-            <select
-              value={s.viewport.name}
-              disabled={!live || busy}
-              onChange={(e) => void act("viewport", { viewport: e.target.value as ViewportPreset })}
-              className="h-9 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
-            >
+          <Select
+            value={s.viewport.name}
+            disabled={!live || busy}
+            onValueChange={(v) => void act("viewport", { viewport: v as ViewportPreset })}
+          >
+            <SelectTrigger aria-label="Viewport" className="w-auto text-xs">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
               {VIEWPORTS.map((v) => (
-                <option key={v.id} value={v.id}>
+                <SelectItem key={v.id} value={v.id}>
                   {v.label}
-                </option>
+                </SelectItem>
               ))}
               {!VIEWPORTS.some((v) => v.id === s.viewport.name) && (
-                <option value={s.viewport.name}>{s.viewport.name}</option>
+                <SelectItem value={s.viewport.name}>{s.viewport.name}</SelectItem>
               )}
-            </select>
-          </label>
+            </SelectContent>
+          </Select>
           <button
             type="button"
             disabled={!live || busy}
@@ -488,7 +496,7 @@ export function ReportView({
         <Collapsible key={g.v} defaultOpen>
           <CollapsibleTrigger className="group mb-1 flex items-center gap-1 text-xs font-medium tracking-wide text-muted-foreground uppercase hover:text-foreground">
             <ChevronDown
-              className="size-3.5 transition-transform duration-[var(--motion-fast)] group-data-[state=closed]:-rotate-90"
+              className="size-3.5 transition-transform duration-(--motion-fast) group-data-[state=closed]:-rotate-90"
               aria-hidden
             />
             {g.v} ({g.items.length})
@@ -551,21 +559,20 @@ function ArtifactsSection() {
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="text-sm font-semibold">Saved screenshots and reports</h2>
         <div className="flex items-center gap-2">
-          <select
-            value={projectId}
-            onChange={(e) => setProjectId(e.target.value)}
-            aria-label="Project"
-            className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
-          >
-            <option value="">Choose a project</option>
-            {projects.data
-              ?.filter((p) => projectPath(p.id))
-              .map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-          </select>
+          <Select value={projectId} onValueChange={setProjectId}>
+            <SelectTrigger aria-label="Project" className="w-auto min-w-44">
+              <SelectValue placeholder="Choose a project" />
+            </SelectTrigger>
+            <SelectContent>
+              {projects.data
+                ?.filter((p) => projectPath(p.id))
+                .map((p) => (
+                  <SelectItem key={p.id} value={p.id}>
+                    {p.name}
+                  </SelectItem>
+                ))}
+            </SelectContent>
+          </Select>
           {root && items.length > 0 && (
             <button
               onClick={async () => {
@@ -618,5 +625,3 @@ function ArtifactsSection() {
     </section>
   );
 }
-
-export { projectOfArtifact };

@@ -1,6 +1,14 @@
 /** A select of the projects that have a folder on this Mac; picks the first one by default. */
 import { useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { Skeleton } from "@/components/ui/skeleton";
 import { cn } from "@/lib/utils";
 import { projectPath, projectsQuery } from "./projects";
 
@@ -22,22 +30,22 @@ export function ProjectPicker({
     // Only when the list first arrives.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [projects.data]);
+  if (projects.isLoading)
+    return (
+      <Skeleton className={cn("h-9 w-44", className)} role="status" aria-label="Loading projects" />
+    );
   return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      aria-label={label}
-      className={cn(
-        "h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary",
-        className,
-      )}
-    >
-      <option value="">{local.length ? "Choose a project" : "No project folders yet"}</option>
-      {local.map((p) => (
-        <option key={p.id} value={p.id}>
-          {p.name}
-        </option>
-      ))}
-    </select>
+    <Select value={value} onValueChange={onChange}>
+      <SelectTrigger aria-label={label} className={cn("w-auto min-w-44", className)}>
+        <SelectValue placeholder={local.length ? "Choose a project" : "No project folders yet"} />
+      </SelectTrigger>
+      <SelectContent>
+        {local.map((p) => (
+          <SelectItem key={p.id} value={p.id}>
+            {p.name}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </Select>
   );
 }

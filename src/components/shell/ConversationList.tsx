@@ -12,7 +12,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Skeleton } from "@/components/ui/skeleton";
-import { useListEntrance } from "@/lib/motion";
+import { useListEntrance } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
 
 function bucket(c: Conversation) {
@@ -67,7 +67,7 @@ export function ConversationList() {
             value={filter}
             onChange={(e) => setFilter(e.target.value)}
             placeholder="Search"
-            className="h-8 w-full rounded-md border border-border bg-background/40 pr-2 pl-8 text-sm outline-none placeholder:text-muted-foreground focus:border-input"
+            className="h-8 w-full rounded-md border border-border bg-background/40 pr-2 pl-8 text-sm placeholder:text-muted-foreground"
           />
         </label>
       </div>

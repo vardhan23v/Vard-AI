@@ -34,7 +34,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "@/lib/utils";
 import { Pill, type Tone } from "@/components/Pill";
 
-export const STATUS_LABEL: Record<string, string> = {
+const STATUS_LABEL: Record<string, string> = {
   planning: "Planning",
   awaiting_plan_approval: "Needs plan approval",
   acting: "Working",
@@ -172,7 +172,7 @@ export function Card({
       className={cn(
         "rounded-xl border bg-card",
         // Approval cards appear mid-run; let them enter rather than pop in.
-        tone === "attention" ? "animate-enter border-primary/60" : "border-border",
+        tone === "attention" ? "animate-enter border-warning/60" : "border-border",
       )}
       aria-label={title}
     >
@@ -224,7 +224,7 @@ function PlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
             value={plan}
             onChange={(e) => setPlan(e.target.value)}
             rows={10}
-            className="w-full rounded-md border border-input bg-background p-3 font-mono text-sm outline-none focus:border-primary"
+            className="w-full rounded-md border border-input bg-background p-3 font-mono text-sm"
           />
         </>
       ) : (
@@ -238,7 +238,7 @@ function PlanApproval({ taskId, live }: { taskId: string; live: LiveTask }) {
         value={feedback}
         onChange={(e) => setFeedback(e.target.value)}
         placeholder="e.g. Don't touch the public API"
-        className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm outline-none focus:border-primary"
+        className="mt-1 h-9 w-full rounded-md border border-input bg-background px-3 text-sm"
       />
       <div className="mt-4 flex flex-wrap gap-2">
         <button
@@ -282,7 +282,7 @@ export function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask 
   return (
     <Card
       title={m ? `Allow ${m.serverName} to run ${m.tool}?` : "Allow this action?"}
-      icon={<ShieldAlert className="size-4 text-primary" />}
+      icon={<ShieldAlert className="size-4 text-warning" />}
       tone="attention"
     >
       {(req.agentId || live.approvals.length > 1) && (
@@ -305,7 +305,7 @@ export function ToolApproval({ taskId, live }: { taskId: string; live: LiveTask 
                 destructive
               </span>
             ) : m.readOnly ? (
-              <span className="rounded-full border border-diff-add/40 px-1.5 py-px text-xs text-diff-add">
+              <span className="rounded-full border border-success/40 px-1.5 py-px text-xs text-success">
                 read-only (unverified)
               </span>
             ) : null}
@@ -362,7 +362,7 @@ function Todos({ todos }: { todos: LiveTask["todos"] }) {
         {todos.map((t) => (
           <li key={t.id} className="flex items-start gap-2">
             {t.status === "completed" ? (
-              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-diff-add" />
+              <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-success" />
             ) : t.status === "in_progress" ? (
               <Loader2 className="mt-0.5 size-4 shrink-0 animate-spin text-agent-foreground" />
             ) : (
@@ -410,7 +410,7 @@ export function Timeline({ items }: { taskId: string; items: TimelineItem[] }) {
                 {item.event.status === "running" ? (
                   <Loader2 className="size-4 animate-spin text-agent-foreground" />
                 ) : item.event.status === "passed" ? (
-                  <CheckCircle2 className="size-4 text-diff-add" />
+                  <CheckCircle2 className="size-4 text-success" />
                 ) : (
                   <XCircle className="size-4 text-destructive" />
                 )}
@@ -462,7 +462,7 @@ function ToolStep({ item }: { item: Extract<TimelineItem, { kind: "tool" }> }) {
         {!item.result ? (
           <Loader2 className="size-3.5 animate-spin text-muted-foreground" />
         ) : item.result.ok ? (
-          <Check className="size-3.5 text-diff-add" />
+          <Check className="size-3.5 text-success" />
         ) : (
           <XCircle className="size-3.5 text-destructive" />
         )}
@@ -506,7 +506,7 @@ function Result({ task, live }: { task: AgentTask; live: LiveTask }) {
         }
         icon={
           done.status === "done" ? (
-            <CheckCircle2 className="size-4 text-diff-add" />
+            <CheckCircle2 className="size-4 text-success" />
           ) : (
             <AlertTriangle className="size-4 text-destructive" />
           )

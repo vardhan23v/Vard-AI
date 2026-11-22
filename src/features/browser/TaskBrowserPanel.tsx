@@ -29,7 +29,7 @@ export function TaskBrowserPanel({ live }: { live: LiveTask }) {
                 <span
                   className={cn(
                     "live-dot",
-                    s.state === "ready" ? "text-diff-add" : "text-agent-foreground",
+                    s.state === "ready" ? "text-success" : "text-agent-foreground",
                   )}
                   aria-hidden
                 />
@@ -62,7 +62,7 @@ export function TaskBrowserPanel({ live }: { live: LiveTask }) {
           {servers.map((d) => (
             <p key={d.id} className="flex animate-row-in flex-wrap items-center gap-2 text-xs">
               <Server className="size-3.5 text-muted-foreground" />
-              {d.state === "ready" && <span className="live-dot text-diff-add" aria-hidden />}
+              {d.state === "ready" && <span className="live-dot text-success" aria-hidden />}
               <Flash value={d.state}>
                 <Pill
                   tone={

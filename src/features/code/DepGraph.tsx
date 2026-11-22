@@ -149,7 +149,7 @@ export function DepGraph({
                   className={cn(
                     "stroke-1",
                     dashed ? "animate-fade-in" : "animate-draw",
-                    dashed ? "stroke-diff-add/60" : "stroke-muted-foreground/40",
+                    dashed ? "stroke-success/60" : "stroke-muted-foreground/40",
                     lit && "stroke-primary",
                   )}
                   strokeDasharray={dashed ? "4 3" : undefined}
@@ -200,7 +200,7 @@ export function DepGraph({
                         : hl
                           ? "fill-primary/70"
                           : n.test
-                            ? "fill-diff-add/70"
+                            ? "fill-success/70"
                             : n.kind === "package"
                               ? "fill-agent"
                               : "fill-muted-foreground/70",

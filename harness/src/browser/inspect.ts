@@ -123,15 +123,34 @@ function measure(args: { touch: boolean; width: number }): Raw[] {
       const cy = r.top + r.height / 2;
       const hit = document.elementFromPoint(cx, cy);
       if (hit && hit !== el && !el.contains(hit) && !hit.contains(el)) {
-        const hcs = getComputedStyle(hit);
-        if (hcs.pointerEvents !== "none")
+        // Only fixed or sticky layers (cookie bars, headers, chat widgets) count as covering a
+        // control; ordinary stacking and nesting in the page flow is not a finding.
+        let layer: Element | null = null;
+        let position = "";
+        for (let e: Element | null = hit; e && e !== document.body; e = e.parentElement) {
+          const p = getComputedStyle(e).position;
+          if (p === "fixed" || p === "sticky") {
+            layer = e;
+            position = p;
+            break;
+          }
+        }
+        if (layer && !layer.contains(el) && getComputedStyle(hit).pointerEvents !== "none") {
+          const lr = layer.getBoundingClientRect();
+          const ox = Math.max(r.left, lr.left);
+          const oy = Math.max(r.top, lr.top);
+          const ow = Math.max(0, Math.min(r.right, lr.right) - ox);
+          const oh = Math.max(0, Math.min(r.bottom, lr.bottom) - oy);
+          const box = (x: number, y: number, w: number, h: number) =>
+            `${Math.round(x)},${Math.round(y)} ${Math.round(w)}×${Math.round(h)}px`;
           out.push({
             kind: "overlap",
             severity: "medium",
-            message: `A control is covered by another element: "${((el as HTMLElement).innerText || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40)}"`,
+            message: `A control is covered by a ${position} element: "${((el as HTMLElement).innerText || el.getAttribute("aria-label") || el.tagName).trim().slice(0, 40)}"`,
             selector: sel(el),
-            evidence: `elementFromPoint(${Math.round(cx)},${Math.round(cy)}) is ${sel(hit)}`,
+            evidence: `covered by ${sel(layer)} (position: ${position}); control ${sel(el)} at ${box(r.left, r.top, r.width, r.height)}; overlap ${box(ox, oy, ow, oh)}; elementFromPoint(${Math.round(cx)},${Math.round(cy)}) is ${sel(hit)}`,
           });
+        }
       }
     }
   }

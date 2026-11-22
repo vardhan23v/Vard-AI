@@ -7,9 +7,19 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Check, Loader2, RotateCcw } from "lucide-react";
 import { toast } from "sonner";
 
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { agentRoles, isTauri, type RoleConfig, type RoleOverride } from "@/lib/agent-client";
 import { ROLE_LABEL } from "./team-utils";
+
+/** Radix Select can't hold an empty value: "no override" uses this sentinel. */
+const SAME_AS_TASK = "__same__";
 
 const PROVIDERS = ["groq", "anthropic", "openai", "google", "openai-compatible", "ollama"] as const;
 
@@ -85,29 +95,33 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
         <fieldset className="space-y-2">
           <legend className="mb-1 text-xs font-medium text-muted-foreground">Model</legend>
           <div className="flex gap-2">
-            <select
-              aria-label="Provider"
-              value={draft.model?.provider ?? ""}
-              onChange={(e) =>
+            <Select
+              value={draft.model?.provider ?? SAME_AS_TASK}
+              onValueChange={(v) =>
                 setDraft((d) => ({
                   ...d,
-                  model: e.target.value
-                    ? {
-                        provider: e.target.value as (typeof PROVIDERS)[number],
-                        model: d.model?.model ?? "",
-                      }
-                    : null,
+                  model:
+                    v !== SAME_AS_TASK
+                      ? {
+                          provider: v as (typeof PROVIDERS)[number],
+                          model: d.model?.model ?? "",
+                        }
+                      : null,
                 }))
               }
-              className="h-9 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
             >
-              <option value="">Same as the task</option>
-              {PROVIDERS.map((p) => (
-                <option key={p} value={p}>
-                  {p}
-                </option>
-              ))}
-            </select>
+              <SelectTrigger aria-label="Provider" className="w-auto">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={SAME_AS_TASK}>Same as the task</SelectItem>
+                {PROVIDERS.map((p) => (
+                  <SelectItem key={p} value={p}>
+                    {p}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
             {draft.model && (
               <input
                 aria-label="Model id"
@@ -116,7 +130,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
                   setDraft((d) => ({ ...d, model: { ...d.model!, model: e.target.value } }))
                 }
                 placeholder="model id, e.g. openai/gpt-oss-120b"
-                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+                className="h-9 min-w-0 flex-1 rounded-md border border-input bg-background px-2 text-sm"
               />
             )}
           </div>
@@ -144,27 +158,34 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
                   : "Use the test browser and dev servers"}
             </label>
           ))}
-          <label className="flex items-center gap-2">
+          <div className="flex items-center gap-2">
             MCP tools
-            <select
+            <Select
               value={tools.mcp}
-              onChange={(e) =>
+              onValueChange={(v) =>
                 setDraft((d) => ({
                   ...d,
-                  tools: { ...d.tools, mcp: e.target.value as "none" | "read" | "all" },
+                  tools: { ...d.tools, mcp: v as "none" | "read" | "all" },
                 }))
               }
-              className="h-8 rounded-md border border-input bg-background px-2 text-xs outline-none focus:border-primary"
             >
-              <option value="none">None</option>
-              <option value="read" disabled={base.tools.mcp === "none" && !draft.tools?.mcp}>
-                Read-only
-              </option>
-              <option value="all" disabled={base.tools.mcp !== "all" && draft.tools?.mcp !== "all"}>
-                All (each call still asks)
-              </option>
-            </select>
-          </label>
+              <SelectTrigger aria-label="MCP tools" className="h-8 w-auto text-xs">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">None</SelectItem>
+                <SelectItem value="read" disabled={base.tools.mcp === "none" && !draft.tools?.mcp}>
+                  Read-only
+                </SelectItem>
+                <SelectItem
+                  value="all"
+                  disabled={base.tools.mcp !== "all" && draft.tools?.mcp !== "all"}
+                >
+                  All (each call still asks)
+                </SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
         </fieldset>
         <label className="space-y-1">
           <span className="block text-xs font-medium text-muted-foreground">Step limit</span>
@@ -176,7 +197,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
             onChange={(e) =>
               setDraft((d) => ({ ...d, maxSteps: Number(e.target.value) || undefined }))
             }
-            className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+            className="h-9 w-28 rounded-md border border-input bg-background px-2 text-sm"
           />
         </label>
         <label className="space-y-1">
@@ -194,7 +215,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
                   .filter(Boolean),
               }))
             }
-            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm outline-none focus:border-primary"
+            className="h-9 w-full rounded-md border border-input bg-background px-2 text-sm"
           />
         </label>
         <label className="space-y-1 sm:col-span-2">
@@ -206,7 +227,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
             onChange={(e) => setDraft((d) => ({ ...d, instructions: e.target.value || undefined }))}
             rows={3}
             placeholder={role.instructions}
-            className="w-full rounded-md border border-input bg-background p-2 text-sm outline-none focus:border-primary"
+            className="w-full rounded-md border border-input bg-background p-2 text-sm"
           />
         </label>
         <div className="flex gap-2 sm:col-span-2">
@@ -235,7 +256,7 @@ function RoleRow({ role, override }: { role: RoleConfig; override?: RoleOverride
             <span
               key={saved}
               role="status"
-              className="inline-flex animate-scale-in items-center gap-1 text-xs text-diff-add"
+              className="inline-flex animate-scale-in items-center gap-1 text-xs text-success"
             >
               <Check className="size-4" aria-hidden /> Saved
             </span>

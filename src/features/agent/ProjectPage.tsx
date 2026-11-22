@@ -15,13 +15,20 @@ import { toast } from "sonner";
 import { ModelPicker } from "@/features/chat/ModelPicker";
 import { EmptyState } from "@/components/EmptyState";
 import { StarField } from "@/components/StarField";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Switch } from "@/components/ui/switch";
 import { SkillPicker } from "@/features/skills/SkillPicker";
 import { agentRoles, send } from "@/lib/agent-client";
 import { MemoryTab } from "./MemoryTab";
 import { providerConfig, useModelChoice } from "@/lib/models";
-import { useListEntrance } from "@/lib/motion";
+import { useListEntrance } from "@/lib/motion-hooks";
 import { cn } from "@/lib/utils";
 import {
   createTask,
@@ -328,7 +335,7 @@ function ProjectHeader({
               value={verify}
               onChange={(e) => setVerify(e.target.value)}
               placeholder="bun test"
-              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-sm outline-none focus:border-primary"
+              className="mt-1 h-9 w-full rounded-md border border-input bg-background px-2 font-mono text-sm"
             />
           </div>
           <div>
@@ -341,7 +348,7 @@ function ProjectHeader({
               value={allow}
               onChange={(e) => setAllow(e.target.value)}
               placeholder={"bun test\nbun run lint"}
-              className="mt-1 w-full rounded-md border border-input bg-background p-2 font-mono text-sm outline-none focus:border-primary"
+              className="mt-1 w-full rounded-md border border-input bg-background p-2 font-mono text-sm"
             />
           </div>
           <button
@@ -456,7 +463,7 @@ function NewTask({ project, path }: { project: Project; path: string }) {
           }
         }}
         placeholder="Describe a task, e.g. “Add input validation to the signup form and a test for it”"
-        className="w-full resize-none rounded-lg border border-border bg-card p-2.5 text-sm outline-none placeholder:text-muted-foreground focus:border-input"
+        className="w-full resize-none rounded-lg border border-border bg-card p-2.5 text-sm placeholder:text-muted-foreground"
       />
       <div className="mt-2 flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
@@ -478,22 +485,25 @@ function NewTask({ project, path }: { project: Project; path: string }) {
             Team
           </label>
           {teamMode ? (
-            <label className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
               Up to
-              <select
-                value={maxAgents}
-                onChange={(e) => setMaxAgents(Number(e.target.value))}
-                className="h-7 rounded border border-input bg-background px-1 text-xs outline-none focus:border-primary"
-                aria-label="Agents at once"
-              >
-                {[1, 2, 3, 4, 5, 6].map((n) => (
-                  <option key={n} value={n}>
-                    {n}
-                  </option>
-                ))}
-              </select>
+              <Select value={String(maxAgents)} onValueChange={(v) => setMaxAgents(Number(v))}>
+                <SelectTrigger
+                  aria-label="Agents at once"
+                  className="h-7 w-auto gap-1 px-2 text-xs"
+                >
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {[1, 2, 3, 4, 5, 6].map((n) => (
+                    <SelectItem key={n} value={String(n)}>
+                      {n}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
               at once
-            </label>
+            </span>
           ) : (
             <label className="flex items-center gap-2 text-xs text-muted-foreground">
               <Switch checked={planFirst} onCheckedChange={setPlanFirst} aria-label="Plan first" />{" "}

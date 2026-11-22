@@ -66,7 +66,7 @@ export function SubtaskSheet({
         </SheetHeader>
         <div className="space-y-4 px-4 pb-6 text-sm">
           {s.question && (
-            <div role="alert" className="rounded-md border border-primary/50 bg-primary/5 p-3">
+            <div role="alert" className="rounded-md border border-warning/50 bg-warning/5 p-3">
               <p className="font-medium">The agent needs your input</p>
               <p className="mt-1">{s.question}</p>
             </div>
@@ -175,7 +175,7 @@ export function SubtaskSheet({
                     value={note}
                     onChange={(e) => setNote(e.target.value)}
                     rows={3}
-                    className="w-full rounded-md border border-input bg-background p-2 text-sm outline-none focus:border-primary"
+                    className="w-full rounded-md border border-input bg-background p-2 text-sm"
                   />
                 </>
               )}

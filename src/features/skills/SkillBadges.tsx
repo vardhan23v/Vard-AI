@@ -1,12 +1,7 @@
 import { AlertTriangle, EyeOff, ShieldAlert } from "lucide-react";
 import { Pill } from "@/components/Pill";
+import { SOURCE_LABEL } from "./skill-labels";
 import type { SkillSummary } from "@/lib/agent-client";
-
-export const SOURCE_LABEL: Record<SkillSummary["source"], string> = {
-  builtin: "Built-in",
-  global: "Global",
-  project: "Project",
-};
 
 /** What state a skill is in: invalid, shadowed, needs trust, off or on. */
 export function SkillState({ skill }: { skill: SkillSummary }) {

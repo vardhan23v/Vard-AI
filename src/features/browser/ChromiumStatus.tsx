@@ -4,6 +4,7 @@ import { AlertTriangle, CheckCircle2, Download, Loader2 } from "lucide-react";
 import { toast } from "sonner";
 
 import { Progress } from "@/components/ui/progress";
+import { Skeleton } from "@/components/ui/skeleton";
 import { browser } from "@/lib/agent-client";
 import { cn } from "@/lib/utils";
 import { useBrowserState } from "./useBrowser";
@@ -35,7 +36,10 @@ export function ChromiumStatus({ className }: { className?: string }) {
       )}
     >
       {st.status.isLoading ? (
-        <Loader2 className="size-4 animate-spin text-muted-foreground" aria-label="Loading" />
+        <div className="flex flex-1 items-center gap-2" role="status" aria-label="Loading">
+          <Skeleton className="size-4 rounded-full" />
+          <Skeleton className="h-4 w-full max-w-xs" />
+        </div>
       ) : st.status.error ? (
         <p role="alert" className="text-sm text-destructive">
           {String(st.status.error)}
@@ -43,7 +47,7 @@ export function ChromiumStatus({ className }: { className?: string }) {
       ) : inst?.installed ? (
         <p className="flex min-w-0 items-start gap-2 text-sm">
           <CheckCircle2
-            className="mt-0.5 size-4 shrink-0 animate-scale-in text-diff-add"
+            className="mt-0.5 size-4 shrink-0 animate-scale-in text-success"
             aria-hidden
           />
           <span className="min-w-0">
@@ -59,7 +63,7 @@ export function ChromiumStatus({ className }: { className?: string }) {
         </p>
       ) : (
         <p className="flex items-start gap-2 text-sm">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-primary" />
+          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
           <span>
             No Chromium found. Install {inst?.installable?.name} {inst?.installable?.version} (about{" "}
             {inst?.installable?.approxMB} MB) into Playwright's cache folder. Nothing is bundled
@@ -85,7 +89,7 @@ export function ChromiumStatus({ className }: { className?: string }) {
             (st.install && st.install.total > 0 ? (
               <Progress
                 value={(st.install.received / st.install.total) * 100}
-                className="h-1.5 animate-fade-in [&>*]:transition-transform [&>*]:duration-[var(--motion-base)] [&>*]:ease-[var(--ease-out)]"
+                className="h-1.5 animate-fade-in [&>*]:transition-transform [&>*]:duration-(--motion-base) [&>*]:ease-(--ease-out)"
                 aria-label="Download progress"
               />
             ) : (

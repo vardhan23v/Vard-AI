@@ -23,8 +23,8 @@ import { Section } from "@/features/settings/Section";
 import { requireAuth } from "@/lib/guard";
 import { cli, isTauri, keys, ping, type ProviderId } from "@/lib/agent-client";
 import { PROVIDERS, type ProviderInfo } from "@/lib/models";
-import { ACCENTS, useTheme } from "@/lib/theme";
-import { useMotion } from "@/lib/motion";
+import { ACCENTS, useTheme } from "@/lib/theme-context";
+import { useMotion } from "@/lib/motion-context";
 import { cn } from "@/lib/utils";
 
 export const Route = createFileRoute("/settings")({
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/settings")({
 export function SettingsPage() {
   return (
     <div className="h-full overflow-y-auto">
-      <div className="mx-auto max-w-2xl space-y-10 px-6 py-10">
+      <div className="mx-auto max-w-3xl space-y-10 px-6 py-10">
         <PageHeader
           icon={SettingsIcon}
           title="Settings"
@@ -186,7 +186,7 @@ function KeyRow({
             value={value}
             onChange={(e) => setValue(e.target.value)}
             placeholder={provider.keyHint}
-            className="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm outline-none focus:border-primary"
+            className="h-10 flex-1 rounded-md border border-input bg-background px-3 font-mono text-sm"
           />
           <button
             type="submit"

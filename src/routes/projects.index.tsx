@@ -1,7 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { FolderPlus } from "lucide-react";
 import { StarField } from "@/components/StarField";
-import { useAddProject } from "@/components/shell/ProjectList";
+import { useAddProject } from "@/components/shell/use-add-project";
 
 export const Route = createFileRoute("/projects/")({
   component: ProjectsHome,
